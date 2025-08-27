@@ -54,7 +54,7 @@ export const UrlInputForm = () => {
           </label>
           <Textarea
             id="urls"
-            placeholder={`예시:\nhttps://example.com/truck/1\nhttps://example.com/truck/2\n\n여러 트럭 매물 URL을 한 줄씩 입력하세요.`}
+            placeholder={`예시:\nhttps://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=12345&MemberNo=67890&OnCarNo=2025123456789\nhttps://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=54321&MemberNo=09876&OnCarNo=2024987654321\n\n트럭매매NO1 매물 URL을 한 줄씩 입력하세요.`}
             value={urlsText}
             onChange={(e) => handleUrlsChange(e.target.value)}
             className="min-h-[120px] font-mono text-sm"
@@ -102,9 +102,12 @@ export const UrlInputForm = () => {
           )}
         </AnimatePresence>
         
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-start">
           <div className="text-sm text-muted-foreground">
             <div>처리 설정: 지연 {config.rateLimitMs}ms, 타임아웃 {config.timeoutMs}ms</div>
+            <div className="text-xs text-blue-600 mt-1">
+              📋 허용된 도메인: www.truck-no1.co.kr
+            </div>
             <div className="text-xs text-orange-600 mt-1">
               ⚠️ 웹사이트의 robots.txt와 이용약관을 확인하고 준수해주세요
             </div>

@@ -117,29 +117,28 @@ describe('parse-truck API', () => {
         if (onmouseover) {
           const match = onmouseover.match(/changeImg\(['"](.*?)['"]/);
           if (match && match[1]) {
-            const imageName = match[1]
-            if (imageName.includes('FULL.jpg') && 
-                !imageName.includes('_TH') && 
-                !imageName.toLowerCase().includes('blank')) {
-              images.push(imageName)
+            const imageUrl = match[1]
+            // 전체 URL이므로 직접 사용 (Blank 이미지만 제외)
+            if (!imageUrl.toLowerCase().includes('blank')) {
+              images.push(imageUrl)
             }
           }
         }
       })
       
-      // .sumnail img src fallback 테스트
+      // .sumnail img src fallback 테스트 - _TH가 없는 이미지만
       $('.sumnail img').each((_, element) => {
         const src = $(element).attr('src')
-        if (src && src.includes('FULL.jpg') && 
+        if (src && 
             !src.includes('_TH') && 
             !src.toLowerCase().includes('blank')) {
           images.push(src)
         }
       })
       
-      expect(images).toContain('truck1_FULL.jpg')
-      expect(images).toContain('truck2_FULL.jpg')
-      expect(images).toContain('truck3_FULL.jpg')
+      expect(images).toContain('https://example.com/truck1.jpg')
+      expect(images).toContain('https://example.com/truck2.jpg')
+      expect(images).toContain('https://example.com/truck3.jpg')
     })
     
     it('최소한의 정보만 있어도 파싱한다', async () => {
@@ -189,7 +188,7 @@ describe('parse-truck API', () => {
       })
       
       const validData = {
-        urls: ['https://example.com/truck/1', 'https://example.com/truck/2'],
+        urls: ['https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=12345&MemberNo=67890&OnCarNo=2025123456789', 'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=54321&MemberNo=09876&OnCarNo=2024987654321'],
         rateLimitMs: 1000,
         timeoutMs: 10000,
       }
