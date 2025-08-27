@@ -57,24 +57,59 @@ const generateImageFileName = (index: number): string => {
 }
 
 const generateTextContent = (truckData: TruckData): string => {
-  const template = `차량번호: {{vehicleNumber}}
+  const template = `=== 차량 정보 ===
+차명: {{vname}}
+차량번호: {{vnumber}}
 제목: {{title}}
-가격: {{price.label}}
-최초등록: {{firstRegistration}}
-주행거리: {{mileage}}
-URL: {{url}}
-이미지 개수: {{imageCount}}개
 
-생성일시: {{generatedAt}}`
+=== 가격 정보 ===
+가격: {{price.label}} ({{price.compactLabel}})
+원 단위: {{price.rawWon}}원
+
+=== 차량 세부사항 ===
+연식: {{year}}
+주행거리: {{mileage}}
+
+=== 추가 정보 ===
+기타사항/옵션: {{options}}
+
+=== 원본 정보 ===
+URL: {{url}}
+최초등록: {{firstRegistration}}
+
+=== 이미지 정보 ===
+이미지 개수: {{imageCount}}개
+다운로드 파일명: K-001.jpg ~ K-{{paddedCount}}.jpg
+
+=== 이미지 URL 목록 ===
+{{imageUrls}}
+
+=== 메타데이터 ===
+생성일시: {{generatedAt}}
+생성 버전: v2.0`
+
+  // 이미지 URL 목록 생성
+  const imageUrls = truckData.images.length > 0 
+    ? truckData.images.map((url, index) => `K-${String(index + 1).padStart(3, '0')}.jpg: ${url}`).join('\n')
+    : '이미지 없음'
+  
+  const paddedCount = String(truckData.images.length).padStart(3, '0')
 
   return template
-    .replace('{{vehicleNumber}}', truckData.vehicleNumber)
+    .replace('{{vname}}', truckData.vname)
+    .replace('{{vnumber}}', truckData.vnumber)
     .replace('{{title}}', truckData.title)
     .replace('{{price.label}}', truckData.price.label)
-    .replace('{{firstRegistration}}', truckData.firstRegistration)
+    .replace('{{price.compactLabel}}', truckData.price.compactLabel)
+    .replace('{{price.rawWon}}', truckData.price.rawWon.toLocaleString())
+    .replace('{{year}}', truckData.year)
     .replace('{{mileage}}', truckData.mileage)
+    .replace('{{options}}', truckData.options)
     .replace('{{url}}', truckData.url)
+    .replace('{{firstRegistration}}', truckData.firstRegistration)
     .replace('{{imageCount}}', String(truckData.images.length))
+    .replace('{{paddedCount}}', paddedCount)
+    .replace('{{imageUrls}}', imageUrls)
     .replace('{{generatedAt}}', new Date().toLocaleString('ko-KR'))
 }
 
@@ -88,11 +123,11 @@ export const downloadTruckData = async (
     throw new Error('다운로드가 취소되었습니다.')
   }
 
-  const folderName = truckData.vehicleNumber.replace(/[<>:"/\\|?*]/g, '_')
+  const folderName = truckData.vnumber.replace(/[<>:"/\\|?*]/g, '_')
   const vehicleDir = await rootDirectoryHandle.getDirectoryHandle(folderName, { create: true })
 
   // 텍스트 파일 생성
-  const textFileName = `${truckData.vehicleNumber} 원고.txt`
+  const textFileName = `${truckData.vnumber} 원고.txt`
   const textFileHandle = await vehicleDir.getFileHandle(textFileName, { create: true })
   const textWritable = await textFileHandle.createWritable()
   await textWritable.write(generateTextContent(truckData))
@@ -148,7 +183,7 @@ export const downloadAsZip = async (
       throw new Error('다운로드가 취소되었습니다.')
     }
 
-    const folderName = truckData.vehicleNumber.replace(/[<>:"/\\|?*]/g, '_')
+    const folderName = truckData.vnumber.replace(/[<>:"/\\|?*]/g, '_')
     const folder = zip.folder(folderName)
 
     if (!folder) {
@@ -156,7 +191,7 @@ export const downloadAsZip = async (
     }
 
     // 텍스트 파일 추가
-    const textFileName = `${truckData.vehicleNumber} 원고.txt`
+    const textFileName = `${truckData.vnumber} 원고.txt`
     folder.file(textFileName, generateTextContent(truckData))
 
     // 이미지 다운로드 및 추가

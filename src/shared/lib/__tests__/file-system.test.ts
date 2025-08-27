@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { isFileSystemAccessSupported } from '../file-system'
 
-// Mock window object
-const mockWindow = vi.fn(() => ({
-  showDirectoryPicker: vi.fn()
-}))
+// Mock window object (if needed for more complex tests)
+// const mockWindow = vi.fn(() => ({
+//   showDirectoryPicker: vi.fn()
+// }))
 
 beforeEach(() => {
   vi.clearAllMocks()

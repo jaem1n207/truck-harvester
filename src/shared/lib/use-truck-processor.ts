@@ -67,8 +67,8 @@ export const useTruckProcessor = () => {
       
       // Initialize download statuses
       truckDataList.forEach(truck => {
-        setDownloadStatus(truck.vehicleNumber, {
-          vehicleNumber: truck.vehicleNumber,
+        setDownloadStatus(truck.vnumber, {
+          vehicleNumber: truck.vnumber, // vehicleNumber 필드는 호환성을 위해 vnumber 값으로 설정
           status: 'pending',
           progress: 0,
           downloadedImages: 0,
@@ -89,7 +89,7 @@ export const useTruckProcessor = () => {
         
         // Mark all as completed
         truckDataList.forEach(truck => {
-          setDownloadStatus(truck.vehicleNumber, {
+          setDownloadStatus(truck.vnumber, {
             status: 'completed',
             progress: 100,
             downloadedImages: truck.images.length + 1, // +1 for text file
@@ -108,7 +108,7 @@ export const useTruckProcessor = () => {
             throw new Error('작업이 취소되었습니다.')
           }
           
-          setDownloadStatus(truck.vehicleNumber, {
+          setDownloadStatus(truck.vnumber, {
             status: 'downloading',
             progress: 0,
           })
@@ -118,7 +118,7 @@ export const useTruckProcessor = () => {
               dirHandle,
               truck,
               (progress, downloaded, total) => {
-                setDownloadStatus(truck.vehicleNumber, {
+                setDownloadStatus(truck.vnumber, {
                   status: 'downloading',
                   progress,
                   downloadedImages: downloaded,
@@ -128,13 +128,13 @@ export const useTruckProcessor = () => {
               controller.signal
             )
             
-            setDownloadStatus(truck.vehicleNumber, {
+            setDownloadStatus(truck.vnumber, {
               status: 'completed',
               progress: 100,
             })
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : '다운로드 실패'
-            setDownloadStatus(truck.vehicleNumber, {
+            setDownloadStatus(truck.vnumber, {
               status: 'failed',
               error: errorMessage,
             })

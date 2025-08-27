@@ -8,7 +8,7 @@ import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-sel
 import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
 import { Button } from '@/shared/ui/button'
 import { useAppStore } from '@/shared/model/store'
-import { useTruckProcessor } from '../lib/use-truck-processor'
+import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 
 export const TruckHarvesterApp = () => {
   const { currentStep, setCurrentStep, reset } = useAppStore()
