@@ -54,7 +54,18 @@ export const UrlInputForm = () => {
             onChange={(e) => handleUrlsChange(e.target.value)}
             className="min-h-[120px] font-mono text-sm"
             rows={6}
+            aria-describedby="url-input-description url-validation-results"
+            aria-invalid={urlResults.some(
+              (result) => result.error && !result.isDuplicate
+            )}
           />
+          <div
+            id="url-input-description"
+            className="text-xs text-muted-foreground"
+          >
+            지원 사이트: www.truck-no1.co.kr - 한 줄에 하나씩 URL을
+            입력해주세요.
+          </div>
         </div>
 
         <AnimatePresence>
@@ -64,9 +75,16 @@ export const UrlInputForm = () => {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               className="space-y-2"
+              id="url-validation-results"
+              aria-live="polite"
+              aria-atomic="false"
             >
               <div className="text-sm font-medium">입력한 주소 확인 결과:</div>
-              <div className="max-h-40 overflow-y-auto space-y-1">
+              <div
+                className="max-h-40 overflow-y-auto space-y-1"
+                role="list"
+                aria-label="URL 유효성 검사 결과 목록"
+              >
                 {urlResults.map((result, index) => (
                   <motion.div
                     key={index}
@@ -74,15 +92,26 @@ export const UrlInputForm = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
                     className="flex items-center gap-2 p-2 rounded-md border bg-muted/50"
+                    role="listitem"
+                    aria-label={`주소 ${index + 1}: ${result.error ? `오류 - ${result.error}` : '유효한 URL'}`}
                   >
                     {result.error ? (
                       result.isDuplicate ? (
-                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        <AlertTriangle
+                          className="h-4 w-4 text-yellow-600"
+                          aria-hidden="true"
+                        />
                       ) : (
-                        <X className="h-4 w-4 text-red-600" />
+                        <X
+                          className="h-4 w-4 text-red-600"
+                          aria-hidden="true"
+                        />
                       )
                     ) : (
-                      <Check className="h-4 w-4 text-green-600" />
+                      <Check
+                        className="h-4 w-4 text-green-600"
+                        aria-hidden="true"
+                      />
                     )}
                     <span className="flex-1 text-sm font-mono truncate">
                       {result.url}
@@ -101,7 +130,11 @@ export const UrlInputForm = () => {
         </AnimatePresence>
 
         {validUrls.length > 0 && (
-          <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+          <div
+            className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg"
+            role="status"
+            aria-live="polite"
+          >
             <div className="text-sm text-green-700 dark:text-green-300 font-medium">
               ✅ {validUrls.length}개의 중고트럭 매물 주소가 준비되었습니다
             </div>
@@ -111,13 +144,13 @@ export const UrlInputForm = () => {
           </div>
         )}
 
-        <div className="text-xs text-gray-500 space-y-1">
+        <div className="text-xs text-muted-foreground space-y-1" role="note">
           <div className="flex items-center gap-1">
-            <span>📋</span>
+            <span aria-hidden="true">📋</span>
             <span>지원 사이트: www.truck-no1.co.kr</span>
           </div>
           <div className="flex items-center gap-1">
-            <span>⚠️</span>
+            <span aria-hidden="true">⚠️</span>
             <span>해당 사이트의 이용 규칙을 준수하여 사용해주세요</span>
           </div>
         </div>

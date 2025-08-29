@@ -24,7 +24,7 @@ export const TruckHarvesterApp = () => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (currentStep === 'parsing' || currentStep === 'downloading') {
         e.preventDefault()
-        e.returnValue = '작업이 진행 중입니다. 정말로 페이지를 떠나시겠습니까?'
+        return '작업이 진행 중입니다. 정말로 페이지를 떠나시겠습니까?'
       }
     }
 
@@ -137,8 +137,12 @@ export const TruckHarvesterApp = () => {
                   animate={{ opacity: 1, y: 0 }}
                   className="flex justify-center"
                 >
-                  <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
-                    <span>⚠️</span>
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm"
+                    role="alert"
+                    aria-live="polite"
+                  >
+                    <span aria-hidden="true">⚠️</span>
                     <span>{buttonState.error}</span>
                   </div>
                 </motion.div>
@@ -186,13 +190,13 @@ export const TruckHarvesterApp = () => {
           <ModeToggle />
         </div>
         {/* Header */}
-        <motion.div
+        <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-3 bg-primary rounded-xl">
+            <div className="p-3 bg-primary rounded-xl" aria-hidden="true">
               <Truck className="w-8 h-8 text-primary-foreground" />
             </div>
             <h1 className="text-4xl font-bold text-foreground">
@@ -203,15 +207,16 @@ export const TruckHarvesterApp = () => {
             중고 트럭 매물 URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께
             정리된 파일로 저장해드립니다.
           </p>
-        </motion.div>
+        </motion.header>
 
         {/* Step Indicator */}
-        <motion.div
+        <motion.nav
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="flex items-center justify-center mb-8"
+          aria-label="처리 단계 표시기"
         >
-          <div className="flex items-center gap-4">
+          <ol className="flex items-center gap-4" role="list">
             {[
               { key: 'input', label: '설정 & 입력', icon: Settings },
               { key: 'parsing', label: '분석', icon: Truck },
@@ -222,8 +227,14 @@ export const TruckHarvesterApp = () => {
               const isCompleted =
                 ['input', 'parsing', 'downloading'].indexOf(currentStep) > index
 
+              const stepStatus = isActive
+                ? '현재 단계'
+                : isCompleted
+                  ? '완료된 단계'
+                  : '대기 중인 단계'
+
               return (
-                <div key={key} className="flex items-center">
+                <li key={key} className="flex items-center" role="listitem">
                   <div
                     className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
                       isActive
@@ -232,8 +243,10 @@ export const TruckHarvesterApp = () => {
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                           : 'bg-muted text-muted-foreground'
                     }`}
+                    aria-label={`${label} - ${stepStatus}`}
+                    aria-current={isActive ? 'step' : undefined}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4" aria-hidden="true" />
                     <span className="text-sm font-medium">{label}</span>
                   </div>
                   {index < 3 && (
@@ -241,25 +254,27 @@ export const TruckHarvesterApp = () => {
                       className={`w-8 h-0.5 mx-2 transition-all ${
                         isCompleted ? 'bg-green-300' : 'bg-muted'
                       }`}
+                      aria-hidden="true"
                     />
                   )}
-                </div>
+                </li>
               )
             })}
-          </div>
-        </motion.div>
+          </ol>
+        </motion.nav>
 
         {/* Main Content */}
         <AnimatePresence mode="wait">
-          <motion.div
+          <motion.section
             key={currentStep}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className="flex justify-center"
+            aria-label={`${currentStep === 'input' ? '설정 및 입력' : currentStep === 'parsing' ? '분석' : currentStep === 'downloading' ? '다운로드' : '완료'} 단계`}
           >
             {renderStep()}
-          </motion.div>
+          </motion.section>
         </AnimatePresence>
 
         {/* Footer */}
@@ -268,6 +283,7 @@ export const TruckHarvesterApp = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
           className="mt-16 text-center text-sm text-muted-foreground"
+          role="contentinfo"
         >
           <div className="space-y-2">
             <p>트럭 매물 수집기 v1.0</p>

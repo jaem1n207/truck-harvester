@@ -22,13 +22,25 @@ interface ProcessingStatusProps {
 const getStatusIcon = (status: DownloadStatus['status']) => {
   switch (status) {
     case 'pending':
-      return <div className="w-4 h-4 rounded-full border-2 border-muted" />
+      return (
+        <div
+          className="w-4 h-4 rounded-full border-2 border-muted"
+          aria-hidden="true"
+        />
+      )
     case 'downloading':
-      return <Loader2 className="w-4 h-4 animate-spin text-primary" />
+      return (
+        <Loader2
+          className="w-4 h-4 animate-spin text-primary"
+          aria-hidden="true"
+        />
+      )
     case 'completed':
-      return <CheckCircle className="w-4 h-4 text-green-600" />
+      return (
+        <CheckCircle className="w-4 h-4 text-green-600" aria-hidden="true" />
+      )
     case 'failed':
-      return <XCircle className="w-4 h-4 text-red-600" />
+      return <XCircle className="w-4 h-4 text-red-600" aria-hidden="true" />
   }
 }
 
@@ -69,29 +81,42 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
     <Card className="w-full max-w-4xl">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle
+            className="flex items-center gap-2"
+            role="status"
+            aria-live="polite"
+          >
             {currentStep === 'parsing' && (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                 URL 파싱 중...
               </>
             )}
             {currentStep === 'downloading' && (
               <>
-                <Download className="h-5 w-5" />
+                <Download className="h-5 w-5" aria-hidden="true" />
                 파일 다운로드 중...
               </>
             )}
             {currentStep === 'completed' && (
               <>
-                <CheckCircle className="h-5 w-5 text-green-600" />
+                <CheckCircle
+                  className="h-5 w-5 text-green-600"
+                  aria-hidden="true"
+                />
                 처리 완료
               </>
             )}
           </CardTitle>
 
           {canCancel && (
-            <Button variant="outline" size="sm" onClick={onCancel}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              aria-describedby="cancel-description"
+              aria-label="현재 진행중인 처리 작업 취소"
+            >
               취소
             </Button>
           )}
@@ -105,7 +130,11 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                 {completedCount + failedCount} / {totalCount}
               </span>
             </div>
-            <Progress value={overallProgress} className="h-2" />
+            <Progress
+              value={overallProgress}
+              className="h-2"
+              aria-label={`전체 진행률 ${overallProgress}%, ${completedCount + failedCount}개 완료, 총 ${totalCount}개`}
+            />
             <div className="flex gap-4 text-sm text-muted-foreground">
               <span className="text-green-600">완료: {completedCount}</span>
               <span className="text-red-600">실패: {failedCount}</span>
@@ -122,8 +151,15 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
             animate={{ opacity: 1 }}
             className="flex items-center justify-center py-8"
           >
-            <div className="text-center space-y-2">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <div
+              className="text-center space-y-2"
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2
+                className="h-8 w-8 animate-spin mx-auto text-primary"
+                aria-hidden="true"
+              />
               <div className="text-lg font-medium">웹페이지 분석 중...</div>
               <div className="text-sm text-muted-foreground">
                 매물 정보와 이미지를 추출하고 있습니다
@@ -139,6 +175,8 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               className="space-y-3 max-h-96 overflow-y-auto"
+              role="list"
+              aria-label="매물별 처리 상태 목록"
             >
               {downloadStatuses.map((status, index) => (
                 <motion.div
@@ -147,6 +185,8 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
                   className="flex items-center gap-4 p-4 border rounded-lg"
+                  role="listitem"
+                  aria-label={`차량번호 ${status.vehicleNumber}, 상태: ${status.status === 'pending' ? '대기중' : status.status === 'downloading' ? '다운로드중' : status.status === 'completed' ? '완료' : '실패'}`}
                 >
                   {getStatusIcon(status.status)}
 
@@ -160,7 +200,11 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
 
                     {status.status === 'downloading' && (
                       <div className="space-y-1">
-                        <Progress value={status.progress} className="h-1.5" />
+                        <Progress
+                          value={status.progress}
+                          className="h-1.5"
+                          aria-label={`${status.vehicleNumber} 다운로드 진행률 ${status.progress}%, ${status.downloadedImages}/${status.totalImages} 이미지`}
+                        />
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>
                             {status.downloadedImages} / {status.totalImages}{' '}
@@ -172,8 +216,14 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                     )}
 
                     {status.error && (
-                      <div className="flex items-start gap-2 text-sm text-red-600">
-                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <div
+                        className="flex items-start gap-2 text-sm text-red-600"
+                        role="alert"
+                      >
+                        <AlertCircle
+                          className="h-4 w-4 mt-0.5 flex-shrink-0"
+                          aria-hidden="true"
+                        />
                         <span className="break-all">{status.error}</span>
                       </div>
                     )}
@@ -181,7 +231,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
 
                   {status.status === 'completed' && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <FileText className="h-4 w-4" />
+                      <FileText className="h-4 w-4" aria-hidden="true" />
                       <span>{status.downloadedImages}개 파일</span>
                     </div>
                   )}
@@ -196,9 +246,11 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
+            role="status"
+            aria-live="polite"
           >
             <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
-              <CheckCircle className="h-5 w-5" />
+              <CheckCircle className="h-5 w-5" aria-hidden="true" />
               <div>
                 <div className="font-medium">처리가 완료되었습니다!</div>
                 <div className="text-sm">
@@ -206,6 +258,9 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                   실패
                 </div>
               </div>
+            </div>
+            <div id="cancel-description" className="sr-only">
+              처리가 완료되었으므로 취소할 수 없습니다.
             </div>
           </motion.div>
         )}
