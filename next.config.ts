@@ -128,34 +128,70 @@ const nextConfig: NextConfig = {
 }
 
 export default withSentryConfig(nextConfig, {
-  // For all available options, see:
-  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
-
+  // Sentry 조직 및 프로젝트 설정
   org: 'jaemin',
-
   project: 'truck-harvester',
 
-  // Only print logs for uploading source maps in CI
+  // 소스맵 업로드 설정
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // 빌드 로그 설정 (CI에서만 로그 출력)
   silent: !process.env.CI,
 
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
-
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
+  // 소스맵 업로드 범위 확장 (더 나은 스택 트레이스)
   widenClientFileUpload: true,
 
-  // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-  // side errors will fail.
-  // tunnelRoute: "/monitoring",
+  tunnelRoute: '/monitoring',
 
-  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  // 프로덕션에서 소스맵 숨기기는 sourcemaps.deleteSourcemapsAfterUpload로 설정됨
+
+  // Sentry logger 자동 제거 (번들 크기 최적화)
   disableLogger: true,
 
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  // See the following for more information:
-  // https://docs.sentry.io/product/crons/
-  // https://vercel.com/docs/cron-jobs
+  // 자동 Vercel 모니터링
   automaticVercelMonitors: true,
+
+  // 에러 발생 시에도 빌드 계속 진행
+  errorHandler: (err: Error) => {
+    console.warn('Sentry webpack plugin 경고:', err.message)
+    // 빌드를 중단하지 않음
+  },
+
+  // 소스맵 업로드 시 추가 옵션
+  release: {
+    // Git 커밋 SHA 자동 감지
+    name: process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA,
+
+    // 릴리즈에 태그 추가
+    setCommits: {
+      auto: true,
+      ignoreMissing: true,
+      ignoreEmpty: true,
+    },
+  },
+
+  // 소스맵 업로드 설정
+  sourcemaps: {
+    // 소스맵 업로드 활성화
+    disable: false,
+
+    // 업로드할 자산 패턴
+    assets: [
+      '.next/static/chunks/**',
+      '.next/static/css/**',
+      '.next/server/**',
+    ],
+
+    // 제외할 파일 패턴
+    ignore: [
+      '.next/static/chunks/webpack-*.js',
+      '.next/static/chunks/framework-*.js',
+      '.next/static/chunks/main-*.js',
+      '.next/static/chunks/polyfills-*.js',
+      'node_modules/**',
+    ],
+
+    // 업로드 후 소스맵 파일 삭제 (보안)
+    deleteSourcemapsAfterUpload: true,
+  },
 })
