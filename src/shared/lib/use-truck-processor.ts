@@ -1,7 +1,12 @@
 import { useCallback } from 'react'
-import { useAppStore } from '@/shared/model/store'
+
+import {
+  downloadTruckData,
+  downloadAsZip,
+  selectDirectory,
+} from '@/shared/lib/file-system'
 import { validateUrlsFromText, getValidUrls } from '@/shared/lib/url-validator'
-import { downloadTruckData, downloadAsZip, selectDirectory } from '@/shared/lib/file-system'
+import { useAppStore } from '@/shared/model/store'
 import { ParseResponse } from '@/shared/model/truck'
 
 export const useTruckProcessor = () => {
@@ -17,21 +22,21 @@ export const useTruckProcessor = () => {
     abortController,
     setAbortController,
   } = useAppStore()
-  
+
   const processUrls = useCallback(async () => {
     const urlResults = validateUrlsFromText(urlsText)
     const validUrls = getValidUrls(urlResults)
-    
+
     if (validUrls.length === 0) {
       return
     }
-    
+
     // Create abort controller
     const controller = new AbortController()
     setAbortController(controller)
     setIsProcessing(true)
     setCurrentStep('parsing')
-    
+
     try {
       // Step 1: Parse URLs
       const parseResponse = await fetch('/api/parse-truck', {
@@ -46,27 +51,27 @@ export const useTruckProcessor = () => {
         }),
         signal: controller.signal,
       })
-      
+
       if (!parseResponse.ok) {
         throw new Error(`API 요청 실패: ${parseResponse.status}`)
       }
-      
+
       const parseResult: ParseResponse = await parseResponse.json()
       setParseResult(parseResult)
-      
+
       if (!parseResult.success || !parseResult.data) {
         throw new Error(parseResult.error || '파싱 실패')
       }
-      
+
       const truckDataList = parseResult.data
       setTruckData(truckDataList)
-      
+
       // Step 2: Download files
       setCurrentStep('downloading')
       resetDownloadStatuses()
-      
+
       // Initialize download statuses
-      truckDataList.forEach(truck => {
+      truckDataList.forEach((truck) => {
         setDownloadStatus(truck.vnumber, {
           vehicleNumber: truck.vnumber, // vehicleNumber 필드는 호환성을 위해 vnumber 값으로 설정
           status: 'pending',
@@ -75,7 +80,7 @@ export const useTruckProcessor = () => {
           totalImages: truck.images.length,
         })
       })
-      
+
       if (config.selectedDirectory === 'ZIP_DOWNLOAD') {
         // ZIP download mode
         await downloadAsZip(
@@ -86,9 +91,9 @@ export const useTruckProcessor = () => {
           },
           controller.signal
         )
-        
+
         // Mark all as completed
-        truckDataList.forEach(truck => {
+        truckDataList.forEach((truck) => {
           setDownloadStatus(truck.vnumber, {
             status: 'completed',
             progress: 100,
@@ -101,18 +106,18 @@ export const useTruckProcessor = () => {
         if (!dirHandle) {
           throw new Error('디렉토리가 선택되지 않았습니다.')
         }
-        
+
         // Process each truck sequentially
         for (const truck of truckDataList) {
           if (controller.signal.aborted) {
             throw new Error('작업이 취소되었습니다.')
           }
-          
+
           setDownloadStatus(truck.vnumber, {
             status: 'downloading',
             progress: 0,
           })
-          
+
           try {
             await downloadTruckData(
               dirHandle,
@@ -127,13 +132,14 @@ export const useTruckProcessor = () => {
               },
               controller.signal
             )
-            
+
             setDownloadStatus(truck.vnumber, {
               status: 'completed',
               progress: 100,
             })
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : '다운로드 실패'
+            const errorMessage =
+              error instanceof Error ? error.message : '다운로드 실패'
             setDownloadStatus(truck.vnumber, {
               status: 'failed',
               error: errorMessage,
@@ -141,11 +147,11 @@ export const useTruckProcessor = () => {
           }
         }
       }
-      
+
       setCurrentStep('completed')
     } catch (error) {
       console.error('처리 중 오류:', error)
-      
+
       if (controller.signal.aborted) {
         console.log('작업이 사용자에 의해 취소되었습니다.')
       } else {
@@ -167,13 +173,13 @@ export const useTruckProcessor = () => {
     resetDownloadStatuses,
     setAbortController,
   ])
-  
+
   const cancelProcessing = useCallback(() => {
     if (abortController) {
       abortController.abort()
     }
   }, [abortController])
-  
+
   return {
     processUrls,
     cancelProcessing,

@@ -19,4 +19,7 @@ export default defineConfig({
       plugins: [],
     },
   },
+  optimizeDeps: {
+    include: ['esbuild'],
+  },
 })

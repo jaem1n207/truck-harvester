@@ -30,11 +30,13 @@ export const parseResponseSchema = z.object({
   data: z.array(truckDataSchema).optional(),
   error: z.string().optional(),
   details: z.any().optional(),
-  summary: z.object({
-    total: z.number(),
-    success: z.number(),
-    failed: z.number(),
-  }).optional(),
+  summary: z
+    .object({
+      total: z.number(),
+      success: z.number(),
+      failed: z.number(),
+    })
+    .optional(),
 })
 
 export const downloadStatusSchema = z.object({

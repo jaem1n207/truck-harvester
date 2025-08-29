@@ -1,4 +1,5 @@
 import JSZip from 'jszip'
+
 import { TruckData } from '@/shared/model/truck'
 
 interface FileSystemHandle {
@@ -9,9 +10,17 @@ interface FileSystemHandle {
 
 interface FileSystemDirectoryHandle extends FileSystemHandle {
   kind: 'directory'
-  getDirectoryHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemDirectoryHandle>
-  getFileHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemFileHandle>
-  values: () => AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>
+  getDirectoryHandle: (
+    name: string,
+    options?: { create?: boolean }
+  ) => Promise<FileSystemDirectoryHandle>
+  getFileHandle: (
+    name: string,
+    options?: { create?: boolean }
+  ) => Promise<FileSystemFileHandle>
+  values: () => AsyncIterableIterator<
+    FileSystemDirectoryHandle | FileSystemFileHandle
+  >
 }
 
 interface FileSystemFileHandle extends FileSystemHandle {
@@ -31,25 +40,25 @@ declare global {
 }
 
 export const isFileSystemAccessSupported = () => {
-  return typeof window !== 'undefined' && 
-         'showDirectoryPicker' in window
+  return typeof window !== 'undefined' && 'showDirectoryPicker' in window
 }
 
-export const selectDirectory = async (): Promise<FileSystemDirectoryHandle | null> => {
-  if (!isFileSystemAccessSupported()) {
-    throw new Error('File System Access API가 지원되지 않는 브라우저입니다.')
-  }
-
-  try {
-    const dirHandle = await window.showDirectoryPicker!()
-    return dirHandle
-  } catch (error) {
-    if ((error as Error).name === 'AbortError') {
-      return null // 사용자가 취소함
+export const selectDirectory =
+  async (): Promise<FileSystemDirectoryHandle | null> => {
+    if (!isFileSystemAccessSupported()) {
+      throw new Error('File System Access API가 지원되지 않는 브라우저입니다.')
     }
-    throw error
+
+    try {
+      const dirHandle = await window.showDirectoryPicker!()
+      return dirHandle
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        return null // 사용자가 취소함
+      }
+      throw error
+    }
   }
-}
 
 const generateImageFileName = (index: number): string => {
   const paddedIndex = String(index + 1).padStart(3, '0')
@@ -89,10 +98,16 @@ URL: {{url}}
 생성 버전: v2.0`
 
   // 이미지 URL 목록 생성
-  const imageUrls = truckData.images.length > 0 
-    ? truckData.images.map((url, index) => `K-${String(index + 1).padStart(3, '0')}.jpg: ${url}`).join('\n')
-    : '이미지 없음'
-  
+  const imageUrls =
+    truckData.images.length > 0
+      ? truckData.images
+          .map(
+            (url, index) =>
+              `K-${String(index + 1).padStart(3, '0')}.jpg: ${url}`
+          )
+          .join('\n')
+      : '이미지 없음'
+
   const paddedCount = String(truckData.images.length).padStart(3, '0')
 
   return template
@@ -124,11 +139,15 @@ export const downloadTruckData = async (
   }
 
   const folderName = truckData.vnumber.replace(/[<>:"/\\|?*]/g, '_')
-  const vehicleDir = await rootDirectoryHandle.getDirectoryHandle(folderName, { create: true })
+  const vehicleDir = await rootDirectoryHandle.getDirectoryHandle(folderName, {
+    create: true,
+  })
 
   // 텍스트 파일 생성
   const textFileName = `${truckData.vnumber} 원고.txt`
-  const textFileHandle = await vehicleDir.getFileHandle(textFileName, { create: true })
+  const textFileHandle = await vehicleDir.getFileHandle(textFileName, {
+    create: true,
+  })
   const textWritable = await textFileHandle.createWritable()
   await textWritable.write(generateTextContent(truckData))
   await textWritable.close()
@@ -156,7 +175,9 @@ export const downloadTruckData = async (
       const arrayBuffer = await response.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
 
-      const imageFileHandle = await vehicleDir.getFileHandle(fileName, { create: true })
+      const imageFileHandle = await vehicleDir.getFileHandle(fileName, {
+        create: true,
+      })
       const imageWritable = await imageFileHandle.createWritable()
       await imageWritable.write(uint8Array)
       await imageWritable.close()
@@ -222,7 +243,7 @@ export const downloadAsZip = async (
   // ZIP 파일 생성 및 다운로드
   const zipBlob = await zip.generateAsync({ type: 'blob' })
   const url = URL.createObjectURL(zipBlob)
-  
+
   const a = document.createElement('a')
   a.href = url
   a.download = `truck-data-${new Date().toISOString().slice(0, 10)}.zip`
