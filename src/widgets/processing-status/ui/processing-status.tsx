@@ -5,9 +5,11 @@ import {
   AlertCircle,
   Download,
   FileText,
+  Clock,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 
+import { useTimeEstimation } from '@/shared/lib/use-time-estimation'
 import { useAppStore } from '@/shared/model/store'
 import { DownloadStatus } from '@/shared/model/truck'
 import { Badge } from '@/shared/ui/badge'
@@ -61,6 +63,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
   onCancel,
 }) => {
   const { downloadStatuses, currentStep, isProcessing } = useAppStore()
+  const timeEstimation = useTimeEstimation()
 
   const completedCount = downloadStatuses.filter(
     (s) => s.status === 'completed'
@@ -123,7 +126,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
         </div>
 
         {totalCount > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span>전체 진행률</span>
               <span>
@@ -136,10 +139,36 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
               aria-label={`전체 진행률 ${overallProgress}%, ${completedCount + failedCount}개 완료, 총 ${totalCount}개`}
             />
             <div className="flex gap-4 text-sm text-muted-foreground">
-              <span className="text-green-600">완료: {completedCount}</span>
+              <span className="text-green-600">완룼: {completedCount}</span>
               <span className="text-red-600">실패: {failedCount}</span>
               <span>총 {totalCount}개</span>
             </div>
+
+            {/* 예상 시간 표시 */}
+            {!isCompleted && timeEstimation.friendlyTimeMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg"
+                role="status"
+                aria-live="polite"
+              >
+                <Clock
+                  className="h-4 w-4 text-blue-600 dark:text-blue-400"
+                  aria-hidden="true"
+                />
+                <div className="text-sm">
+                  <span className="text-blue-700 dark:text-blue-300 font-medium">
+                    {timeEstimation.friendlyTimeMessage}
+                  </span>
+                  {timeEstimation.formattedEndTime && (
+                    <span className="text-blue-600 dark:text-blue-400 ml-2">
+                      ({timeEstimation.formattedEndTime}경)
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </div>
         )}
       </CardHeader>

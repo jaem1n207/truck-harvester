@@ -39,6 +39,10 @@ interface AppState {
   parseResult: ParseResponse | null
   setParseResult: (result: ParseResponse | null) => void
 
+  // Time tracking
+  startTime: Date | null
+  setStartTime: (time: Date | null) => void
+
   // Actions
   reset: () => void
 }
@@ -114,6 +118,10 @@ export const useAppStore = create<AppState>()(
       parseResult: null,
       setParseResult: (result) => set({ parseResult: result }),
 
+      // Time tracking
+      startTime: null,
+      setStartTime: (time) => set({ startTime: time }),
+
       // Actions
       reset: () =>
         set({
@@ -124,6 +132,7 @@ export const useAppStore = create<AppState>()(
           currentStep: 'input',
           abortController: null,
           parseResult: null,
+          startTime: null,
         }),
     }),
     {
