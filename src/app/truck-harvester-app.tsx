@@ -16,7 +16,8 @@ import { Button } from '@/shared/ui/button'
 import { ModeToggle } from '@/shared/ui/mode-toggle'
 
 export const TruckHarvesterApp = () => {
-  const { currentStep, setCurrentStep, reset, urlsText } = useAppStore()
+  const { currentStep, setCurrentStep, reset, urlsText, config, isProcessing } =
+    useAppStore()
   const { processUrls, cancelProcessing } = useTruckProcessor()
 
   useEffect(() => {
@@ -49,7 +50,63 @@ export const TruckHarvesterApp = () => {
       return
     }
 
+    if (!config.selectedDirectory) {
+      alert('저장 위치를 선택해주세요.')
+      return
+    }
+
     processUrls()
+  }
+
+  // 버튼 활성화 조건 검사
+  const getButtonState = () => {
+    const urlResults = validateUrlsFromText(urlsText)
+    const validUrls = getValidUrls(urlResults)
+    const hasErrors = urlResults.some((result) => result.error)
+
+    // 처리중이면 비활성화
+    if (isProcessing) {
+      return { disabled: true, text: '처리 중...', error: null }
+    }
+
+    // URL이 비어있으면
+    if (!urlsText.trim()) {
+      return { disabled: true, text: '매물 주소를 입력하세요', error: null }
+    }
+
+    // 유효한 URL이 없으면
+    if (validUrls.length === 0) {
+      return {
+        disabled: true,
+        text: '매물 주소를 입력하세요',
+        error: '유효한 중고트럭 매물 주소를 입력해주세요.',
+      }
+    }
+
+    // URL에 오류가 있으면
+    if (hasErrors) {
+      return {
+        disabled: true,
+        text: '주소를 확인하세요',
+        error: '입력한 주소 중 올바르지 않은 것이 있습니다.',
+      }
+    }
+
+    // 저장 위치가 선택되지 않았으면
+    if (!config.selectedDirectory) {
+      return {
+        disabled: true,
+        text: '저장 위치를 선택하세요',
+        error: '파일을 저장할 위치를 먼저 선택해주세요.',
+      }
+    }
+
+    // 모든 조건을 만족하면 활성화
+    return {
+      disabled: false,
+      text: `${validUrls.length}개 매물 정보 수집하기`,
+      error: null,
+    }
   }
 
   const handleCancel = () => {
@@ -65,27 +122,37 @@ export const TruckHarvesterApp = () => {
   const renderStep = () => {
     switch (currentStep) {
       case 'input':
+        const buttonState = getButtonState()
+
         return (
           <div className="space-y-8">
             <DirectorySelector />
             <UrlInputForm />
-            <div className="flex justify-center">
-              <Button
-                onClick={handleStartProcessing}
-                size="lg"
-                disabled={!urlsText.trim()}
-              >
-                {(() => {
-                  const urlResults = validateUrlsFromText(urlsText)
-                  const validUrls = getValidUrls(urlResults)
 
-                  if (validUrls.length === 0) {
-                    return '매물 주소를 입력하세요'
-                  }
+            <div className="space-y-2">
+              {/* 오류 메시지 표시 */}
+              {buttonState.error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-center"
+                >
+                  <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+                    <span>⚠️</span>
+                    <span>{buttonState.error}</span>
+                  </div>
+                </motion.div>
+              )}
 
-                  return `${validUrls.length}개 매물 정보 수집하기`
-                })()}
-              </Button>
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleStartProcessing}
+                  size="lg"
+                  disabled={buttonState.disabled}
+                >
+                  {buttonState.text}
+                </Button>
+              </div>
             </div>
           </div>
         )
