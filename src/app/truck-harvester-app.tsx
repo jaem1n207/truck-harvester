@@ -12,6 +12,7 @@ import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 import { useAppStore } from '@/shared/model/store'
 import { Button } from '@/shared/ui/button'
+import { ModeToggle } from '@/shared/ui/mode-toggle'
 
 export const TruckHarvesterApp = () => {
   const { currentStep, setCurrentStep, reset } = useAppStore()
@@ -83,6 +84,9 @@ export const TruckHarvesterApp = () => {
   return (
     <main className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-end mb-4">
+          <ModeToggle />
+        </div>
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
