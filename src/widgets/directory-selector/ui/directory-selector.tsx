@@ -78,7 +78,7 @@ export const DirectorySelector = () => {
             <div className="flex items-center gap-2">
               <Folder className="h-5 w-5 text-primary" />
               <span className="font-medium">폴더 직접 저장</span>
-              {isSupported && <Badge variant="success">권장</Badge>}
+              {isSupported && <Badge variant="default">권장</Badge>}
               {!isSupported && <Badge variant="secondary">지원 안됨</Badge>}
             </div>
             

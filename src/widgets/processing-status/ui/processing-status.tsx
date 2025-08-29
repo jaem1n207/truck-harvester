@@ -1,90 +1,108 @@
-import { motion, AnimatePresence } from 'motion/react'
-import { Loader2, CheckCircle, XCircle, AlertCircle, Download, FileText } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '@/shared/ui/card'
-import { Progress } from '@/shared/ui/progress'
-import { Badge } from '@/shared/ui/badge'
-import { Button } from '@/shared/ui/button'
-import { useAppStore } from '@/shared/model/store'
-import { DownloadStatus } from '@/shared/model/truck'
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Download,
+  FileText,
+} from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/shared/ui/card";
+import { Progress } from "@/shared/ui/progress";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { useAppStore } from "@/shared/model/store";
+import { DownloadStatus } from "@/shared/model/truck";
 
 interface ProcessingStatusProps {
-  onCancel: () => void
+  onCancel: () => void;
 }
 
-const getStatusIcon = (status: DownloadStatus['status']) => {
+const getStatusIcon = (status: DownloadStatus["status"]) => {
   switch (status) {
-    case 'pending':
-      return <div className="w-4 h-4 rounded-full border-2 border-muted" />
-    case 'downloading':
-      return <Loader2 className="w-4 h-4 animate-spin text-primary" />
-    case 'completed':
-      return <CheckCircle className="w-4 h-4 text-green-600" />
-    case 'failed':
-      return <XCircle className="w-4 h-4 text-red-600" />
+    case "pending":
+      return <div className="w-4 h-4 rounded-full border-2 border-muted" />;
+    case "downloading":
+      return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
+    case "completed":
+      return <CheckCircle className="w-4 h-4 text-green-600" />;
+    case "failed":
+      return <XCircle className="w-4 h-4 text-red-600" />;
   }
-}
+};
 
-const getStatusBadge = (status: DownloadStatus['status']) => {
+const getStatusBadge = (status: DownloadStatus["status"]) => {
   switch (status) {
-    case 'pending':
-      return <Badge variant="secondary">대기중</Badge>
-    case 'downloading':
-      return <Badge variant="default">다운로드중</Badge>
-    case 'completed':
-      return <Badge variant="success">완료</Badge>
-    case 'failed':
-      return <Badge variant="destructive">실패</Badge>
+    case "pending":
+      return <Badge variant="secondary">대기중</Badge>;
+    case "downloading":
+      return <Badge variant="outline">다운로드중</Badge>;
+    case "completed":
+      return <Badge variant="default">완료</Badge>;
+    case "failed":
+      return <Badge variant="destructive">실패</Badge>;
   }
-}
+};
 
-export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) => {
-  const { downloadStatuses, currentStep, isProcessing } = useAppStore()
-  
-  const completedCount = downloadStatuses.filter(s => s.status === 'completed').length
-  const failedCount = downloadStatuses.filter(s => s.status === 'failed').length
-  const totalCount = downloadStatuses.length
-  const overallProgress = totalCount > 0 ? Math.round(((completedCount + failedCount) / totalCount) * 100) : 0
-  
-  const isCompleted = currentStep === 'completed'
-  const canCancel = isProcessing && !isCompleted
-  
+export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
+  onCancel,
+}) => {
+  const { downloadStatuses, currentStep, isProcessing } = useAppStore();
+
+  const completedCount = downloadStatuses.filter(
+    (s) => s.status === "completed"
+  ).length;
+  const failedCount = downloadStatuses.filter(
+    (s) => s.status === "failed"
+  ).length;
+  const totalCount = downloadStatuses.length;
+  const overallProgress =
+    totalCount > 0
+      ? Math.round(((completedCount + failedCount) / totalCount) * 100)
+      : 0;
+
+  const isCompleted = currentStep === "completed";
+  const canCancel = isProcessing && !isCompleted;
+
   return (
     <Card className="w-full max-w-4xl">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            {currentStep === 'parsing' && (
+            {currentStep === "parsing" && (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
                 URL 파싱 중...
               </>
             )}
-            {currentStep === 'downloading' && (
+            {currentStep === "downloading" && (
               <>
                 <Download className="h-5 w-5" />
                 파일 다운로드 중...
               </>
             )}
-            {currentStep === 'completed' && (
+            {currentStep === "completed" && (
               <>
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 처리 완료
               </>
             )}
           </CardTitle>
-          
+
           {canCancel && (
             <Button variant="outline" size="sm" onClick={onCancel}>
               취소
             </Button>
           )}
         </div>
-        
+
         {totalCount > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span>전체 진행률</span>
-              <span>{completedCount + failedCount} / {totalCount}</span>
+              <span>
+                {completedCount + failedCount} / {totalCount}
+              </span>
             </div>
             <Progress value={overallProgress} className="h-2" />
             <div className="flex gap-4 text-sm text-muted-foreground">
@@ -95,9 +113,9 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) 
           </div>
         )}
       </CardHeader>
-      
+
       <CardContent>
-        {currentStep === 'parsing' && (
+        {currentStep === "parsing" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -112,7 +130,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) 
             </div>
           </motion.div>
         )}
-        
+
         <AnimatePresence mode="wait">
           {downloadStatuses.length > 0 && (
             <motion.div
@@ -130,25 +148,28 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) 
                   className="flex items-center gap-4 p-4 border rounded-lg"
                 >
                   {getStatusIcon(status.status)}
-                  
+
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{status.vehicleNumber}</span>
+                      <span className="font-medium">
+                        {status.vehicleNumber}
+                      </span>
                       {getStatusBadge(status.status)}
                     </div>
-                    
-                    {status.status === 'downloading' && (
+
+                    {status.status === "downloading" && (
                       <div className="space-y-1">
                         <Progress value={status.progress} className="h-1.5" />
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>
-                            {status.downloadedImages} / {status.totalImages} 이미지
+                            {status.downloadedImages} / {status.totalImages}{" "}
+                            이미지
                           </span>
                           <span>{status.progress}%</span>
                         </div>
                       </div>
                     )}
-                    
+
                     {status.error && (
                       <div className="flex items-start gap-2 text-sm text-red-600">
                         <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -156,8 +177,8 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) 
                       </div>
                     )}
                   </div>
-                  
-                  {status.status === 'completed' && (
+
+                  {status.status === "completed" && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <FileText className="h-4 w-4" />
                       <span>{status.downloadedImages}개 파일</span>
@@ -168,7 +189,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) 
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         {isCompleted && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -180,7 +201,8 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) 
               <div>
                 <div className="font-medium">처리가 완료되었습니다!</div>
                 <div className="text-sm">
-                  총 {totalCount}개 중 {completedCount}개 성공, {failedCount}개 실패
+                  총 {totalCount}개 중 {completedCount}개 성공, {failedCount}개
+                  실패
                 </div>
               </div>
             </div>
@@ -188,5 +210,5 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({ onCancel }) 
         )}
       </CardContent>
     </Card>
-  )
-}
+  );
+};

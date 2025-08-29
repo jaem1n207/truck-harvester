@@ -1,48 +1,48 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
-import { Truck, Settings, ArrowLeft } from 'lucide-react'
-import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
-import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-selector'
-import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
-import { Button } from '@/shared/ui/button'
-import { useAppStore } from '@/shared/model/store'
-import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
+import { useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Truck, Settings, ArrowLeft } from "lucide-react";
+import { UrlInputForm } from "@/widgets/url-input/ui/url-input-form";
+import { DirectorySelector } from "@/widgets/directory-selector/ui/directory-selector";
+import { ProcessingStatus } from "@/widgets/processing-status/ui/processing-status";
+import { Button } from "@/shared/ui/button";
+import { useAppStore } from "@/shared/model/store";
+import { useTruckProcessor } from "@/shared/lib/use-truck-processor";
 
 export const TruckHarvesterApp = () => {
-  const { currentStep, setCurrentStep, reset } = useAppStore()
-  const { processUrls, cancelProcessing } = useTruckProcessor()
-  
+  const { currentStep, setCurrentStep, reset } = useAppStore();
+  const { processUrls, cancelProcessing } = useTruckProcessor();
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (currentStep === 'parsing' || currentStep === 'downloading') {
-        e.preventDefault()
-        e.returnValue = '작업이 진행 중입니다. 정말로 페이지를 떠나시겠습니까?'
+      if (currentStep === "parsing" || currentStep === "downloading") {
+        e.preventDefault();
+        e.returnValue = "작업이 진행 중입니다. 정말로 페이지를 떠나시겠습니까?";
       }
-    }
-    
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [currentStep])
-  
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [currentStep]);
+
   const handleStartProcessing = () => {
-    processUrls()
-  }
-  
+    processUrls();
+  };
+
   const handleCancel = () => {
-    cancelProcessing()
-    setCurrentStep('input')
-  }
-  
+    cancelProcessing();
+    setCurrentStep("input");
+  };
+
   const handleReset = () => {
-    reset()
-    setCurrentStep('input')
-  }
-  
+    reset();
+    setCurrentStep("input");
+  };
+
   const renderStep = () => {
     switch (currentStep) {
-      case 'input':
+      case "input":
         return (
           <div className="space-y-8">
             <DirectorySelector />
@@ -53,13 +53,13 @@ export const TruckHarvesterApp = () => {
               </Button>
             </div>
           </div>
-        )
-      
-      case 'parsing':
-      case 'downloading':
-        return <ProcessingStatus onCancel={handleCancel} />
-      
-      case 'completed':
+        );
+
+      case "parsing":
+      case "downloading":
+        return <ProcessingStatus onCancel={handleCancel} />;
+
+      case "completed":
         return (
           <div className="space-y-6">
             <ProcessingStatus onCancel={handleCancel} />
@@ -70,15 +70,15 @@ export const TruckHarvesterApp = () => {
               </Button>
             </div>
           </div>
-        )
-      
+        );
+
       default:
-        return null
+        return null;
     }
-  }
-  
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950">
+    <main className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <motion.div
@@ -95,36 +95,38 @@ export const TruckHarvesterApp = () => {
             </h1>
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            중고 트럭 매물 URL을 입력하면 자동으로 정보를 추출하고 
-            이미지와 함께 정리된 파일로 저장해드립니다.
+            중고 트럭 매물 URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께
+            정리된 파일로 저장해드립니다.
           </p>
         </motion.div>
-        
+
         {/* Step Indicator */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="flex items-center justify-center mb-8"
         >
           <div className="flex items-center gap-4">
             {[
-              { key: 'input', label: '설정 & 입력', icon: Settings },
-              { key: 'parsing', label: '분석', icon: Truck },
-              { key: 'downloading', label: '다운로드', icon: Truck },
-              { key: 'completed', label: '완료', icon: Truck },
+              { key: "input", label: "설정 & 입력", icon: Settings },
+              { key: "parsing", label: "분석", icon: Truck },
+              { key: "downloading", label: "다운로드", icon: Truck },
+              { key: "completed", label: "완료", icon: Truck },
             ].map(({ key, label, icon: Icon }, index) => {
-              const isActive = currentStep === key
-              const isCompleted = ['input', 'parsing', 'downloading'].indexOf(currentStep) > index
-              
+              const isActive = currentStep === key;
+              const isCompleted =
+                ["input", "parsing", "downloading"].indexOf(currentStep) >
+                index;
+
               return (
                 <div key={key} className="flex items-center">
                   <div
                     className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
                       isActive
-                        ? 'bg-primary text-primary-foreground'
+                        ? "bg-primary text-primary-foreground"
                         : isCompleted
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-muted text-muted-foreground'
+                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -133,16 +135,16 @@ export const TruckHarvesterApp = () => {
                   {index < 3 && (
                     <div
                       className={`w-8 h-0.5 mx-2 transition-all ${
-                        isCompleted ? 'bg-green-300' : 'bg-muted'
+                        isCompleted ? "bg-green-300" : "bg-muted"
                       }`}
                     />
                   )}
                 </div>
-              )
+              );
             })}
           </div>
         </motion.div>
-        
+
         {/* Main Content */}
         <AnimatePresence mode="wait">
           <motion.div
@@ -155,7 +157,7 @@ export const TruckHarvesterApp = () => {
             {renderStep()}
           </motion.div>
         </AnimatePresence>
-        
+
         {/* Footer */}
         <motion.footer
           initial={{ opacity: 0 }}
@@ -171,6 +173,6 @@ export const TruckHarvesterApp = () => {
           </div>
         </motion.footer>
       </div>
-    </div>
-  )
-}
+    </main>
+  );
+};
