@@ -9,13 +9,14 @@ import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-sel
 import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
 import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
 
+import { validateUrlsFromText, getValidUrls } from '@/shared/lib/url-validator'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 import { useAppStore } from '@/shared/model/store'
 import { Button } from '@/shared/ui/button'
 import { ModeToggle } from '@/shared/ui/mode-toggle'
 
 export const TruckHarvesterApp = () => {
-  const { currentStep, setCurrentStep, reset } = useAppStore()
+  const { currentStep, setCurrentStep, reset, urlsText } = useAppStore()
   const { processUrls, cancelProcessing } = useTruckProcessor()
 
   useEffect(() => {
@@ -31,6 +32,23 @@ export const TruckHarvesterApp = () => {
   }, [currentStep])
 
   const handleStartProcessing = () => {
+    // URL 유효성 검증
+    const urlResults = validateUrlsFromText(urlsText)
+    const validUrls = getValidUrls(urlResults)
+    const hasErrors = urlResults.some((result) => result.error)
+
+    if (validUrls.length === 0) {
+      alert('중고트럭 매물 주소를 입력해주세요.')
+      return
+    }
+
+    if (hasErrors) {
+      alert(
+        '입력한 주소 중 올바르지 않은 것이 있습니다. 확인 후 다시 시도해주세요.'
+      )
+      return
+    }
+
     processUrls()
   }
 
@@ -52,8 +70,21 @@ export const TruckHarvesterApp = () => {
             <DirectorySelector />
             <UrlInputForm />
             <div className="flex justify-center">
-              <Button onClick={handleStartProcessing} size="lg">
-                처리 시작
+              <Button
+                onClick={handleStartProcessing}
+                size="lg"
+                disabled={!urlsText.trim()}
+              >
+                {(() => {
+                  const urlResults = validateUrlsFromText(urlsText)
+                  const validUrls = getValidUrls(urlResults)
+
+                  if (validUrls.length === 0) {
+                    return '매물 주소를 입력하세요'
+                  }
+
+                  return `${validUrls.length}개 매물 정보 수집하기`
+                })()}
               </Button>
             </div>
           </div>

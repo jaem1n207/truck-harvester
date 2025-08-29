@@ -10,12 +10,11 @@ import {
 } from '@/shared/lib/url-validator'
 import { useAppStore } from '@/shared/model/store'
 import { Badge } from '@/shared/ui/badge'
-import { Button } from '@/shared/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/ui/card'
 import { Textarea } from '@/shared/ui/textarea'
 
 export const UrlInputForm = () => {
-  const { urlsText, setUrlsText, setCurrentStep, config } = useAppStore()
+  const { urlsText, setUrlsText } = useAppStore()
   const [urlResults, setUrlResults] = useState<UrlValidationResult[]>([])
 
   const handleUrlsChange = (value: string) => {
@@ -25,8 +24,6 @@ export const UrlInputForm = () => {
   }
 
   const validUrls = getValidUrls(urlResults)
-  const hasErrors = urlResults.some((result) => result.error)
-  const canProceed = validUrls.length > 0 && !hasErrors
 
   const getVariantForResult = (result: UrlValidationResult) => {
     if (result.error) {
@@ -35,17 +32,11 @@ export const UrlInputForm = () => {
     return 'default'
   }
 
-  const handleProceed = () => {
-    if (canProceed) {
-      setCurrentStep('parsing')
-    }
-  }
-
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          트럭 매물 URL 입력
+          중고트럭 매물 주소 입력
           {validUrls.length > 0 && (
             <Badge variant="default">{validUrls.length}개 유효</Badge>
           )}
@@ -54,11 +45,11 @@ export const UrlInputForm = () => {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <label htmlFor="urls" className="text-sm font-medium">
-            URL 목록 (한 줄에 하나씩)
+            중고트럭 매물 주소 (한 줄에 하나씩)
           </label>
           <Textarea
             id="urls"
-            placeholder={`예시:\nhttps://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=12345&MemberNo=67890&OnCarNo=2025123456789\nhttps://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=54321&MemberNo=09876&OnCarNo=2024987654321\n\n트럭매매NO1 매물 URL을 한 줄씩 입력하세요.`}
+            placeholder={`예시:\nhttps://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=12345&MemberNo=67890&OnCarNo=2025123456789\nhttps://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=54321&MemberNo=09876&OnCarNo=2024987654321\n\n중고트럭 매물 주소를 한 줄씩 입력하세요.`}
             value={urlsText}
             onChange={(e) => handleUrlsChange(e.target.value)}
             className="min-h-[120px] font-mono text-sm"
@@ -74,7 +65,7 @@ export const UrlInputForm = () => {
               exit={{ opacity: 0, height: 0 }}
               className="space-y-2"
             >
-              <div className="text-sm font-medium">URL 유효성 검사 결과:</div>
+              <div className="text-sm font-medium">입력한 주소 확인 결과:</div>
               <div className="max-h-40 overflow-y-auto space-y-1">
                 {urlResults.map((result, index) => (
                   <motion.div
@@ -109,28 +100,26 @@ export const UrlInputForm = () => {
           )}
         </AnimatePresence>
 
-        <div className="flex justify-between items-start">
-          <div className="text-sm text-muted-foreground">
-            <div>
-              처리 설정: 지연 {config.rateLimitMs}ms, 타임아웃{' '}
-              {config.timeoutMs}ms
+        {validUrls.length > 0 && (
+          <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+            <div className="text-sm text-green-700 dark:text-green-300 font-medium">
+              ✅ {validUrls.length}개의 중고트럭 매물 주소가 준비되었습니다
             </div>
-            <div className="text-xs text-blue-600 mt-1">
-              📋 허용된 도메인: www.truck-no1.co.kr
-            </div>
-            <div className="text-xs text-orange-600 mt-1">
-              ⚠️ 웹사이트의 robots.txt와 이용약관을 확인하고 준수해주세요
+            <div className="text-xs text-green-600 dark:text-green-400 mt-2">
+              아래 &apos;처리 시작&apos; 버튼을 눌러 매물 정보를 수집하세요
             </div>
           </div>
-          <Button
-            onClick={handleProceed}
-            disabled={!canProceed}
-            className="min-w-[120px]"
-          >
-            {validUrls.length > 0
-              ? `${validUrls.length}개 처리하기`
-              : '처리하기'}
-          </Button>
+        )}
+
+        <div className="text-xs text-gray-500 space-y-1">
+          <div className="flex items-center gap-1">
+            <span>📋</span>
+            <span>지원 사이트: www.truck-no1.co.kr</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span>⚠️</span>
+            <span>해당 사이트의 이용 규칙을 준수하여 사용해주세요</span>
+          </div>
         </div>
       </CardContent>
     </Card>
