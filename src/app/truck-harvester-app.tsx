@@ -184,7 +184,7 @@ export const TruckHarvesterApp = () => {
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen" id="main-content">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-4 flex justify-end">
           <ModeToggle />

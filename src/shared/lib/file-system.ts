@@ -66,7 +66,6 @@ const generateImageFileName = (index: number): string => {
 }
 
 const generateTextContent = (truckData: TruckData): string => {
-  console.log('🚀 ~ generateTextContent ~ truckData:', truckData)
   const template = `{{vname}} 매매 가격 시세
 {{price.rawWon}}
 생활/건강,공구,운반용품

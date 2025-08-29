@@ -122,4 +122,69 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* 접근성 개선: 포커스 스타일 */
+  *:focus-visible {
+    @apply outline-ring outline-2 outline-offset-2;
+  }
+
+  /* 키보드 네비게이션 개선 */
+  .focus-visible:focus-visible {
+    @apply ring-ring ring-offset-background ring-2 ring-offset-2;
+  }
+
+  /* 스킵 링크 */
+  .skip-link {
+    @apply bg-primary text-primary-foreground absolute top-auto left-[-9999px] z-[9999] px-4 py-2 underline focus:top-2 focus:left-2;
+  }
+
+  /* 애니메이션 감소 사용자를 위한 설정 */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* 고대비 모드 지원 */
+  @media (prefers-contrast: high) {
+    :root {
+      --border: black;
+      --ring: black;
+    }
+
+    .dark {
+      --border: white;
+      --ring: white;
+    }
+  }
+
+  /* 사용자 정의 스크롤바 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+
+  /* Firefox 스크롤바 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.muted.foreground/30')
+      theme('colors.muted.DEFAULT');
+  }
 }
