@@ -1,4 +1,4 @@
-/** @type {import("prettier").Config} */
+/** @type {import("prettier").Config} & import('prettier-plugin-tailwindcss').PluginOptions} */
 module.exports = {
   semi: false,
   trailingComma: 'es5',
@@ -38,4 +38,5 @@ module.exports = {
       },
     },
   ],
+  plugins: ['prettier-plugin-tailwindcss'],
 }

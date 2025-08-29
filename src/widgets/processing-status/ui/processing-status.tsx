@@ -26,23 +26,23 @@ const getStatusIcon = (status: DownloadStatus['status']) => {
     case 'pending':
       return (
         <div
-          className="w-4 h-4 rounded-full border-2 border-muted"
+          className="border-muted h-4 w-4 rounded-full border-2"
           aria-hidden="true"
         />
       )
     case 'downloading':
       return (
         <Loader2
-          className="w-4 h-4 animate-spin text-primary"
+          className="text-primary h-4 w-4 animate-spin"
           aria-hidden="true"
         />
       )
     case 'completed':
       return (
-        <CheckCircle className="w-4 h-4 text-green-600" aria-hidden="true" />
+        <CheckCircle className="h-4 w-4 text-green-600" aria-hidden="true" />
       )
     case 'failed':
-      return <XCircle className="w-4 h-4 text-red-600" aria-hidden="true" />
+      return <XCircle className="h-4 w-4 text-red-600" aria-hidden="true" />
   }
 }
 
@@ -138,7 +138,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
               className="h-2"
               aria-label={`전체 진행률 ${overallProgress}%, ${completedCount + failedCount}개 완료, 총 ${totalCount}개`}
             />
-            <div className="flex gap-4 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex gap-4 text-sm">
               <span className="text-green-600">완룼: {completedCount}</span>
               <span className="text-red-600">실패: {failedCount}</span>
               <span>총 {totalCount}개</span>
@@ -149,7 +149,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg"
+                className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-900/20"
                 role="status"
                 aria-live="polite"
               >
@@ -158,11 +158,11 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                   aria-hidden="true"
                 />
                 <div className="text-sm">
-                  <span className="text-blue-700 dark:text-blue-300 font-medium">
+                  <span className="font-medium text-blue-700 dark:text-blue-300">
                     {timeEstimation.friendlyTimeMessage}
                   </span>
                   {timeEstimation.formattedEndTime && (
-                    <span className="text-blue-600 dark:text-blue-400 ml-2">
+                    <span className="ml-2 text-blue-600 dark:text-blue-400">
                       ({timeEstimation.formattedEndTime}경)
                     </span>
                   )}
@@ -181,16 +181,16 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
             className="flex items-center justify-center py-8"
           >
             <div
-              className="text-center space-y-2"
+              className="space-y-2 text-center"
               role="status"
               aria-live="polite"
             >
               <Loader2
-                className="h-8 w-8 animate-spin mx-auto text-primary"
+                className="text-primary mx-auto h-8 w-8 animate-spin"
                 aria-hidden="true"
               />
               <div className="text-lg font-medium">웹페이지 분석 중...</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 매물 정보와 이미지를 추출하고 있습니다
               </div>
             </div>
@@ -203,7 +203,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-3 max-h-96 overflow-y-auto"
+              className="max-h-96 space-y-3 overflow-y-auto"
               role="list"
               aria-label="매물별 처리 상태 목록"
             >
@@ -213,7 +213,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="flex items-center gap-4 p-4 border rounded-lg"
+                  className="flex items-center gap-4 rounded-lg border p-4"
                   role="listitem"
                   aria-label={`차량번호 ${status.vehicleNumber}, 상태: ${status.status === 'pending' ? '대기중' : status.status === 'downloading' ? '다운로드중' : status.status === 'completed' ? '완료' : '실패'}`}
                 >
@@ -234,7 +234,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                           className="h-1.5"
                           aria-label={`${status.vehicleNumber} 다운로드 진행률 ${status.progress}%, ${status.downloadedImages}/${status.totalImages} 이미지`}
                         />
-                        <div className="flex justify-between text-xs text-muted-foreground">
+                        <div className="text-muted-foreground flex justify-between text-xs">
                           <span>
                             {status.downloadedImages} / {status.totalImages}{' '}
                             이미지
@@ -250,7 +250,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                         role="alert"
                       >
                         <AlertCircle
-                          className="h-4 w-4 mt-0.5 flex-shrink-0"
+                          className="mt-0.5 h-4 w-4 flex-shrink-0"
                           aria-hidden="true"
                         />
                         <span className="break-all">{status.error}</span>
@@ -259,7 +259,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
                   </div>
 
                   {status.status === 'completed' && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="text-muted-foreground flex items-center gap-2 text-sm">
                       <FileText className="h-4 w-4" aria-hidden="true" />
                       <span>{status.downloadedImages}개 파일</span>
                     </div>
@@ -274,7 +274,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
+            className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20"
             role="status"
             aria-live="polite"
           >

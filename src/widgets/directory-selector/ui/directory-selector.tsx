@@ -63,9 +63,9 @@ export const DirectorySelector = () => {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-start gap-3 p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800 rounded-lg"
+              className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20"
             >
-              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-5 w-5 text-yellow-600" />
               <div className="space-y-1">
                 <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
                   브라우저 호환성 안내
@@ -78,10 +78,10 @@ export const DirectorySelector = () => {
             </motion.div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* File System Access API 방식 */}
             <div
-              className={`p-4 border rounded-lg space-y-3 ${
+              className={`space-y-3 rounded-lg border p-4 ${
                 isSupported
                   ? 'border-primary/50'
                   : 'border-muted bg-muted/50 opacity-60'
@@ -91,7 +91,7 @@ export const DirectorySelector = () => {
                 whileHover={isSupported ? { scale: 1.02 } : undefined}
               >
                 <div className="flex items-center gap-2">
-                  <Folder className="h-5 w-5 text-primary" />
+                  <Folder className="text-primary h-5 w-5" />
                   <span className="font-medium">폴더 직접 저장</span>
                   {isSupported && <Badge variant="default">권장</Badge>}
                   {!isSupported && <Badge variant="secondary">지원 안됨</Badge>}
@@ -99,15 +99,15 @@ export const DirectorySelector = () => {
 
                 {displayName && !isZipMode ? (
                   <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-muted-foreground text-sm">
                       선택된 폴더:
                     </div>
-                    <div className="p-2 bg-muted rounded text-sm font-mono">
+                    <div className="bg-muted rounded p-2 font-mono text-sm">
                       {displayName}
                     </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-muted-foreground text-sm">
                     각 매물별로 폴더를 생성하고 이미지와 텍스트 파일을 직접
                     저장합니다.
                   </div>
@@ -116,7 +116,7 @@ export const DirectorySelector = () => {
                 <Button
                   onClick={handleSelectDirectory}
                   disabled={!isSupported || isSelecting}
-                  className="w-full mt-2"
+                  className="mt-2 w-full"
                   variant={displayName && !isZipMode ? 'outline' : 'default'}
                   aria-label={
                     displayName && !isZipMode
@@ -136,7 +136,7 @@ export const DirectorySelector = () => {
             {/* ZIP 다운로드 방식 */}
             <motion.button
               whileHover={{ scale: 1.02 }}
-              className={`w-full p-4 border rounded-lg space-y-3 text-left cursor-pointer ${
+              className={`w-full cursor-pointer space-y-3 rounded-lg border p-4 text-left ${
                 isZipMode
                   ? 'border-primary bg-primary/5'
                   : 'border-muted hover:border-primary/50'
@@ -146,12 +146,12 @@ export const DirectorySelector = () => {
               aria-label="ZIP 파일로 다운로드 방식 선택"
             >
               <div className="flex items-center gap-2">
-                <Download className="h-5 w-5 text-primary" />
+                <Download className="text-primary h-5 w-5" />
                 <span className="font-medium">ZIP 다운로드</span>
                 <Badge variant="outline">대체 방식</Badge>
               </div>
 
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 모든 파일을 ZIP으로 압축하여 다운로드 폴더에 저장합니다.
               </div>
 
@@ -159,7 +159,7 @@ export const DirectorySelector = () => {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-sm text-primary font-medium"
+                  className="text-primary text-sm font-medium"
                 >
                   ✓ ZIP 다운로드 방식 선택됨
                 </motion.div>
@@ -171,7 +171,7 @@ export const DirectorySelector = () => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
+              className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20"
               role="status"
               aria-live="polite"
             >

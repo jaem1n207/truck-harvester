@@ -61,7 +61,7 @@ export const UrlInputForm = () => {
           />
           <div
             id="url-input-description"
-            className="text-xs text-muted-foreground"
+            className="text-muted-foreground text-xs"
           >
             지원 사이트: www.truck-no1.co.kr - 한 줄에 하나씩 URL을
             입력해주세요.
@@ -81,7 +81,7 @@ export const UrlInputForm = () => {
             >
               <div className="text-sm font-medium">입력한 주소 확인 결과:</div>
               <div
-                className="max-h-40 overflow-y-auto space-y-1"
+                className="max-h-40 space-y-1 overflow-y-auto"
                 role="list"
                 aria-label="URL 유효성 검사 결과 목록"
               >
@@ -91,7 +91,7 @@ export const UrlInputForm = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="flex items-center gap-2 p-2 rounded-md border bg-muted/50"
+                    className="bg-muted/50 flex items-center gap-2 rounded-md border p-2"
                     role="listitem"
                     aria-label={`주소 ${index + 1}: ${result.error ? `오류 - ${result.error}` : '유효한 URL'}`}
                   >
@@ -113,7 +113,7 @@ export const UrlInputForm = () => {
                         aria-hidden="true"
                       />
                     )}
-                    <span className="flex-1 text-sm font-mono truncate">
+                    <span className="flex-1 truncate font-mono text-sm">
                       {result.url}
                     </span>
                     <Badge
@@ -131,21 +131,21 @@ export const UrlInputForm = () => {
 
         {validUrls.length > 0 && (
           <div
-            className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg"
+            className="rounded-lg bg-green-50 p-4 dark:bg-green-900/20"
             role="status"
             aria-live="polite"
           >
-            <div className="text-sm text-green-700 dark:text-green-300 font-medium">
+            <div className="text-sm font-medium text-green-700 dark:text-green-300">
               ✅ {validUrls.length}개의 중고트럭 매물 주소가 준비되었습니다
             </div>
-            <div className="text-xs text-green-600 dark:text-green-400 mt-2">
+            <div className="mt-2 text-xs text-green-600 dark:text-green-400">
               아래 &apos;{validUrls.length}개 매물 정보 수집하기&apos; 버튼을
               눌러 매물 정보를 수집하세요
             </div>
           </div>
         )}
 
-        <div className="text-xs text-muted-foreground space-y-1" role="note">
+        <div className="text-muted-foreground space-y-1 text-xs" role="note">
           <div className="flex items-center gap-1">
             <span aria-hidden="true">📋</span>
             <span>지원 사이트: www.truck-no1.co.kr</span>

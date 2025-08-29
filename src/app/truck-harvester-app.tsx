@@ -2,14 +2,14 @@
 
 import { useEffect } from 'react'
 
-import { Truck, Settings, ArrowLeft } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
+import { ArrowLeft, Settings, Truck } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
 
 import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-selector'
 import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
 import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
 
-import { validateUrlsFromText, getValidUrls } from '@/shared/lib/url-validator'
+import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 import { useAppStore } from '@/shared/model/store'
 import { Button } from '@/shared/ui/button'
@@ -138,7 +138,7 @@ export const TruckHarvesterApp = () => {
                   className="flex justify-center"
                 >
                   <div
-                    className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm"
+                    className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
                     role="alert"
                     aria-live="polite"
                   >
@@ -171,7 +171,7 @@ export const TruckHarvesterApp = () => {
             <ProcessingStatus onCancel={handleCancel} />
             <div className="flex justify-center gap-4">
               <Button variant="outline" onClick={handleReset}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 새로 시작
               </Button>
             </div>
@@ -186,24 +186,24 @@ export const TruckHarvesterApp = () => {
   return (
     <main className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-end mb-4">
+        <div className="mb-4 flex justify-end">
           <ModeToggle />
         </div>
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="mb-12 text-center"
         >
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-3 bg-primary rounded-xl" aria-hidden="true">
-              <Truck className="w-8 h-8 text-primary-foreground" />
+          <div className="mb-4 flex items-center justify-center gap-3">
+            <div className="bg-primary rounded-xl p-3" aria-hidden="true">
+              <Truck className="text-primary-foreground h-8 w-8" />
             </div>
-            <h1 className="text-4xl font-bold text-foreground">
+            <h1 className="text-foreground text-4xl font-bold">
               트럭 매물 수집기
             </h1>
           </div>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground mx-auto max-w-2xl text-lg">
             중고 트럭 매물 URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께
             정리된 파일로 저장해드립니다.
           </p>
@@ -213,10 +213,13 @@ export const TruckHarvesterApp = () => {
         <motion.nav
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex items-center justify-center mb-8"
+          className="mb-8 flex items-center justify-center"
           aria-label="처리 단계 표시기"
         >
-          <ol className="flex items-center gap-4" role="list">
+          <ol
+            className="flex flex-wrap items-center justify-center gap-4"
+            role="list"
+          >
             {[
               { key: 'input', label: '설정 & 입력', icon: Settings },
               { key: 'parsing', label: '분석', icon: Truck },
@@ -236,7 +239,7 @@ export const TruckHarvesterApp = () => {
               return (
                 <li key={key} className="flex items-center" role="listitem">
                   <div
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 transition-all ${
                       isActive
                         ? 'bg-primary text-primary-foreground'
                         : isCompleted
@@ -246,12 +249,12 @@ export const TruckHarvesterApp = () => {
                     aria-label={`${label} - ${stepStatus}`}
                     aria-current={isActive ? 'step' : undefined}
                   >
-                    <Icon className="w-4 h-4" aria-hidden="true" />
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                     <span className="text-sm font-medium">{label}</span>
                   </div>
                   {index < 3 && (
                     <div
-                      className={`w-8 h-0.5 mx-2 transition-all ${
+                      className={`mx-2 h-0.5 w-8 transition-all ${
                         isCompleted ? 'bg-green-300' : 'bg-muted'
                       }`}
                       aria-hidden="true"
@@ -282,7 +285,7 @@ export const TruckHarvesterApp = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="mt-16 text-center text-sm text-muted-foreground"
+          className="text-muted-foreground mt-16 text-center text-sm"
           role="contentinfo"
         >
           <div className="space-y-2">
