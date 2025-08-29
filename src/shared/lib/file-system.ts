@@ -66,66 +66,69 @@ const generateImageFileName = (index: number): string => {
 }
 
 const generateTextContent = (truckData: TruckData): string => {
-  const template = `=== 차량 정보 ===
-차명: {{vname}}
-차량번호: {{vnumber}}
-제목: {{title}}
+  console.log('🚀 ~ generateTextContent ~ truckData:', truckData)
+  const template = `{{vname}} 매매 가격 시세
+{{price.rawWon}}
+생활/건강,공구,운반용품
 
-=== 가격 정보 ===
-가격: {{price.label}} ({{price.compactLabel}})
-원 단위: {{price.rawWon}}원
+{{vname}} 매매 가격 시세
 
-=== 차량 세부사항 ===
-연식: {{year}}
-주행거리: {{mileage}}
 
-=== 추가 정보 ===
-기타사항/옵션: {{options}}
 
-=== 원본 정보 ===
-URL: {{url}}
-최초등록: {{firstRegistration}}
+차종 :  {{vname}}
 
-=== 이미지 정보 ===
-이미지 개수: {{imageCount}}개
-다운로드 파일명: K-001.jpg ~ K-{{paddedCount}}.jpg
+차명 :  {{vehicleName}}
 
-=== 이미지 URL 목록 ===
-{{imageUrls}}
+차량번호 :  {{vnumber}}
 
-=== 메타데이터 ===
-생성일시: {{generatedAt}}
-생성 버전: v2.0`
+연식 :  {{year}}
 
-  // 이미지 URL 목록 생성
+주행거리 :  {{mileage}}
+
+기타사항 :  {{options}}
+
+
+
+
+가격 :  {{price.label}}
+
+
+
+
+
+화물차, 특장차를 전문으로 매매하는 오픈매장으로 
+
+충분한 상담을 통해 용도에 딱 맞는 차량을 권해드리고 있습니다.
+
+최고가 매입, 매매 /전국 어디든 출장 매입 가능!!
+
+
+
+언제든지 문의 주시면 최선을 다해 상담하겠습니다.
+상담문의 010-4082-8945 트럭판매왕
+
+{{imageUrls}}`
+
   const imageUrls =
     truckData.images.length > 0
       ? truckData.images
           .map(
-            (url, index) =>
-              `K-${String(index + 1).padStart(3, '0')}.jpg: ${url}`
+            (_, index) => `#사진:K-${String(index + 1).padStart(3, '0')}.jpg`
           )
           .join('\n')
       : '이미지 없음'
 
-  const paddedCount = String(truckData.images.length).padStart(3, '0')
-
+  // 모든 플레이스홀더를 전역적으로 변환
   return template
-    .replace('{{vname}}', truckData.vname)
-    .replace('{{vnumber}}', truckData.vnumber)
-    .replace('{{title}}', truckData.title)
-    .replace('{{price.label}}', truckData.price.label)
-    .replace('{{price.compactLabel}}', truckData.price.compactLabel)
-    .replace('{{price.rawWon}}', truckData.price.rawWon.toLocaleString())
-    .replace('{{year}}', truckData.year)
-    .replace('{{mileage}}', truckData.mileage)
-    .replace('{{options}}', truckData.options)
-    .replace('{{url}}', truckData.url)
-    .replace('{{firstRegistration}}', truckData.firstRegistration)
-    .replace('{{imageCount}}', String(truckData.images.length))
-    .replace('{{paddedCount}}', paddedCount)
-    .replace('{{imageUrls}}', imageUrls)
-    .replace('{{generatedAt}}', new Date().toLocaleString('ko-KR'))
+    .replaceAll('{{vname}}', truckData.vname)
+    .replaceAll('{{vehicleName}}', truckData.vehicleName) // 추출된 차명 데이터 사용
+    .replaceAll('{{vnumber}}', truckData.vnumber)
+    .replaceAll('{{price.label}}', truckData.price.label)
+    .replaceAll('{{price.rawWon}}', truckData.price.rawWon.toString())
+    .replaceAll('{{year}}', truckData.year)
+    .replaceAll('{{mileage}}', truckData.mileage)
+    .replaceAll('{{options}}', truckData.options)
+    .replaceAll('{{imageUrls}}', imageUrls)
 }
 
 export const downloadTruckData = async (

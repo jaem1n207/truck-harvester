@@ -3,30 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 import { z } from 'zod'
 
+import { type TruckData } from '@/shared/model/truck'
+
 const parseRequestSchema = z.object({
   urls: z.array(z.string().url()).min(1),
   rateLimitMs: z.number().min(100).default(1000),
   timeoutMs: z.number().min(1000).default(10000),
 })
-
-interface TruckData {
-  url: string
-  vname: string
-  vnumber: string
-  title: string
-  price: {
-    raw: number
-    rawWon: number
-    label: string
-    compactLabel: string
-  }
-  year: string
-  mileage: string
-  options: string
-  firstRegistration: string
-  images: string[]
-  error?: string
-}
 
 async function parseHtml(html: string): Promise<Omit<TruckData, 'url'>> {
   const $ = cheerio.load(html)
@@ -71,36 +54,62 @@ async function parseHtml(html: string): Promise<Omit<TruckData, 'url'>> {
       compactLabel = priceLabel
     }
 
-    // 제목 (기존 호환성 유지)
-    const title =
-      $('h1').first().text().trim() ||
-      $('.title').first().text().trim() ||
-      $('title').text().trim() ||
-      vname ||
-      '제목 없음'
-
-    // 연식과 주행거리 (.car-detail strong.number에서 추출)
-    const carDetailNumbers = $('.car-detail strong.number')
+    // 연식과 주행거리 (.car-detail에서 추출)
     let year = '연식 정보 없음'
     let mileage = '주행거리 정보 없음'
 
-    carDetailNumbers.each((index, element) => {
-      const text = $(element).text().trim()
-      if (text.includes('년') && year === '연식 정보 없음') {
-        year = text
-      } else if (text.includes('km') && mileage === '주행거리 정보 없음') {
-        mileage = text
+    // 연식 추출: 첫 번째 dd의 strong.number에서 추출
+    const firstDd = $('.car-detail dl dd').first()
+    const yearStrong = firstDd.find('strong.number').first()
+    if (yearStrong.length > 0) {
+      const yearText = yearStrong.text().trim()
+      if (yearText && /^\d{4}$/.test(yearText)) {
+        year = yearText
+      }
+    }
+
+    // 주행거리 추출: strong.red.number가 있는 dd에서 추출
+    $('.car-detail dl dd').each((_, element) => {
+      const ddElement = $(element)
+      const mileageStrong = ddElement.find('strong.red.number')
+      if (mileageStrong.length > 0 && mileage === '주행거리 정보 없음') {
+        const mileageText = mileageStrong.text().trim()
+        const kmText = ddElement.text()
+        if (mileageText && kmText.includes('km')) {
+          mileage = mileageText + 'km'
+        }
       }
     })
 
-    // 기타사항/옵션 (.vcontent에서 추출하고 콤마를 /로 변환)
-    let options = $('.vcontent').text().trim() || '기타사항 정보 없음'
-    if (options !== '기타사항 정보 없음') {
-      options = options.replace(/,/g, '/')
-    }
+    // 차명 추출 (.vcontent에서 "차명:" 다음 텍스트 추출)
+    let extractedVname = ''
+    $('.vcontent p font span b span').each((_, element) => {
+      const spanText = $(element).text().trim()
+      if (spanText.startsWith('차명:') && !extractedVname) {
+        extractedVname = spanText.replace('차명:', '').trim()
+      }
+    })
 
-    // 최초등록일 (기존 호환성 유지)
-    const firstRegistration = year // 연식 정보를 최초등록일로 사용
+    // 차명과 차종 분리 처리
+    const vehicleName = extractedVname || vname // 차명: 추출된 데이터 또는 기본 vname
+    // vname은 기존 그대로 유지 (차종용)
+
+    // 기타사항/옵션 (.vcontent에서 "추가장착 옵션" 부분만 추출)
+    let options = '기타사항 정보 없음'
+    const vcontentHtml = $('.vcontent').html()
+    if (vcontentHtml) {
+      // "▶ 추가장착 옵션 ::" 다음부터 첫 번째 <br> 전까지 추출
+      const optionsMatch = vcontentHtml.match(
+        /▶\s*추가장착\s*옵션\s*::\s*([^<]*?)(?=<br|$)/i
+      )
+      if (optionsMatch && optionsMatch[1]) {
+        const optionsText = optionsMatch[1].trim()
+        if (optionsText) {
+          // 콤마를 /로 변환하고 공백 정리
+          options = optionsText.replace(/,\s*/g, ' / ').trim()
+        }
+      }
+    }
 
     // 이미지 추출 (.sumnail ul li img[onmouseover*="changeImg"]에서 추출)
     const images: string[] = []
@@ -111,8 +120,11 @@ async function parseHtml(html: string): Promise<Omit<TruckData, 'url'>> {
         const match = onmouseover.match(/changeImg\(['"](.*?)['"]/)
         if (match && match[1]) {
           const imageUrl = match[1]
-          // 전체 URL이므로 직접 사용 (Blank 이미지만 제외)
-          if (!imageUrl.toLowerCase().includes('blank')) {
+          // Blank_Photo_S.gif 이미지 제외
+          if (
+            !imageUrl.includes('/Blank_Photo_S.gif') &&
+            !imageUrl.toLowerCase().includes('blank')
+          ) {
             images.push(imageUrl)
           }
         }
@@ -122,15 +134,20 @@ async function parseHtml(html: string): Promise<Omit<TruckData, 'url'>> {
     // .sumnail 내의 img src에서도 추출 (fallback) - _TH가 없는 이미지만
     $('.sumnail img').each((_, element) => {
       const src = $(element).attr('src')
-      if (src && !src.includes('_TH') && !src.toLowerCase().includes('blank')) {
+      if (
+        src &&
+        !src.includes('_TH') &&
+        !src.includes('/Blank_Photo_S.gif') &&
+        !src.toLowerCase().includes('blank')
+      ) {
         images.push(src)
       }
     })
 
     return {
-      vname,
+      vname, // 원본 차종 데이터 유지
+      vehicleName, // 추출된 차명 또는 기본 vname
       vnumber,
-      title,
       price: {
         raw: priceRaw,
         rawWon: priceRawWon,
@@ -140,7 +157,6 @@ async function parseHtml(html: string): Promise<Omit<TruckData, 'url'>> {
       year,
       mileage,
       options,
-      firstRegistration,
       images: Array.from(new Set(images)), // 중복 제거
     }
   } catch (error) {
@@ -198,13 +214,12 @@ export async function POST(request: NextRequest) {
         results.push({
           url,
           vname: 'Error',
+          vehicleName: 'Error',
           vnumber: 'Error',
-          title: 'Error',
           price: { raw: 0, rawWon: 0, label: '0만원', compactLabel: '0만원' },
           year: 'Error',
           mileage: 'Error',
           options: 'Error',
-          firstRegistration: 'Error',
           images: [],
           error: error instanceof Error ? error.message : 'Unknown error',
         })

@@ -2,9 +2,9 @@ import { z } from 'zod'
 
 export const truckDataSchema = z.object({
   url: z.string().url(),
-  vname: z.string(), // 차명 (p.vname)
+  vname: z.string(), // 차종 (p.vname)
+  vehicleName: z.string(), // 차명 (추출된 차명 데이터)
   vnumber: z.string(), // 차량번호 (p.vnumber)
-  title: z.string(), // 기존 제목 (호환성 유지)
   price: z.object({
     raw: z.number(), // 숫자 가격 (만원 단위)
     rawWon: z.number(), // 원 단위 가격
@@ -14,7 +14,6 @@ export const truckDataSchema = z.object({
   year: z.string(), // 연식
   mileage: z.string(), // 주행거리 (숫자 + km)
   options: z.string(), // 기타사항/옵션
-  firstRegistration: z.string(), // 기존 필드 (호환성 유지)
   images: z.array(z.string()),
   error: z.string().optional(),
 })
