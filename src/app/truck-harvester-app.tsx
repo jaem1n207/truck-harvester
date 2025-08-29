@@ -204,8 +204,8 @@ export const TruckHarvesterApp = () => {
             </h1>
           </div>
           <p className="text-muted-foreground mx-auto max-w-2xl text-lg">
-            중고 트럭 매물 URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께
-            정리된 파일로 저장해드립니다.
+            URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께 정리된 파일로
+            생성합니다.
           </p>
         </motion.header>
 
@@ -217,7 +217,7 @@ export const TruckHarvesterApp = () => {
           aria-label="처리 단계 표시기"
         >
           <ol
-            className="flex flex-wrap items-center justify-center gap-4"
+            className="flex flex-wrap items-center justify-center"
             role="list"
           >
             {[
@@ -291,7 +291,7 @@ export const TruckHarvesterApp = () => {
           <div className="space-y-2">
             <p>트럭 매물 수집기 v1.0</p>
             <p className="text-xs">
-              웹사이트의 이용약관과 robots.txt를 준수하여 사용해주세요.
+              추가 요청사항 또는 개선사항이 있다면 언제든지 연락 주세요.
             </p>
           </div>
         </motion.footer>

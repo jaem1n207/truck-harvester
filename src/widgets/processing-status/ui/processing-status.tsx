@@ -1,20 +1,20 @@
 import {
-  Loader2,
-  CheckCircle,
-  XCircle,
   AlertCircle,
+  CheckCircle,
+  Clock,
   Download,
   FileText,
-  Clock,
+  Loader2,
+  XCircle,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 
 import { useTimeEstimation } from '@/shared/lib/use-time-estimation'
 import { useAppStore } from '@/shared/model/store'
 import { DownloadStatus } from '@/shared/model/truck'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/shared/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Progress } from '@/shared/ui/progress'
 
 interface ProcessingStatusProps {
@@ -139,7 +139,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
               aria-label={`전체 진행률 ${overallProgress}%, ${completedCount + failedCount}개 완료, 총 ${totalCount}개`}
             />
             <div className="text-muted-foreground flex gap-4 text-sm">
-              <span className="text-green-600">완룼: {completedCount}</span>
+              <span className="text-green-600">완료: {completedCount}</span>
               <span className="text-red-600">실패: {failedCount}</span>
               <span>총 {totalCount}개</span>
             </div>
