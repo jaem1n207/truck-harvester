@@ -139,7 +139,8 @@ export const UrlInputForm = () => {
               ✅ {validUrls.length}개의 중고트럭 매물 주소가 준비되었습니다
             </div>
             <div className="text-xs text-green-600 dark:text-green-400 mt-2">
-              아래 &apos;처리 시작&apos; 버튼을 눌러 매물 정보를 수집하세요
+              아래 &apos;{validUrls.length}개 매물 정보 수집하기&apos; 버튼을
+              눌러 매물 정보를 수집하세요
             </div>
           </div>
         )}
