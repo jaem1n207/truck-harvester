@@ -3,7 +3,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 import { z } from 'zod'
 
+import {
+  measureOperation,
+  addTruckProcessingBreadcrumb,
+  setTruckProcessingContext,
+} from '@/shared/lib/sentry-utils'
 import { type TruckData } from '@/shared/model/truck'
+
+import {
+  withTruckProcessingErrorHandler,
+  createApiError,
+} from '../sentry-error-handler'
 
 const parseRequestSchema = z.object({
   urls: z.array(z.string().url()).min(1),
@@ -166,88 +176,134 @@ async function parseHtml(html: string): Promise<Omit<TruckData, 'url'>> {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { urls, rateLimitMs, timeoutMs } = parseRequestSchema.parse(body)
+async function postHandler(request: NextRequest) {
+  // 요청 데이터 검증
+  const body = await request.json()
+  const validation = parseRequestSchema.safeParse(body)
 
-    const results: TruckData[] = []
-
-    for (const url of urls) {
-      try {
-        // Rate limiting
-        if (results.length > 0) {
-          await new Promise((resolve) => setTimeout(resolve, rateLimitMs))
-        }
-
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            Accept:
-              'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
-            Connection: 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-          },
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const html = await response.text()
-        const parsedData = await parseHtml(html)
-
-        results.push({
-          url,
-          ...parsedData,
-        })
-      } catch (error) {
-        results.push({
-          url,
-          vname: 'Error',
-          vehicleName: 'Error',
-          vnumber: 'Error',
-          price: { raw: 0, rawWon: 0, label: '0만원', compactLabel: '0만원' },
-          year: 'Error',
-          mileage: 'Error',
-          options: 'Error',
-          images: [],
-          error: error instanceof Error ? error.message : 'Unknown error',
-        })
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: results,
-      summary: {
-        total: results.length,
-        success: results.filter((r) => !r.error).length,
-        failed: results.filter((r) => r.error).length,
-      },
+  if (!validation.success) {
+    addTruckProcessingBreadcrumb('parsing_error', {
+      error: 'validation_failed',
+      details: validation.error.errors,
     })
-  } catch (error) {
-    console.error('Parse API error:', error)
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: '잘못된 요청 데이터', details: error.errors },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(
-      { success: false, error: '서버 내부 오류' },
-      { status: 500 }
-    )
+    throw createApiError.badRequest('잘못된 요청 데이터', 'VALIDATION_ERROR', {
+      details: validation.error.errors,
+    })
   }
+
+  const { urls, rateLimitMs, timeoutMs } = validation.data
+
+  // 컨텍스트 설정
+  setTruckProcessingContext({
+    operation: 'parse',
+    urlCount: urls.length,
+  })
+
+  addTruckProcessingBreadcrumb('parsing_start', {
+    urlCount: urls.length,
+    rateLimitMs,
+    timeoutMs,
+  })
+
+  const results: TruckData[] = []
+
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i]
+
+    try {
+      // Rate limiting
+      if (results.length > 0) {
+        await new Promise((resolve) => setTimeout(resolve, rateLimitMs))
+      }
+
+      // 개별 URL 처리를 성능 측정과 함께
+      const parsedData = await measureOperation(
+        `parse-truck-url-${i + 1}`,
+        async () => {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+          try {
+            const response = await fetch(url, {
+              signal: controller.signal,
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                Accept:
+                  'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                Connection: 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+              },
+            })
+
+            if (!response.ok) {
+              throw createApiError.badRequest(
+                `HTTP ${response.status}: ${response.statusText}`,
+                'HTTP_ERROR',
+                { statusCode: response.status, url }
+              )
+            }
+
+            const html = await response.text()
+            return await parseHtml(html)
+          } finally {
+            clearTimeout(timeoutId)
+          }
+        },
+        { url: new URL(url).hostname, index: i + 1 }
+      )
+
+      results.push({
+        url,
+        ...parsedData,
+      })
+
+      addTruckProcessingBreadcrumb('parsing_success', {
+        url: new URL(url).hostname,
+        index: i + 1,
+        totalProcessed: results.length,
+      })
+    } catch (error) {
+      // 개별 URL 파싱 실패 시 에러 결과 추가
+      const errorData = {
+        url,
+        vname: 'Error',
+        vehicleName: 'Error',
+        vnumber: 'Error',
+        price: { raw: 0, rawWon: 0, label: '0만원', compactLabel: '0만원' },
+        year: 'Error',
+        mileage: 'Error',
+        options: 'Error',
+        images: [],
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+
+      results.push(errorData)
+
+      addTruckProcessingBreadcrumb('parsing_error', {
+        url: new URL(url).hostname,
+        index: i + 1,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  const summary = {
+    total: results.length,
+    success: results.filter((r) => !r.error).length,
+    failed: results.filter((r) => r.error).length,
+  }
+
+  addTruckProcessingBreadcrumb('parsing_success', summary)
+
+  return NextResponse.json({
+    success: true,
+    data: results,
+    summary,
+  })
 }
+
+// Sentry 에러 핸들러로 래핑하여 export
+export const POST = withTruckProcessingErrorHandler(postHandler)

@@ -9,10 +9,12 @@ import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-sel
 import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
 import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
 
+import { setRouteContext, addSentryBreadcrumb } from '@/shared/lib/sentry-utils'
 import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 import { useAppStore } from '@/shared/model/store'
 import { Button } from '@/shared/ui/button'
+import { ErrorBoundaryWrapper } from '@/shared/ui/error-boundary'
 import { ModeToggle } from '@/shared/ui/mode-toggle'
 
 export const TruckHarvesterApp = () => {
@@ -21,8 +23,18 @@ export const TruckHarvesterApp = () => {
   const { processUrls, cancelProcessing } = useTruckProcessor()
 
   useEffect(() => {
+    // Sentry 라우트 컨텍스트 설정
+    setRouteContext('/')
+    addSentryBreadcrumb('App mounted', 'navigation', 'info', { currentStep })
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (currentStep === 'parsing' || currentStep === 'downloading') {
+        addSentryBreadcrumb(
+          'User attempted to leave during processing',
+          'user_action',
+          'warning',
+          { currentStep }
+        )
         e.preventDefault()
         return '작업이 진행 중입니다. 정말로 페이지를 떠나시겠습니까?'
       }
@@ -184,118 +196,125 @@ export const TruckHarvesterApp = () => {
   }
 
   return (
-    <main className="min-h-screen" id="main-content">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-4 flex justify-end">
-          <ModeToggle />
-        </div>
-        {/* Header */}
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-12 text-center"
-        >
-          <div className="mb-4 flex items-center justify-center gap-3">
-            <div className="bg-primary rounded-xl p-3" aria-hidden="true">
-              <Truck className="text-primary-foreground h-8 w-8" />
-            </div>
-            <h1 className="text-foreground text-4xl font-bold">
-              트럭 매물 수집기
-            </h1>
+    <ErrorBoundaryWrapper identifier="main-app">
+      <main className="min-h-screen" id="main-content">
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-4 flex justify-end">
+            <ModeToggle />
           </div>
-          <p className="text-muted-foreground mx-auto max-w-2xl text-lg">
-            URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께 정리된 파일로
-            생성합니다.
-          </p>
-        </motion.header>
-
-        {/* Step Indicator */}
-        <motion.nav
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mb-8 flex items-center justify-center"
-          aria-label="처리 단계 표시기"
-        >
-          <ol
-            className="flex flex-wrap items-center justify-center"
-            role="list"
-          >
-            {[
-              { key: 'input', label: '설정 & 입력', icon: Settings },
-              { key: 'parsing', label: '분석', icon: Truck },
-              { key: 'downloading', label: '다운로드', icon: Truck },
-              { key: 'completed', label: '완료', icon: Truck },
-            ].map(({ key, label, icon: Icon }, index) => {
-              const isActive = currentStep === key
-              const isCompleted =
-                ['input', 'parsing', 'downloading'].indexOf(currentStep) > index
-
-              const stepStatus = isActive
-                ? '현재 단계'
-                : isCompleted
-                  ? '완료된 단계'
-                  : '대기 중인 단계'
-
-              return (
-                <li key={key} className="flex items-center" role="listitem">
-                  <div
-                    className={`flex items-center gap-2 rounded-full px-4 py-2 transition-all ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : isCompleted
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-muted text-muted-foreground'
-                    }`}
-                    aria-label={`${label} - ${stepStatus}`}
-                    aria-current={isActive ? 'step' : undefined}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-medium">{label}</span>
-                  </div>
-                  {index < 3 && (
-                    <div
-                      className={`mx-2 h-0.5 w-8 transition-all ${
-                        isCompleted ? 'bg-green-300' : 'bg-muted'
-                      }`}
-                      aria-hidden="true"
-                    />
-                  )}
-                </li>
-              )
-            })}
-          </ol>
-        </motion.nav>
-
-        {/* Main Content */}
-        <AnimatePresence mode="wait">
-          <motion.section
-            key={currentStep}
-            initial={{ opacity: 0, y: 20 }}
+          {/* Header */}
+          <motion.header
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="flex justify-center"
-            aria-label={`${currentStep === 'input' ? '설정 및 입력' : currentStep === 'parsing' ? '분석' : currentStep === 'downloading' ? '다운로드' : '완료'} 단계`}
+            className="mb-12 text-center"
           >
-            {renderStep()}
-          </motion.section>
-        </AnimatePresence>
-
-        {/* Footer */}
-        <motion.footer
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="text-muted-foreground mt-16 text-center text-sm"
-          role="contentinfo"
-        >
-          <div className="space-y-2">
-            <p>트럭 매물 수집기 v1.0</p>
-            <p className="text-xs">
-              추가 요청사항 또는 개선사항이 있다면 언제든지 연락 주세요.
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <div className="bg-primary rounded-xl p-3" aria-hidden="true">
+                <Truck className="text-primary-foreground h-8 w-8" />
+              </div>
+              <h1 className="text-foreground text-4xl font-bold">
+                트럭 매물 수집기
+              </h1>
+            </div>
+            <p className="text-muted-foreground mx-auto max-w-2xl text-lg">
+              URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께 정리된
+              파일로 생성합니다.
             </p>
-          </div>
-        </motion.footer>
-      </div>
-    </main>
+          </motion.header>
+
+          {/* Step Indicator */}
+          <ErrorBoundaryWrapper identifier="step-indicator">
+            <motion.nav
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-8 flex items-center justify-center"
+              aria-label="처리 단계 표시기"
+            >
+              <ol
+                className="flex flex-wrap items-center justify-center"
+                role="list"
+              >
+                {[
+                  { key: 'input', label: '설정 & 입력', icon: Settings },
+                  { key: 'parsing', label: '분석', icon: Truck },
+                  { key: 'downloading', label: '다운로드', icon: Truck },
+                  { key: 'completed', label: '완료', icon: Truck },
+                ].map(({ key, label, icon: Icon }, index) => {
+                  const isActive = currentStep === key
+                  const isCompleted =
+                    ['input', 'parsing', 'downloading'].indexOf(currentStep) >
+                    index
+
+                  const stepStatus = isActive
+                    ? '현재 단계'
+                    : isCompleted
+                      ? '완료된 단계'
+                      : '대기 중인 단계'
+
+                  return (
+                    <li key={key} className="flex items-center" role="listitem">
+                      <div
+                        className={`flex items-center gap-2 rounded-full px-4 py-2 transition-all ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : isCompleted
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : 'bg-muted text-muted-foreground'
+                        }`}
+                        aria-label={`${label} - ${stepStatus}`}
+                        aria-current={isActive ? 'step' : undefined}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        <span className="text-sm font-medium">{label}</span>
+                      </div>
+                      {index < 3 && (
+                        <div
+                          className={`mx-2 h-0.5 w-8 transition-all ${
+                            isCompleted ? 'bg-green-300' : 'bg-muted'
+                          }`}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+            </motion.nav>
+          </ErrorBoundaryWrapper>
+
+          {/* Main Content */}
+          <AnimatePresence mode="wait">
+            <motion.section
+              key={currentStep}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="flex justify-center"
+              aria-label={`${currentStep === 'input' ? '설정 및 입력' : currentStep === 'parsing' ? '분석' : currentStep === 'downloading' ? '다운로드' : '완료'} 단계`}
+            >
+              <ErrorBoundaryWrapper identifier={`step-${currentStep}`}>
+                {renderStep()}
+              </ErrorBoundaryWrapper>
+            </motion.section>
+          </AnimatePresence>
+
+          {/* Footer */}
+          <motion.footer
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-muted-foreground mt-16 text-center text-sm"
+            role="contentinfo"
+          >
+            <div className="space-y-2">
+              <p>트럭 매물 수집기 v1.0</p>
+              <p className="text-xs">
+                추가 요청사항 또는 개선사항이 있다면 언제든지 연락 주세요.
+              </p>
+            </div>
+          </motion.footer>
+        </div>
+      </main>
+    </ErrorBoundaryWrapper>
   )
 }
