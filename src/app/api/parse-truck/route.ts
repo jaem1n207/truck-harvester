@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import * as cheerio from 'cheerio'
 import { z } from 'zod'
 
+import { fetchHtml } from '@/shared/lib/fetch-html'
 import {
-  measureOperation,
   addTruckProcessingBreadcrumb,
+  measureOperation,
   setTruckProcessingContext,
 } from '@/shared/lib/sentry-utils'
 import { type TruckData } from '@/shared/model/truck'
 
 import {
-  withTruckProcessingErrorHandler,
   createApiError,
+  withTruckProcessingErrorHandler,
 } from '../sentry-error-handler'
+
+// 런타임/캐시/타임아웃 고정
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const maxDuration = 60
 
 // Vercel Hobby 플랜은 서버리스 함수가 10초 제한이므로 배포 환경에서는 더 짧은 타임아웃 사용
 const isProduction = process.env.NODE_ENV === 'production'
@@ -26,9 +32,9 @@ const parseRequestSchema = z.object({
   timeoutMs: z.number().min(1000).default(defaultTimeout),
 })
 
-async function parseHtml(html: string): Promise<Omit<TruckData, 'url'>> {
-  const $ = cheerio.load(html)
-
+async function parseHtml(
+  $: Awaited<ReturnType<typeof fetchHtml>>
+): Promise<Omit<TruckData, 'url'>> {
   try {
     // 차명 (p.vname에서 추출)
     const vname = $('p.vname').text().trim() || '차명 정보 없음'
@@ -280,36 +286,19 @@ async function postHandler(request: NextRequest) {
         const parsedData = await measureOperation(
           `parse-truck-url-${i + 1}`,
           async () => {
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
             try {
-              const response = await fetch(url, {
-                signal: controller.signal,
-                headers: {
-                  'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                  Accept:
-                    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                  'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
-                  'Accept-Encoding': 'gzip, deflate, br',
-                  Connection: 'keep-alive',
-                  'Upgrade-Insecure-Requests': '1',
-                },
-              })
-
-              if (!response.ok) {
-                throw createApiError.badRequest(
-                  `HTTP ${response.status}: ${response.statusText}`,
-                  'HTTP_ERROR',
-                  { statusCode: response.status, url }
-                )
+              const $ = await fetchHtml(url, timeoutMs)
+              return await parseHtml($)
+            } catch (error) {
+              // fetchHtml에서 발생한 에러를 적절한 형태로 변환
+              const message =
+                error instanceof Error ? error.message : 'Unknown error'
+              if (message.includes('HTTP')) {
+                // HTTP 에러인 경우 기존 에러 형식 유지
+                throw createApiError.badRequest(message, 'HTTP_ERROR', { url })
               }
-
-              const html = await response.text()
-              return await parseHtml(html)
-            } finally {
-              clearTimeout(timeoutId)
+              // 기타 에러 (타임아웃, 봇 차단 등)
+              throw new Error(message)
             }
           },
           { url: new URL(url).hostname, index: i + 1 }
