@@ -3,13 +3,13 @@ import { load as loadHtml } from 'cheerio'
 export async function fetchHtml(url: string, timeoutMs = 10000) {
   const isProduction = process.env.NODE_ENV === 'production'
   const actualTimeout = isProduction
-    ? Math.min(timeoutMs, 8000) // 프로덕션에서 최대 8초로 제한
+    ? Math.min(timeoutMs, 25_000) // 프로덕션에서 최대 25초로 조정
     : timeoutMs
 
   console.log(`[fetchHtml] Fetching ${url} (${actualTimeout}ms timeout)`)
 
   let lastError = new Error('All attempts failed')
-  const maxRetries = 1 // 재시도 제거로 속도 향상
+  const maxRetries = isProduction ? 2 : 1 // 불안정한 응답을 위한 재시도
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     console.log(`[fetchHtml] Attempt ${attempt + 1}/${maxRetries}`)
@@ -89,6 +89,12 @@ export async function fetchHtml(url: string, timeoutMs = 10000) {
       )
 
       lastError = new Error(`HTTP fetch failed: ${e}`)
+
+      // 재시도 전 짧은 대기 (불안정한 응답 대응)
+      if (attempt < maxRetries - 1) {
+        console.log(`[fetchHtml] Waiting 500ms before retry...`)
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
     }
   }
 
