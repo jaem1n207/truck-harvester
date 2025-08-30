@@ -23,8 +23,8 @@ export const maxDuration = 60
 
 // Vercel Hobby 플랜은 서버리스 함수가 10초 제한이므로 배포 환경에서는 더 짧은 타임아웃 사용
 const isProduction = process.env.NODE_ENV === 'production'
-const defaultTimeout = isProduction ? 5000 : 10000 // 배포: 5초, 로컬: 10초
-const defaultRateLimit = isProduction ? 500 : 1000 // 배포: 0.5초, 로컬: 1초
+const defaultTimeout = isProduction ? 3500 : 10000 // 배포: 3.5초, 로컬: 10초
+const defaultRateLimit = isProduction ? 300 : 1000 // 배포: 0.3초, 로컬: 1초
 
 const parseRequestSchema = z.object({
   urls: z.array(z.string().url()).min(1),
@@ -189,7 +189,7 @@ async function parseHtml(
 
 async function postHandler(request: NextRequest) {
   // 전체 함수 실행 시간 제한 (Vercel Hobby 플랜 10초 제한 대응)
-  const maxExecutionTime = isProduction ? 8000 : 30000 // 배포: 8초, 로컬: 30초
+  const maxExecutionTime = isProduction ? 9500 : 30000 // 배포: 9.5초, 로컬: 30초
   const executionController = new AbortController()
   const executionTimeoutId = setTimeout(() => {
     executionController.abort()
@@ -258,8 +258,8 @@ async function postHandler(request: NextRequest) {
       const elapsedTime = Date.now() - startTime
       const remainingTime = maxExecutionTime - elapsedTime
 
-      // 남은 시간이 최소 처리 시간보다 적으면 중단
-      if (remainingTime < timeoutMs + rateLimitMs) {
+      // 남은 시간이 최소 처리 시간보다 적으면 중단 (더 관대한 임계값)
+      if (remainingTime < timeoutMs * 0.8) {
         const errorData = {
           url,
           vname: 'Error',
