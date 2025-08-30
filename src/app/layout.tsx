@@ -1,7 +1,18 @@
 import type { Metadata } from 'next'
 
-import './globals.css'
+import dynamic from 'next/dynamic'
+
 import { ThemeProvider } from '@/shared/lib/theme-provider'
+
+import './globals.css'
+
+const Signature = dynamic(
+  () =>
+    import('@/shared/ui/animated-ui/signature').then((mod) => mod.Signature),
+  {
+    ssr: true,
+  }
+)
 
 export const metadata: Metadata = {
   title: {
@@ -86,15 +97,13 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body className="antialiased">
-        <a href="#main-content" className="skip-link">
-          주요 콘텐츠로 바로가기
-        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
+          <Signature />
           {children}
         </ThemeProvider>
       </body>
