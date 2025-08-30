@@ -102,3 +102,5 @@ if (typeof window !== 'undefined') {
     })
   })
 }
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart

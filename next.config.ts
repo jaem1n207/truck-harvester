@@ -16,14 +16,15 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-toast',
       'motion',
     ],
-    // Turbo 성능 향상
-    turbo: {
-      rules: {
-        // 이미지 최적화
-        '*.{png,jpg,jpeg,gif,webp,avif}': {
-          loaders: ['file-loader'],
-          as: '*.js',
-        },
+  },
+
+  // Turbo 성능 향상
+  turbopack: {
+    rules: {
+      // 이미지 최적화
+      '*.{png,jpg,jpeg,gif,webp,avif}': {
+        loaders: ['file-loader'],
+        as: '*.js',
       },
     },
   },
