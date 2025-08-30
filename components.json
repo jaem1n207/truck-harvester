@@ -17,5 +17,10 @@
     "ui": "@/shared/ui",
     "lib": "@/shared/lib",
     "hooks": "@/shared/hooks"
+  },
+  "registries": {
+    "@magicui": {
+      "url": "https://magicui.design/r/{name}"
+    }
   }
 }
