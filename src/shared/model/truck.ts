@@ -59,3 +59,26 @@ export type ParseRequest = z.infer<typeof parseRequestSchema>
 export type ParseResponse = z.infer<typeof parseResponseSchema>
 export type DownloadStatus = z.infer<typeof downloadStatusSchema>
 export type AppConfig = z.infer<typeof appConfigSchema>
+
+/**
+ * 트럭 데이터가 유효한지 확인 (에러가 있는 데이터 제외)
+ */
+export const isValidTruckData = (data: TruckData): boolean => {
+  return (
+    data.vname !== 'Error' &&
+    data.vehicleName !== 'Error' &&
+    data.vnumber !== 'Error' &&
+    data.year !== 'Error' &&
+    data.mileage !== 'Error' &&
+    data.options !== 'Error' &&
+    !data.error &&
+    data.images.length > 0
+  )
+}
+
+/**
+ * 트럭 데이터 배열에서 유효한 데이터만 필터링
+ */
+export const getValidTruckData = (dataList: TruckData[]): TruckData[] => {
+  return dataList.filter(isValidTruckData)
+}

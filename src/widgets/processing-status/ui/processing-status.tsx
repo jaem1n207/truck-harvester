@@ -103,11 +103,23 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
             )}
             {currentStep === 'completed' && (
               <>
-                <CheckCircle
-                  className="h-5 w-5 text-green-600"
-                  aria-hidden="true"
-                />
-                처리 완료
+                {completedCount > 0 ? (
+                  <>
+                    <CheckCircle
+                      className="h-5 w-5 text-green-600"
+                      aria-hidden="true"
+                    />
+                    처리 완료
+                  </>
+                ) : (
+                  <>
+                    <XCircle
+                      className="h-5 w-5 text-red-600"
+                      aria-hidden="true"
+                    />
+                    처리 실패
+                  </>
+                )}
               </>
             )}
           </CardTitle>
@@ -274,18 +286,42 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20"
+            className={`mt-6 rounded-lg border p-4 ${
+              completedCount > 0
+                ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
+                : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+            }`}
             role="status"
             aria-live="polite"
           >
-            <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
-              <CheckCircle className="h-5 w-5" aria-hidden="true" />
+            <div
+              className={`flex items-center gap-2 ${
+                completedCount > 0
+                  ? 'text-green-800 dark:text-green-200'
+                  : 'text-red-800 dark:text-red-200'
+              }`}
+            >
+              {completedCount > 0 ? (
+                <CheckCircle className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <XCircle className="h-5 w-5" aria-hidden="true" />
+              )}
               <div>
-                <div className="font-medium">처리가 완료되었습니다!</div>
+                <div className="font-medium">
+                  {completedCount > 0
+                    ? '처리가 완료되었습니다!'
+                    : '처리가 실패했습니다!'}
+                </div>
                 <div className="text-sm">
                   총 {totalCount}개 중 {completedCount}개 성공, {failedCount}개
                   실패
                 </div>
+                {completedCount === 0 && (
+                  <div className="mt-1 text-sm">
+                    모든 URL에서 파싱에 실패했습니다. URL을 확인하고 다시
+                    시도해주세요.
+                  </div>
+                )}
               </div>
             </div>
             <div id="cancel-description" className="sr-only">

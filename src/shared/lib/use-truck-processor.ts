@@ -13,7 +13,11 @@ import {
 } from '@/shared/lib/sentry-utils'
 import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
 import { useAppStore } from '@/shared/model/store'
-import { ParseResponse } from '@/shared/model/truck'
+import {
+  ParseResponse,
+  isValidTruckData,
+  getValidTruckData,
+} from '@/shared/model/truck'
 
 export const useTruckProcessor = () => {
   const {
@@ -98,30 +102,36 @@ export const useTruckProcessor = () => {
       const truckDataList = parseResult.data
       setTruckData(truckDataList)
 
+      // Filter out invalid truck data (Error values) for downloads
+      const validTruckData = getValidTruckData(truckDataList)
+      const invalidTruckData = truckDataList.filter(
+        (truck) => !isValidTruckData(truck)
+      )
+
       addTruckProcessingBreadcrumb('parsing_success', {
-        successCount: parseResult.summary?.success || 0,
-        failedCount: parseResult.summary?.failed || 0,
-        totalCount: parseResult.summary?.total || 0,
+        successCount: validTruckData.length,
+        failedCount: invalidTruckData.length,
+        totalCount: truckDataList.length,
       })
 
-      // Step 2: Download files with tracking
+      // Step 2: Download files with tracking (only for valid data)
       setCurrentStep('downloading')
       resetDownloadStatuses()
 
       // 컨텍스트 업데이트
       setTruckProcessingContext({
         operation: 'download',
-        urlCount: truckDataList.length,
+        urlCount: validTruckData.length,
       })
 
       addTruckProcessingBreadcrumb('download_start', {
         downloadMode:
           config.selectedDirectory === 'ZIP_DOWNLOAD' ? 'zip' : 'filesystem',
-        vehicleCount: truckDataList.length,
+        vehicleCount: validTruckData.length,
       })
 
-      // Initialize download statuses
-      truckDataList.forEach((truck) => {
+      // Initialize download statuses for valid data only
+      validTruckData.forEach((truck) => {
         setDownloadStatus(truck.vnumber, {
           vehicleNumber: truck.vnumber,
           status: 'pending',
@@ -131,21 +141,33 @@ export const useTruckProcessor = () => {
         })
       })
 
+      // Mark invalid data as failed without processing
+      invalidTruckData.forEach((truck) => {
+        setDownloadStatus(truck.vnumber, {
+          vehicleNumber: truck.vnumber,
+          status: 'failed',
+          progress: 0,
+          downloadedImages: 0,
+          totalImages: 0,
+          error: truck.error || '파싱 실패',
+        })
+      })
+
       await measureOperation(
         'truck-processing-download',
         async () => {
           if (config.selectedDirectory === 'ZIP_DOWNLOAD') {
-            // ZIP download mode
+            // ZIP download mode (only process valid data)
             await downloadAsZip(
-              truckDataList,
+              validTruckData,
               (progress) => {
                 console.log(`ZIP 진행률: ${progress}%`)
               },
               controller.signal
             )
 
-            // Mark all as completed
-            truckDataList.forEach((truck) => {
+            // Mark valid data as completed
+            validTruckData.forEach((truck) => {
               setDownloadStatus(truck.vnumber, {
                 status: 'completed',
                 progress: 100,
@@ -159,8 +181,8 @@ export const useTruckProcessor = () => {
               throw new Error('디렉토리가 선택되지 않았습니다.')
             }
 
-            // Process each truck sequentially
-            for (const truck of truckDataList) {
+            // Process each valid truck sequentially
+            for (const truck of validTruckData) {
               if (controller.signal.aborted) {
                 throw new Error('작업이 취소되었습니다.')
               }
@@ -215,12 +237,13 @@ export const useTruckProcessor = () => {
         {
           downloadMode:
             config.selectedDirectory === 'ZIP_DOWNLOAD' ? 'zip' : 'filesystem',
-          vehicleCount: truckDataList.length,
+          vehicleCount: validTruckData.length,
         }
       )
 
       addTruckProcessingBreadcrumb('download_complete', {
-        totalVehicles: truckDataList.length,
+        totalVehicles: validTruckData.length,
+        invalidVehicles: invalidTruckData.length,
       })
 
       setCurrentStep('completed')
