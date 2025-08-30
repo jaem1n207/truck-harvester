@@ -9,11 +9,12 @@ import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-sel
 import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
 import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
 
-import { setRouteContext, addSentryBreadcrumb } from '@/shared/lib/sentry-utils'
+import { addSentryBreadcrumb, setRouteContext } from '@/shared/lib/sentry-utils'
 import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 import { useAppStore } from '@/shared/model/store'
 import { Button } from '@/shared/ui/button'
+import { ClientGate } from '@/shared/ui/client-gate'
 import { ErrorBoundaryWrapper } from '@/shared/ui/error-boundary'
 import { ModeToggle } from '@/shared/ui/mode-toggle'
 
@@ -200,7 +201,9 @@ export const TruckHarvesterApp = () => {
       <main className="min-h-screen" id="main-content">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-4 flex justify-end">
-            <ModeToggle />
+            <ClientGate>
+              <ModeToggle />
+            </ClientGate>
           </div>
           {/* Header */}
           <motion.header

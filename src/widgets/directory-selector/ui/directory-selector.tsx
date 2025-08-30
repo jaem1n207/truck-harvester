@@ -9,6 +9,7 @@ import {
 } from '@/shared/lib/file-system'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 import { useAppStore } from '@/shared/model/store'
+import { ShineBorder } from '@/shared/ui/animated-ui/shine-border'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -141,12 +142,21 @@ export const DirectorySelector = () => {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* File System Access API 방식 */}
             <div
-              className={`space-y-3 rounded-lg border p-4 ${
-                isSupported
-                  ? 'border-primary/50'
-                  : 'border-muted bg-muted/50 opacity-60'
+              className={`relative space-y-3 rounded-lg p-4 ${
+                !isZipMode && config.selectedDirectory
+                  ? 'border'
+                  : isSupported
+                    ? 'border-primary/50 border'
+                    : 'border-muted bg-muted/50 border opacity-60'
               }`}
             >
+              {!isZipMode && config.selectedDirectory && (
+                <ShineBorder
+                  className="rounded-lg"
+                  borderWidth={2}
+                  shineColor={['#3b82f6', '#06b6d4', '#8b5cf6']}
+                />
+              )}
               <motion.div
                 whileHover={isSupported ? { scale: 1.02 } : undefined}
               >
@@ -229,37 +239,46 @@ export const DirectorySelector = () => {
             </div>
 
             {/* ZIP 다운로드 방식 */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              className={`w-full cursor-pointer space-y-3 rounded-lg border p-4 text-left ${
-                isZipMode
-                  ? 'border-primary bg-primary/5'
-                  : 'border-muted hover:border-primary/50'
-              }`}
-              onClick={handleUseZipFallback}
-              aria-pressed={isZipMode}
-              aria-label="ZIP 파일로 다운로드 방식 선택"
-            >
-              <div className="flex items-center gap-2">
-                <Download className="text-primary h-5 w-5" />
-                <span className="font-medium">ZIP 다운로드</span>
-                <Badge variant="outline">대체 방식</Badge>
-              </div>
-
-              <div className="text-muted-foreground text-sm">
-                모든 파일을 ZIP으로 압축하여 다운로드 폴더에 저장합니다.
-              </div>
-
+            <div className="relative">
               {isZipMode && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-primary text-sm font-medium"
-                >
-                  ✓ ZIP 다운로드 방식 선택됨
-                </motion.div>
+                <ShineBorder
+                  className="rounded-lg"
+                  borderWidth={2}
+                  shineColor={['#f59e0b', '#f97316', '#dc2626']}
+                />
               )}
-            </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                className={`w-full cursor-pointer space-y-3 rounded-lg p-4 text-left ${
+                  isZipMode
+                    ? 'bg-primary/5 border'
+                    : 'border-muted hover:border-primary/50 border'
+                }`}
+                onClick={handleUseZipFallback}
+                aria-pressed={isZipMode}
+                aria-label="ZIP 파일로 다운로드 방식 선택"
+              >
+                <div className="flex items-center gap-2">
+                  <Download className="text-primary h-5 w-5" />
+                  <span className="font-medium">ZIP 다운로드</span>
+                  <Badge variant="outline">대체 방식</Badge>
+                </div>
+
+                <div className="text-muted-foreground text-sm">
+                  모든 파일을 ZIP으로 압축하여 다운로드 폴더에 저장합니다.
+                </div>
+
+                {isZipMode && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-primary text-sm font-medium"
+                  >
+                    ✓ ZIP 다운로드 방식 선택됨
+                  </motion.div>
+                )}
+              </motion.button>
+            </div>
           </div>
 
           {config.selectedDirectory &&
