@@ -48,6 +48,7 @@ interface AppState {
 }
 
 const initialConfig: AppConfig = {
+  selectedDirectory: 'ZIP_DOWNLOAD', // 기본값으로 ZIP 다운로드 설정
   rateLimitMs: 1000,
   timeoutMs: 10000,
   maxRetries: 3,

@@ -15,14 +15,15 @@ import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
 import { useAppStore } from '@/shared/model/store'
 import {
   ParseResponse,
-  isValidTruckData,
   getValidTruckData,
+  isValidTruckData,
 } from '@/shared/model/truck'
 
 export const useTruckProcessor = () => {
   const {
     urlsText,
     config,
+    currentStep,
     setTruckData,
     setParseResult,
     setCurrentStep,
@@ -153,10 +154,16 @@ export const useTruckProcessor = () => {
         })
       })
 
+      console.log('[use-truck-processor] Starting download phase', {
+        selectedDirectory: config.selectedDirectory,
+        validTruckDataCount: validTruckData.length,
+      })
+
       await measureOperation(
         'truck-processing-download',
         async () => {
           if (config.selectedDirectory === 'ZIP_DOWNLOAD') {
+            console.log('[use-truck-processor] Using ZIP download mode')
             // ZIP download mode (only process valid data)
             await downloadAsZip(
               validTruckData,
@@ -175,8 +182,15 @@ export const useTruckProcessor = () => {
               })
             })
           } else {
+            console.log(
+              '[use-truck-processor] Using File System Access API mode'
+            )
             // File System Access API mode
             const dirHandle = await selectDirectory()
+            console.log(
+              '[use-truck-processor] Directory selected:',
+              !!dirHandle
+            )
             if (!dirHandle) {
               throw new Error('디렉토리가 선택되지 않았습니다.')
             }
@@ -250,6 +264,15 @@ export const useTruckProcessor = () => {
     } catch (error) {
       // 에러 처리 및 Sentry 리포팅
       const isAbortError = controller.signal.aborted
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+
+      console.log('[use-truck-processor] Error occurred:', {
+        isAbortError,
+        errorMessage,
+        currentStep,
+        config,
+      })
 
       if (isAbortError) {
         addTruckProcessingBreadcrumb('processing_cancelled', {
@@ -265,13 +288,18 @@ export const useTruckProcessor = () => {
           extra: {
             urlCount: validUrls.length,
             config,
+            currentStep,
           },
         })
 
         addTruckProcessingBreadcrumb('processing_error', {
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: errorMessage,
+          currentStep,
         })
 
+        console.log(
+          '[use-truck-processor] Setting currentStep back to input due to error'
+        )
         // 에러 상태로 돌아가기
         setCurrentStep('input')
       }

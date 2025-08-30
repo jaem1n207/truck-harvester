@@ -10,6 +10,19 @@ export async function fetchHtml(url: string, timeoutMs = 10000) {
 
   console.log(`[fetchHtml] Fetching ${url} (${actualTimeout}ms timeout)`)
 
+  // 프로덕션에서 truck-no1.co.kr은 바로 프록시 사용 (직접 연결 시도하지 않음)
+  if (isProduction && url.includes('truck-no1.co.kr')) {
+    console.log(
+      `[fetchHtml] truck-no1.co.kr detected in production, using proxy directly`
+    )
+    try {
+      return await proxyFetch(url, actualTimeout)
+    } catch (proxyError) {
+      console.log(`[fetchHtml] Proxy fetch failed:`, proxyError)
+      throw new Error(`Proxy fetch failed: ${proxyError}`)
+    }
+  }
+
   let lastError = new Error('All attempts failed')
   const maxRetries = isProduction ? 2 : 1 // 불안정한 응답을 위한 재시도
 
@@ -97,21 +110,6 @@ export async function fetchHtml(url: string, timeoutMs = 10000) {
         console.log(`[fetchHtml] Waiting 500ms before retry...`)
         await new Promise((resolve) => setTimeout(resolve, 500))
       }
-    }
-  }
-
-  // 모든 직접 연결 실패 시 프록시 시도 (truck-no1.co.kr만)
-  if (isProduction && url.includes('truck-no1.co.kr')) {
-    console.log(
-      `[fetchHtml] Direct connection failed, trying proxy services...`
-    )
-    try {
-      return await proxyFetch(url, actualTimeout)
-    } catch (proxyError) {
-      console.log(`[fetchHtml] Proxy fetch also failed:`, proxyError)
-      throw new Error(
-        `Both direct and proxy fetch failed: ${lastError.message}`
-      )
     }
   }
 
