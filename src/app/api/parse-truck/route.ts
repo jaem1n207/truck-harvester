@@ -188,13 +188,6 @@ async function parseHtml(
 }
 
 async function postHandler(request: NextRequest) {
-  // 전체 함수 실행 시간 제한 (Vercel Hobby 플랜 10초 제한 대응)
-  const maxExecutionTime = isProduction ? 9500 : 30000 // 배포: 9.5초, 로컬: 30초
-  const executionController = new AbortController()
-  const executionTimeoutId = setTimeout(() => {
-    executionController.abort()
-  }, maxExecutionTime)
-
   try {
     // 요청 데이터 검증
     const body = await request.json()
@@ -226,7 +219,6 @@ async function postHandler(request: NextRequest) {
       urlCount: urls.length,
       rateLimitMs,
       timeoutMs,
-      maxExecutionTime,
       isProduction,
     })
 
@@ -235,46 +227,6 @@ async function postHandler(request: NextRequest) {
 
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i]
-
-      // 실행 시간 초과 체크
-      if (executionController.signal.aborted) {
-        const errorData = {
-          url,
-          vname: 'Error',
-          vehicleName: 'Error',
-          vnumber: 'Error',
-          price: { raw: 0, rawWon: 0, label: '0만원', compactLabel: '0만원' },
-          year: 'Error',
-          mileage: 'Error',
-          options: 'Error',
-          images: [],
-          error: '전체 실행 시간 초과로 인한 중단',
-        }
-        results.push(errorData)
-        break
-      }
-
-      // 남은 시간 계산
-      const elapsedTime = Date.now() - startTime
-      const remainingTime = maxExecutionTime - elapsedTime
-
-      // 남은 시간이 최소 처리 시간보다 적으면 중단 (더 관대한 임계값)
-      if (remainingTime < timeoutMs * 0.8) {
-        const errorData = {
-          url,
-          vname: 'Error',
-          vehicleName: 'Error',
-          vnumber: 'Error',
-          price: { raw: 0, rawWon: 0, label: '0만원', compactLabel: '0만원' },
-          year: 'Error',
-          mileage: 'Error',
-          options: 'Error',
-          images: [],
-          error: '남은 실행 시간 부족으로 인한 중단',
-        }
-        results.push(errorData)
-        break
-      }
 
       try {
         // Rate limiting
@@ -357,8 +309,8 @@ async function postHandler(request: NextRequest) {
       data: results,
       summary,
     })
-  } finally {
-    clearTimeout(executionTimeoutId)
+  } catch (error) {
+    throw error
   }
 }
 
