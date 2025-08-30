@@ -1,21 +1,15 @@
 import { load as loadHtml } from 'cheerio'
 
-import { proxyFetch } from './proxy-fetch'
-
 export async function fetchHtml(url: string, timeoutMs = 10000) {
   const isProduction = process.env.NODE_ENV === 'production'
   const actualTimeout = isProduction
-    ? Math.max(timeoutMs * 1.5, 8000)
+    ? Math.min(timeoutMs, 8000) // 프로덕션에서 최대 8초로 제한
     : timeoutMs
 
-  console.log(`[fetchHtml] Starting fetch for ${url}`)
-  console.log(
-    `[fetchHtml] Environment: ${isProduction ? 'production' : 'development'}`
-  )
-  console.log(`[fetchHtml] Timeout: ${actualTimeout}ms`)
+  console.log(`[fetchHtml] Fetching ${url} (${actualTimeout}ms timeout)`)
 
   let lastError = new Error('All attempts failed')
-  const maxRetries = isProduction ? 2 : 1
+  const maxRetries = 1 // 재시도 제거로 속도 향상
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     console.log(`[fetchHtml] Attempt ${attempt + 1}/${maxRetries}`)
@@ -61,22 +55,14 @@ export async function fetchHtml(url: string, timeoutMs = 10000) {
 
       clearTimeout(timeoutId)
       const fetchTime = Date.now() - startTime
-      console.log(`[fetchHtml] Fetch completed in ${fetchTime}ms`)
-      console.log(
-        `[fetchHtml] Response status: ${res.status} ${res.statusText}`
-      )
-      console.log(
-        `[fetchHtml] Response headers:`,
-        Object.fromEntries(res.headers.entries())
-      )
+      console.log(`[fetchHtml] Response: ${res.status} in ${fetchTime}ms`)
 
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
 
-      console.log(`[fetchHtml] Reading response body...`)
       const text = await res.text()
       const totalTime = Date.now() - startTime
       console.log(
-        `[fetchHtml] Body read in ${totalTime}ms, length: ${text.length}`
+        `[fetchHtml] Completed in ${totalTime}ms, ${text.length} chars`
       )
 
       // 더 보수적인 차단/봇페이지 휴리스틱
@@ -93,7 +79,6 @@ export async function fetchHtml(url: string, timeoutMs = 10000) {
         throw new Error('Blocked or challenge page detected')
       }
 
-      console.log(`[fetchHtml] Successfully fetched and parsed HTML`)
       return loadHtml(text)
     } catch (e) {
       clearTimeout(timeoutId)
@@ -104,27 +89,6 @@ export async function fetchHtml(url: string, timeoutMs = 10000) {
       )
 
       lastError = new Error(`HTTP fetch failed: ${e}`)
-
-      // 마지막 시도가 아니면 잠시 대기 후 재시도
-      if (attempt < maxRetries - 1) {
-        console.log(`[fetchHtml] Waiting 1s before retry...`)
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-      }
-    }
-  }
-
-  // 모든 직접 연결 시도 실패 시 프록시 시도
-  if (isProduction && url.includes('truck-no1.co.kr')) {
-    console.log(
-      `[fetchHtml] Direct connection failed, trying proxy services...`
-    )
-    try {
-      return await proxyFetch(url, actualTimeout)
-    } catch (proxyError) {
-      console.log(`[fetchHtml] Proxy fetch also failed:`, proxyError)
-      throw new Error(
-        `Both direct and proxy fetch failed: ${lastError.message}`
-      )
     }
   }
 
