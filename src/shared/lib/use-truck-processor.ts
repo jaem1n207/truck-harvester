@@ -1,9 +1,12 @@
 import { useCallback } from 'react'
 
 import {
+  checkAndRequestPermission,
   downloadAsZip,
   downloadTruckData,
+  isFileSystemAccessSupported,
   selectDirectory,
+  storeDirectoryHandle,
 } from '@/shared/lib/file-system'
 import {
   addTruckProcessingBreadcrumb,
@@ -23,6 +26,9 @@ export const useTruckProcessor = () => {
   const {
     urlsText,
     config,
+    updateConfig,
+    directoryHandle,
+    setDirectoryHandle,
     currentStep,
     setTruckData,
     setParseResult,
@@ -162,8 +168,54 @@ export const useTruckProcessor = () => {
       await measureOperation(
         'truck-processing-download',
         async () => {
-          if (config.selectedDirectory === 'ZIP_DOWNLOAD') {
-            console.log('[use-truck-processor] Using ZIP download mode')
+          // 다운로드 방식 결정
+          let shouldUseZipMode =
+            config.selectedDirectory === 'ZIP_DOWNLOAD' ||
+            !isFileSystemAccessSupported()
+          let permissionCheckResult = false
+
+          // File System Access API 모드에서 directoryHandle 권한 확인
+          if (!shouldUseZipMode && directoryHandle) {
+            try {
+              console.log(
+                '[use-truck-processor] Checking directory permissions...'
+              )
+              permissionCheckResult =
+                await checkAndRequestPermission(directoryHandle)
+              console.log(
+                '[use-truck-processor] Permission check result:',
+                permissionCheckResult
+              )
+
+              if (!permissionCheckResult) {
+                console.log(
+                  '[use-truck-processor] Permission denied, falling back to ZIP mode'
+                )
+                shouldUseZipMode = true
+              }
+            } catch (error) {
+              console.warn(
+                '[use-truck-processor] Permission check failed:',
+                error
+              )
+              shouldUseZipMode = true
+            }
+          } else if (!shouldUseZipMode && !directoryHandle) {
+            shouldUseZipMode = true
+          }
+
+          if (shouldUseZipMode) {
+            console.log('[use-truck-processor] Using ZIP download mode', {
+              reason:
+                config.selectedDirectory === 'ZIP_DOWNLOAD'
+                  ? 'user_selected_zip'
+                  : !isFileSystemAccessSupported()
+                    ? 'api_not_supported'
+                    : !directoryHandle
+                      ? 'no_directory_handle'
+                      : 'permission_denied',
+            })
+
             // ZIP download mode (only process valid data)
             await downloadAsZip(
               validTruckData,
@@ -185,15 +237,8 @@ export const useTruckProcessor = () => {
             console.log(
               '[use-truck-processor] Using File System Access API mode'
             )
-            // File System Access API mode
-            const dirHandle = await selectDirectory()
-            console.log(
-              '[use-truck-processor] Directory selected:',
-              !!dirHandle
-            )
-            if (!dirHandle) {
-              throw new Error('디렉토리가 선택되지 않았습니다.')
-            }
+            // File System Access API mode - directoryHandle이 확실히 존재함
+            const dirHandle = directoryHandle!
 
             // Process each valid truck sequentially
             for (const truck of validTruckData) {
@@ -309,14 +354,16 @@ export const useTruckProcessor = () => {
     }
   }, [
     urlsText,
-    config,
-    setTruckData,
-    setParseResult,
-    setCurrentStep,
-    setIsProcessing,
-    setDownloadStatus,
-    resetDownloadStatuses,
     setAbortController,
+    setIsProcessing,
+    setCurrentStep,
+    config,
+    directoryHandle,
+    setParseResult,
+    setTruckData,
+    resetDownloadStatuses,
+    setDownloadStatus,
+    currentStep,
   ])
 
   const cancelProcessing = useCallback(() => {
@@ -325,8 +372,34 @@ export const useTruckProcessor = () => {
     }
   }, [abortController])
 
+  const selectAndStoreDirectory = useCallback(async () => {
+    try {
+      const dirHandle = await selectDirectory()
+      if (dirHandle) {
+        // 디렉토리 핸들을 별도 상태로 저장
+        setDirectoryHandle(dirHandle)
+        updateConfig({
+          selectedDirectory: dirHandle.name,
+        })
+
+        // Persistent Permissions를 위해 IndexedDB에 저장
+        await storeDirectoryHandle(dirHandle)
+        console.log(
+          '[use-truck-processor] Directory handle stored for persistent permissions'
+        )
+
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Directory selection failed:', error)
+      return false
+    }
+  }, [updateConfig, setDirectoryHandle])
+
   return {
     processUrls,
     cancelProcessing,
+    selectAndStoreDirectory,
   }
 }
