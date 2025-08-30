@@ -1,5 +1,7 @@
 import { load as loadHtml } from 'cheerio'
 
+import { proxyFetch } from './proxy-fetch'
+
 export async function fetchHtml(url: string, timeoutMs = 10000) {
   const isProduction = process.env.NODE_ENV === 'production'
   const actualTimeout = isProduction
@@ -95,6 +97,21 @@ export async function fetchHtml(url: string, timeoutMs = 10000) {
         console.log(`[fetchHtml] Waiting 500ms before retry...`)
         await new Promise((resolve) => setTimeout(resolve, 500))
       }
+    }
+  }
+
+  // 모든 직접 연결 실패 시 프록시 시도 (truck-no1.co.kr만)
+  if (isProduction && url.includes('truck-no1.co.kr')) {
+    console.log(
+      `[fetchHtml] Direct connection failed, trying proxy services...`
+    )
+    try {
+      return await proxyFetch(url, actualTimeout)
+    } catch (proxyError) {
+      console.log(`[fetchHtml] Proxy fetch also failed:`, proxyError)
+      throw new Error(
+        `Both direct and proxy fetch failed: ${lastError.message}`
+      )
     }
   }
 
