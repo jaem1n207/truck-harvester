@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 export const alt = '트럭 매물 수집기 - 중고 트럭 매물 정보와 이미지를 자동 수집'
 export const size = {
