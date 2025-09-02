@@ -4,6 +4,11 @@ import { AlertCircle, Download, Folder } from 'lucide-react'
 import { motion } from 'motion/react'
 
 import {
+  trackDirectorySelect,
+  trackDownloadMethod,
+  trackFeatureUsage,
+} from '@/shared/lib/analytics'
+import {
   checkAndRequestPermission,
   isFileSystemAccessSupported,
 } from '@/shared/lib/file-system'
@@ -81,6 +86,10 @@ export const DirectorySelector = () => {
     try {
       setIsSelecting(true)
       await selectAndStoreDirectory()
+
+      // Analytics: 디렉토리 선택 추적
+      trackDirectorySelect()
+      trackDownloadMethod('file_system_api')
     } catch (error) {
       console.error('디렉토리 선택 오류:', error)
     } finally {
@@ -90,6 +99,10 @@ export const DirectorySelector = () => {
 
   const handleUseZipFallback = () => {
     updateConfig({ selectedDirectory: 'ZIP_DOWNLOAD' })
+
+    // Analytics: ZIP 모드 선택 추적
+    trackDownloadMethod('zip_download')
+    trackFeatureUsage('zip_mode_selected')
   }
 
   const handleRequestPermission = async () => {
@@ -99,6 +112,10 @@ export const DirectorySelector = () => {
     try {
       const permission = await checkAndRequestPermission(directoryHandle)
       setHasPermission(permission)
+
+      // Analytics: 권한 재요청 추적
+      trackFeatureUsage('permission_recheck')
+
       if (!permission) {
         console.log('Permission denied by user')
       }

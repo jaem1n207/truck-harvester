@@ -9,6 +9,12 @@ import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-sel
 import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
 import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
 
+import {
+  trackFeatureUsage,
+  trackProcessingCancel,
+  trackProcessingStart,
+  trackStepTransition,
+} from '@/shared/lib/analytics'
 import { addSentryBreadcrumb, setRouteContext } from '@/shared/lib/sentry-utils'
 import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
@@ -28,6 +34,9 @@ export const TruckHarvesterApp = () => {
     setRouteContext('/')
     addSentryBreadcrumb('App mounted', 'navigation', 'info', { currentStep })
 
+    // Analytics: 앱 시작 추적
+    trackFeatureUsage('app_mounted')
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (currentStep === 'parsing' || currentStep === 'downloading') {
         addSentryBreadcrumb(
@@ -42,7 +51,20 @@ export const TruckHarvesterApp = () => {
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
+
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    // Analytics: 단계 변화 추적
+    if (currentStep !== 'input') {
+      const steps = ['input', 'parsing', 'downloading', 'completed']
+      const currentIndex = steps.indexOf(currentStep)
+      const previousStep =
+        currentIndex > 0 ? steps[currentIndex - 1] : 'initial'
+      trackStepTransition(previousStep, currentStep)
+    }
   }, [currentStep])
 
   const handleStartProcessing = () => {
@@ -67,6 +89,9 @@ export const TruckHarvesterApp = () => {
       alert('저장 위치를 선택해주세요.')
       return
     }
+
+    // Analytics: 처리 시작 추적
+    trackProcessingStart(validUrls.length)
 
     processUrls()
   }
@@ -123,11 +148,17 @@ export const TruckHarvesterApp = () => {
   }
 
   const handleCancel = () => {
+    // Analytics: 처리 취소 추적
+    trackProcessingCancel(currentStep)
+
     cancelProcessing()
     setCurrentStep('input')
   }
 
   const handleReset = () => {
+    // Analytics: 리셋 추적
+    trackFeatureUsage('reset_app')
+
     reset()
     setCurrentStep('input')
   }

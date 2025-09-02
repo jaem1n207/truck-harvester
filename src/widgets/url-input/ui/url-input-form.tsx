@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, Plus, Trash2, X } from 'lucide-react'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
 
+import { trackFeatureUsage, trackUrlInput } from '@/shared/lib/analytics'
 import {
   getValidUrls,
   UrlValidationResult,
@@ -148,8 +149,13 @@ export const UrlInputForm = () => {
     }
 
     // 성공적으로 추가
-    setUrls([...urls, trimmedInput])
+    const newUrls = [...urls, trimmedInput]
+    setUrls(newUrls)
     setCurrentInput('')
+
+    // Analytics: URL 추가 추적
+    trackFeatureUsage('url_added')
+    trackUrlInput(newUrls.length)
   }
 
   const handleRemoveUrl = (index: number) => {
@@ -158,6 +164,10 @@ export const UrlInputForm = () => {
     // 즉시 urlsText도 업데이트하여 상태 동기화
     const newUrlsText = newUrls.join('\n')
     setUrlsText(newUrlsText)
+
+    // Analytics: URL 제거 추적
+    trackFeatureUsage('url_removed')
+    trackUrlInput(newUrls.length)
 
     // URL 제거 후 인풋으로 자동 포커스
     setTimeout(() => {

@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+
 import {
   AlertCircle,
   CheckCircle,
@@ -9,6 +11,11 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
+import {
+  trackError,
+  trackProcessingComplete,
+  ProcessingMetrics,
+} from '@/shared/lib/analytics'
 import { useTimeEstimation } from '@/shared/lib/use-time-estimation'
 import { useAppStore } from '@/shared/model/store'
 import { DownloadStatus } from '@/shared/model/truck'
@@ -64,6 +71,7 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
 }) => {
   const { downloadStatuses, currentStep, isProcessing } = useAppStore()
   const timeEstimation = useTimeEstimation()
+  const hasTrackedCompletion = useRef(false)
 
   const completedCount = downloadStatuses.filter(
     (s) => s.status === 'completed'
@@ -79,6 +87,35 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
 
   const isCompleted = currentStep === 'completed'
   const canCancel = isProcessing && !isCompleted
+
+  // Analytics: 처리 완료 및 에러 추적
+  useEffect(() => {
+    if (isCompleted && !hasTrackedCompletion.current && totalCount > 0) {
+      hasTrackedCompletion.current = true
+
+      const processingMetrics: ProcessingMetrics = {
+        urlCount: totalCount,
+        processingTime: 0, // 실제 처리 시간은 useTruckProcessor에서 계산됨
+        successCount: completedCount,
+        failureCount: failedCount,
+      }
+
+      trackProcessingComplete(processingMetrics)
+    }
+  }, [isCompleted, totalCount, completedCount, failedCount])
+
+  // Analytics: 에러 추적
+  useEffect(() => {
+    downloadStatuses.forEach((status) => {
+      if (status.status === 'failed' && status.error) {
+        trackError({
+          errorType: 'download_failure',
+          errorMessage: status.error,
+          step: 'downloading',
+        })
+      }
+    })
+  }, [downloadStatuses])
 
   return (
     <div className="relative w-full max-w-4xl">

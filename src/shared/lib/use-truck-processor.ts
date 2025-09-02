@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 
+import { trackApiCall } from '@/shared/lib/analytics'
 import {
   checkAndRequestPermission,
   downloadAsZip,
@@ -71,6 +72,7 @@ export const useTruckProcessor = () => {
 
     try {
       // Step 1: Parse URLs with performance tracking
+      const apiStartTime = Date.now()
       const parseResult = (await measureOperation(
         'truck-processing-parse',
         async () => {
@@ -87,9 +89,16 @@ export const useTruckProcessor = () => {
             signal: controller.signal,
           })
 
+          const apiDuration = Date.now() - apiStartTime
+
           if (!parseResponse.ok) {
+            // Analytics: API 실패 추적
+            trackApiCall('/api/parse-truck', apiDuration, false)
             throw new Error(`API 요청 실패: ${parseResponse.status}`)
           }
+
+          // Analytics: API 성공 추적
+          trackApiCall('/api/parse-truck', apiDuration, true)
 
           return await parseResponse.json()
         },

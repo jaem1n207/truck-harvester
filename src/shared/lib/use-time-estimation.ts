@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { addMilliseconds, format, differenceInMilliseconds } from 'date-fns'
+import { addMilliseconds, differenceInMilliseconds, format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 import { useAppStore } from '@/shared/model/store'
@@ -56,7 +56,7 @@ const timeCalculators = {
   generateFriendlyMessage: (remainingMs: number): string => {
     const minutes = Math.ceil(remainingMs / 60000)
 
-    if (remainingMs < 30000) return '곧 완료됩니다'
+    if (remainingMs < 30000) return '30초 이내 완료됩니다'
     if (minutes === 1) return '약 1분 후 완료 예정'
     if (minutes <= 5) return `약 ${minutes}분 후 완료 예정`
     if (minutes <= 10) return `약 ${Math.ceil(minutes / 5) * 5}분 후 완료 예정`

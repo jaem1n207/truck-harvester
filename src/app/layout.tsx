@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 
 import dynamic from 'next/dynamic'
 
+import { Analytics } from '@vercel/analytics/next'
+
 import { ThemeProvider } from '@/shared/lib/theme-provider'
 
 import './globals.css'
@@ -105,6 +107,7 @@ export default function RootLayout({
         >
           <Signature />
           {children}
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
