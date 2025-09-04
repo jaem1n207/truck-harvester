@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
 
+import { addWatermarkToImage } from '@/shared/lib/watermark'
 import { TruckData } from '@/shared/model/truck'
 
 interface FileSystemHandle {
@@ -294,13 +295,13 @@ export const downloadTruckData = async (
     const fileName = generateImageFileName(i)
 
     try {
-      const response = await fetch(imageUrl, { signal: abortSignal })
-      if (!response.ok) {
-        console.warn(`이미지 다운로드 실패: ${imageUrl}`)
-        continue
-      }
-
-      const arrayBuffer = await response.arrayBuffer()
+      // 워터마크 적용된 이미지 가져오기
+      const watermarkedBlob = await addWatermarkToImage(
+        imageUrl,
+        {},
+        abortSignal
+      )
+      const arrayBuffer = await watermarkedBlob.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
 
       const imageFileHandle = await vehicleDir.getFileHandle(fileName, {
@@ -353,11 +354,14 @@ export const downloadAsZip = async (
       const fileName = generateImageFileName(i)
 
       try {
-        const response = await fetch(imageUrl, { signal: abortSignal })
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer()
-          folder.file(fileName, arrayBuffer)
-        }
+        // 워터마크 적용된 이미지 가져오기
+        const watermarkedBlob = await addWatermarkToImage(
+          imageUrl,
+          {},
+          abortSignal
+        )
+        const arrayBuffer = await watermarkedBlob.arrayBuffer()
+        folder.file(fileName, arrayBuffer)
       } catch (error) {
         console.warn(`이미지 다운로드 오류: ${imageUrl}`, error)
       }
