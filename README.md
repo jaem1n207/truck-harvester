@@ -2,38 +2,32 @@
 
 중고 트럭 매물 정보와 이미지를 자동으로 수집하고 정리하는 Next.js 15 기반 웹 애플리케이션입니다.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fusername%2Ftruck-harvester)
+🌐 **라이브 사이트**: [https://truck-harvester.vercel.app/](https://truck-harvester.vercel.app/)
 
 ## ✨ 주요 기능
 
 - 📋 **URL 기반 자동 수집**: 중고트럭 매물 URL 입력으로 정보 자동 추출
 - 🖼️ **이미지 일괄 다운로드**: 매물 이미지를 체계적으로 정리하여 다운로드
+- 🎨 **워터마크 자동 추가**: 다운로드 이미지에 지정한 워터마크 적용
 - 📁 **파일 시스템 통합**: File System Access API로 브라우저에서 직접 파일 저장
 - 📦 **ZIP 다운로드 대안**: 구형 브라우저를 위한 ZIP 파일 생성 기능
 - 🌙 **다크 모드 지원**: 시스템 설정에 따른 자동 테마 전환
 - ♿ **접근성 최적화**: WCAG 2.1 AA 준수, 키보드 네비게이션 지원
 - 📱 **반응형 디자인**: 모든 디바이스에서 최적화된 사용자 경험
+- 📊 **실시간 분석**: Vercel Analytics와 Sentry 통합 모니터링
 
 ## 🛠️ 개발 환경 설정
 
-### 설치 (Bun 권장)
+### 설치
 
 ```bash
-# Bun 사용 (권장)
 bun install
-
-# 또는 npm 사용
-npm install
 ```
 
 ### 개발 서버 실행
 
 ```bash
-# Bun 사용 (권장)
 bun dev
-
-# 또는 npm 사용
-npm run dev
 ```
 
 [http://localhost:3000](http://localhost:3000)에서 애플리케이션을 확인할 수 있습니다.
@@ -42,29 +36,29 @@ npm run dev
 
 ### 개발 관련
 
-- `npm run dev` - 개발 서버 실행 (Turbopack 사용)
-- `npm run build` - 프로덕션 빌드
-- `npm run start` - 프로덕션 서버 실행
+- `bun dev` - 개발 서버 실행 (Turbopack 사용)
+- `bun run build` - 프로덕션 빌드
+- `bun run start` - 프로덕션 서버 실행
 
 ### 코드 품질 관리
 
-- `npm run lint` - ESLint 검사
-- `npm run lint:fix` - ESLint 자동 수정
-- `npm run format` - Prettier 포맷팅
-- `npm run format:check` - Prettier 포맷 확인
-- `npm run typecheck` - TypeScript 타입 검사
+- `bun run lint` - ESLint 검사
+- `bun run lint:fix` - ESLint 자동 수정
+- `bun run format` - Prettier 포맷팅
+- `bun run format:check` - Prettier 포맷 확인
+- `bun run typecheck` - TypeScript 타입 검사
 
 ### 통합 코드 품질 검사
 
-- `npm run code:check` - 타입체크, 린트, 포맷, 테스트 통합 검사
-- `npm run code:fix` - 린트 자동 수정 및 포맷팅
-- `npm run code:audit` - 코드 품질 + 보안 + 의존성 종합 검사
+- `bun run code:check` - 타입체크, 린트, 포맷, 테스트 통합 검사
+- `bun run code:fix` - 린트 자동 수정 및 포맷팅
+- `bun run code:audit` - 코드 품질 + 보안 + 의존성 종합 검사
 
 ### 테스트
 
-- `npm run test` - Vitest 테스트 실행
-- `npm run test:ui` - Vitest UI 모드
-- `npm run test:coverage` - 테스트 커버리지
+- `bun run test` - Vitest 테스트 실행
+- `bun run test:ui` - Vitest UI 모드
+- `bun run test:coverage` - 테스트 커버리지
 
 ### 전체 코드 점검 스크립트
 
@@ -176,18 +170,19 @@ npx git-cz
 1. **개발 시작 전**
 
    ```bash
-   npm run code:check
+   bun run code:check
    ```
 
 2. **개발 중**
    - 파일 저장 시 에디터의 자동 포맷팅 활용
-   - 주기적으로 `npm run lint` 실행
+   - 주기적으로 `bun run lint` 실행
 
 3. **커밋 전**
    - Git hooks가 자동으로 검사 실행
-   - 커밋 메시지는 `npx cz` 사용 권장
+   - 커밋 메시지는 `bunx cz` 사용 권장
 
 4. **정기적 점검**
+
    ```bash
    ./scripts/code-check.sh
    ```
@@ -200,7 +195,7 @@ npx git-cz
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS 4 with design tokens
 - **UI Components**: Radix UI primitives + shadcn/ui
-- **Animations**: Framer Motion
+- **Animations**: Motion (formerly Framer Motion)
 - **Theme**: next-themes (다크/라이트 모드)
 
 ### 백엔드 & API
@@ -208,6 +203,7 @@ npx git-cz
 - **API Routes**: Next.js 15 server-side API
 - **Web Scraping**: Cheerio for HTML parsing
 - **File Operations**: File System Access API + JSZip
+- **Image Processing**: Canvas API with watermark system
 
 ### 상태 관리 & 폼
 
@@ -217,7 +213,7 @@ npx git-cz
 
 ### 개발 도구 & 품질
 
-- **Package Manager**: Bun (권장) / npm
+- **Package Manager**: Bun
 - **Testing**: Vitest + jsdom + React Testing Library
 - **Type Checking**: TypeScript with strict configuration
 - **Linting**: ESLint with Next.js rules
@@ -225,16 +221,25 @@ npx git-cz
 - **Git Hooks**: Husky + lint-staged
 - **Commit Convention**: Conventional Commits + Commitlint
 
-### 배포 & 성능
+### 배포 & 모니터링
 
-- **Hosting**: Vercel (권장)
+- **Hosting**: Vercel
 - **Build System**: Turbopack for fast builds
 - **SEO**: Next.js Metadata API + OpenGraph images
 - **PWA**: Web App Manifest
 - **Performance**: Bundle optimization, lazy loading
-- **Monitoring**: Built-in Vercel analytics support
+- **Analytics**: Vercel Analytics
+- **Error Monitoring**: Sentry integration
 
 ## 🚀 배포하기
+
+### Vercel 자동 배포
+
+이 프로젝트는 Vercel에서 자동으로 배포됩니다:
+
+- **라이브 URL**: https://truck-harvester.vercel.app/
+- **자동 배포**: `main` 브랜치에 push 시 자동 배포
+- **미리보기 배포**: Pull Request 생성 시 미리보기 환경 자동 생성
 
 ### 수동 빌드 및 배포
 
@@ -246,35 +251,40 @@ bun run build
 bun run start
 ```
 
-### 성능 최적화
-
-- ✅ **번들 최적화**: optimizePackageImports로 패키지 크기 최소화
-- ✅ **이미지 최적화**: Next.js Image 컴포넌트 + AVIF/WebP 지원
-- ✅ **캐싱 전략**: 정적 자산 장기 캐싱, API 응답 캐싱
-- ✅ **코드 분할**: 자동 페이지별 번들 분할
-- ✅ **압축**: Gzip/Brotli 압축 활성화
-
 ## 📊 프로젝트 구조 (Feature-Sliced Design 기반)
 
-```
+```text
 src/
-├── app/                    # Next.js App Router + 글로벌 설정
-│   ├── api/               # API 라우트
-│   ├── globals.css        # 글로벌 스타일 + 접근성 개선
-│   ├── layout.tsx         # 루트 레이아웃 + 메타데이터
-│   ├── opengraph-image.tsx # OG 이미지 생성
-│   ├── icon.tsx          # 파비콘 생성
-│   ├── manifest.ts       # PWA 매니페스트
-│   └── robots.ts         # SEO 설정
-├── widgets/               # 복합 UI 블록
-│   ├── directory-selector/ # 저장 위치 선택
-│   ├── processing-status/  # 처리 상태 표시
-│   └── url-input/         # URL 입력 폼
-├── shared/                # 공통 모듈
-│   ├── lib/               # 유틸리티 및 훅
-│   ├── model/             # 데이터 모델
-│   └── ui/                # 기본 UI 컴포넌트
-└── __tests__/             # 테스트 파일
+├── app/                      # Next.js App Router + 글로벌 설정
+│   ├── api/                 # API 라우트 (parse-truck, network-test)
+│   ├── globals.css          # 글로벌 스타일 + 접근성 개선
+│   ├── layout.tsx           # 루트 레이아웃 + 메타데이터
+│   ├── page.tsx             # 메인 페이지
+│   ├── opengraph-image.tsx  # OG 이미지 생성
+│   ├── icon.tsx             # 파비콘 생성
+│   ├── apple-icon.tsx       # Apple 아이콘 생성
+│   ├── manifest.ts          # PWA 매니페스트
+│   ├── robots.ts            # SEO 설정
+│   ├── sitemap.ts           # 사이트맵 생성
+│   └── truck-harvester-app.tsx # 메인 앱 컴포넌트
+├── widgets/                  # 복합 UI 블록
+│   ├── directory-selector/   # 저장 위치 선택
+│   ├── processing-status/    # 처리 상태 표시
+│   └── url-input/           # URL 입력 폼
+├── shared/                   # 공통 모듈
+│   ├── lib/                 # 유틸리티 및 훅
+│   │   ├── analytics.ts     # Vercel Analytics 통합
+│   │   ├── file-system.ts   # 파일 시스템 API
+│   │   ├── watermark.ts     # 이미지 워터마크 처리
+│   │   ├── url-validator.ts # URL 검증
+│   │   └── use-truck-processor.ts # 트럭 데이터 처리 훅
+│   ├── model/               # 데이터 모델
+│   │   ├── store.ts         # Zustand 상태 관리
+│   │   └── truck.ts         # 트럭 데이터 스키마
+│   └── ui/                  # 기본 UI 컴포넌트 (shadcn/ui)
+│       └── animated-ui/     # 애니메이션 컴포넌트
+├── instrumentation.ts        # Sentry 계측
+└── instrumentation-client.ts # 클라이언트 계측
 ```
 
 ## 🔒 보안 & 개인정보
