@@ -1,42 +1,42 @@
 /** @type {import("prettier").Config} & import('prettier-plugin-tailwindcss').PluginOptions} */
 module.exports = {
   semi: false,
-  trailingComma: 'es5',
+  trailingComma: "es5",
   singleQuote: true,
   tabWidth: 2,
   useTabs: false,
   printWidth: 80,
   bracketSpacing: true,
-  arrowParens: 'always',
-  endOfLine: 'lf',
+  arrowParens: "always",
+  endOfLine: "lf",
   overrides: [
     {
-      files: '*.{ts,tsx}',
+      files: "*.{ts,tsx}",
       options: {
-        parser: 'typescript',
+        parser: "typescript",
       },
     },
     {
-      files: '*.{js,jsx}',
+      files: "*.{js,jsx}",
       options: {
-        parser: 'babel',
+        parser: "babel",
       },
     },
     {
-      files: '*.json',
+      files: "*.json",
       options: {
-        parser: 'json',
+        parser: "json",
         tabWidth: 2,
       },
     },
     {
-      files: '*.md',
+      files: "*.md",
       options: {
-        parser: 'markdown',
+        parser: "markdown",
         printWidth: 100,
-        proseWrap: 'preserve',
+        proseWrap: "preserve",
       },
     },
   ],
-  plugins: ['prettier-plugin-tailwindcss'],
-}
+  plugins: ["prettier-plugin-tailwindcss"],
+};
