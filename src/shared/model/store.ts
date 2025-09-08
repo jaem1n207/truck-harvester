@@ -116,7 +116,21 @@ export const useAppStore = create<AppState>()(
                 },
               }))
             } else {
-              console.log('[store] Persistent permissions denied')
+              console.log(
+                '[store] Persistent permissions denied, clearing stored handle'
+              )
+              // 권한이 거부되었으면 저장된 핸들을 정리
+              try {
+                const { clearStoredDirectoryHandle } = await import(
+                  '@/shared/lib/file-system'
+                )
+                await clearStoredDirectoryHandle()
+              } catch (clearError) {
+                console.warn(
+                  '[store] Failed to clear stored directory handle:',
+                  clearError
+                )
+              }
             }
           } else {
             console.log('[store] No persisted directory handle found')
@@ -126,6 +140,18 @@ export const useAppStore = create<AppState>()(
             '[store] Failed to restore persisted directory handle:',
             error
           )
+          // 복원 실패 시 저장된 핸들도 정리
+          try {
+            const { clearStoredDirectoryHandle } = await import(
+              '@/shared/lib/file-system'
+            )
+            await clearStoredDirectoryHandle()
+          } catch (clearError) {
+            console.warn(
+              '[store] Failed to clear stored directory handle after restore failure:',
+              clearError
+            )
+          }
         }
       },
 

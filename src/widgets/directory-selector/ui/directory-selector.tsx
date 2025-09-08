@@ -11,6 +11,7 @@ import {
 import {
   checkAndRequestPermission,
   isFileSystemAccessSupported,
+  requestPersistentPermissionAndStore,
 } from '@/shared/lib/file-system'
 import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
 import { useAppStore } from '@/shared/model/store'
@@ -110,17 +111,23 @@ export const DirectorySelector = () => {
 
     setIsCheckingPermission(true)
     try {
-      const permission = await checkAndRequestPermission(directoryHandle)
+      // 권한 재요청 및 저장
+      const permission =
+        await requestPersistentPermissionAndStore(directoryHandle)
       setHasPermission(permission)
 
       // Analytics: 권한 재요청 추적
       trackFeatureUsage('permission_recheck')
 
-      if (!permission) {
-        console.log('Permission denied by user')
+      if (permission) {
+        console.log(
+          '[directory-selector] Persistent permissions granted and stored'
+        )
+      } else {
+        console.log('[directory-selector] Permission denied by user')
       }
     } catch (error) {
-      console.error('Failed to request permission:', error)
+      console.error('[directory-selector] Failed to request permission:', error)
       setHasPermission(false)
     } finally {
       setIsCheckingPermission(false)
@@ -205,25 +212,43 @@ export const DirectorySelector = () => {
                           </div>
                         </div>
                         {directoryHandle && hasPermission === false && (
-                          <Button
-                            onClick={handleRequestPermission}
-                            disabled={isCheckingPermission}
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-xs"
-                          >
-                            {isCheckingPermission
-                              ? '권한 확인 중...'
-                              : '폴더 권한 재요청'}
-                          </Button>
+                          <div className="space-y-2">
+                            <div className="text-muted-foreground rounded bg-blue-50 p-2 text-xs dark:bg-blue-900/20">
+                              💡 <strong>영구 권한 설정 팁:</strong>
+                              <br />
+                              권한 요청 시 &ldquo;매번 허용&rdquo;을 선택하시면
+                              다음에 페이지를 방문할 때도 자동으로 같은 폴더에
+                              접근할 수 있습니다.
+                            </div>
+                            <Button
+                              onClick={handleRequestPermission}
+                              disabled={isCheckingPermission}
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs"
+                            >
+                              {isCheckingPermission
+                                ? '권한 확인 중...'
+                                : '폴더 권한 재요청'}
+                            </Button>
+                          </div>
                         )}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="text-muted-foreground text-sm">
-                    각 매물별로 폴더를 생성하고 이미지와 텍스트 파일을 직접
-                    저장합니다.
+                  <div className="space-y-2">
+                    <div className="text-muted-foreground text-sm">
+                      각 매물별로 폴더를 생성하고 이미지와 텍스트 파일을 직접
+                      저장합니다.
+                    </div>
+                    {isSupported && (
+                      <div className="rounded bg-blue-50 p-2 text-xs text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+                        💡 권한 요청 시 <strong>&ldquo;매번 허용&rdquo;</strong>
+                        을 선택하면 다음 방문 시에도 동일한 폴더에 자동으로
+                        접근할 수 있습니다.
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -314,7 +339,7 @@ export const DirectorySelector = () => {
                   {!isZipMode && hasPermission === true && (
                     <span className="mt-1 block text-xs opacity-75">
                       {hasTriedRestore && directoryHandle
-                        ? '폴더 권한이 자동으로 복원되었습니다. 계속해서 해당 폴더에 저장됩니다.'
+                        ? '✨ 영구 권한으로 폴더 권한이 자동으로 복원되었습니다! 다음에도 동일한 폴더에 저장됩니다.'
                         : '폴더 권한이 확인되었습니다. 자동으로 해당 폴더에 저장됩니다.'}
                     </span>
                   )}

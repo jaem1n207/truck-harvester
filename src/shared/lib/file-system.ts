@@ -163,14 +163,57 @@ export const checkAndRequestPermission = async (
   }
 
   try {
-    // Persistent Permissions를 위한 권한 재요청
-    // Chrome 122+에서는 저장된 Handle에 대해 requestPermission 호출시 3-way prompt 표시
+    // 먼저 현재 권한 상태를 확인
+    const currentPermission = await dirHandle.requestPermission({
+      mode: 'readwrite',
+    })
+
+    if (currentPermission === 'granted') {
+      return true
+    }
+
+    // 권한이 없는 경우, 3-way prompt를 트리거하기 위해 다시 요청
+    // Chrome 122+에서는 저장된 Handle에 대해 requestPermission 호출시
+    // "Allow this time", "Allow on every visit", "Don't allow" 3가지 옵션 제공
+    console.log(
+      '[file-system] Requesting persistent permissions with 3-way prompt'
+    )
     const permission = await dirHandle.requestPermission({ mode: 'readwrite' })
-    return permission === 'granted'
+
+    if (permission === 'granted') {
+      console.log('[file-system] Persistent permissions granted')
+      return true
+    }
+
+    console.log('[file-system] Permissions denied by user')
+    return false
   } catch (error) {
-    console.warn('Permission check failed:', error)
+    // AbortError는 사용자가 프롬프트를 취소한 경우
+    if ((error as Error).name === 'AbortError') {
+      console.log('[file-system] Permission prompt cancelled by user')
+      return false
+    }
+
+    console.warn('[file-system] Permission check failed:', error)
     return false
   }
+}
+
+/**
+ * 권한 재요청 및 영구 저장 처리
+ * 사용자가 "Allow on every visit"를 선택했을 경우 핸들을 다시 저장
+ */
+export const requestPersistentPermissionAndStore = async (
+  dirHandle: FileSystemDirectoryHandle
+): Promise<boolean> => {
+  const hasPermission = await checkAndRequestPermission(dirHandle)
+
+  if (hasPermission) {
+    // 권한이 있으면 핸들을 다시 저장 (영구 권한일 가능성을 위해)
+    await storeDirectoryHandle(dirHandle)
+  }
+
+  return hasPermission
 }
 
 export const selectDirectory =
