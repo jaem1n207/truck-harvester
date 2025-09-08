@@ -16,6 +16,7 @@ import {
   setTruckProcessingContext,
 } from '@/shared/lib/sentry-utils'
 import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
+import { calculateWatermarkIndex } from '@/shared/lib/watermark'
 import { useAppStore } from '@/shared/model/store'
 import {
   ParseResponse,
@@ -250,7 +251,7 @@ export const useTruckProcessor = () => {
             const dirHandle = directoryHandle!
 
             // Process each valid truck sequentially
-            for (const truck of validTruckData) {
+            for (const [truckIndex, truck] of validTruckData.entries()) {
               if (controller.signal.aborted) {
                 throw new Error('작업이 취소되었습니다.')
               }
@@ -264,6 +265,7 @@ export const useTruckProcessor = () => {
                 await downloadTruckData(
                   dirHandle,
                   truck,
+                  calculateWatermarkIndex(truckIndex),
                   (progress, downloaded, total) => {
                     setDownloadStatus(truck.vnumber, {
                       status: 'downloading',

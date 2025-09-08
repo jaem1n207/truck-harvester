@@ -6,6 +6,7 @@
 interface WatermarkOptions {
   opacity?: number
   scaleRatio?: number
+  watermarkIndex?: number
 }
 
 const WATERMARK_IMAGES = [
@@ -14,7 +15,13 @@ const WATERMARK_IMAGES = [
   '/watermark-3.png',
   '/watermark-4.png',
   '/watermark-5.png',
-]
+] as const
+
+/**
+ * 사용 가능한 워터마크 이미지의 총 개수
+ * 워터마크 개수 관리를 위한 상수
+ */
+export const WATERMARK_COUNT = WATERMARK_IMAGES.length
 
 /**
  * 이미지 URL에서 Image 객체를 로드합니다.
@@ -114,9 +121,26 @@ const applyWatermark = async (
 }
 
 /**
- * 랜덤하게 워터마크 이미지를 선택합니다.
+ * 워터마크 이미지 경로를 선택합니다.
+ * @param index 워터마크 인덱스 (0-4). 지정하지 않으면 랜덤 선택
  */
-const getRandomWatermarkPath = (): string => {
+/**
+ * 항목 순서에 따른 워터마크 인덱스를 계산합니다.
+ * @param itemIndex 항목의 인덱스 (0부터 시작)
+ * @returns 워터마크 인덱스 (순환)
+ */
+export const calculateWatermarkIndex = (itemIndex: number): number => {
+  return itemIndex % WATERMARK_COUNT
+}
+
+const getWatermarkPath = (index?: number): string => {
+  if (index !== undefined) {
+    // 인덱스가 지정된 경우 해당 워터마크 사용 (순환)
+    const validIndex = index % WATERMARK_IMAGES.length
+    return WATERMARK_IMAGES[validIndex]
+  }
+
+  // 인덱스가 지정되지 않은 경우 랜덤 선택 (기존 동작 유지)
   const randomIndex = Math.floor(Math.random() * WATERMARK_IMAGES.length)
   return WATERMARK_IMAGES[randomIndex]
 }
@@ -155,8 +179,8 @@ export const addWatermarkToImage = async (
     // 원본 이미지 로드
     const originalImage = await loadImageFromBlob(imageBlob)
 
-    // 랜덤 워터마크 선택 및 로드
-    const watermarkPath = getRandomWatermarkPath()
+    // 워터마크 선택 및 로드
+    const watermarkPath = getWatermarkPath(options.watermarkIndex)
     const watermarkImage = await loadImage(watermarkPath)
 
     // 워터마크 적용
@@ -202,8 +226,8 @@ export const addWatermarkToBlob = async (
     // 원본 이미지 로드
     const originalImage = await loadImageFromBlob(imageBlob)
 
-    // 랜덤 워터마크 선택 및 로드
-    const watermarkPath = getRandomWatermarkPath()
+    // 워터마크 선택 및 로드
+    const watermarkPath = getWatermarkPath(options.watermarkIndex)
     const watermarkImage = await loadImage(watermarkPath)
 
     // 워터마크 적용

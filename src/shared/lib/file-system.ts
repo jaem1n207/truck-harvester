@@ -1,6 +1,9 @@
 import JSZip from 'jszip'
 
-import { addWatermarkToImage } from '@/shared/lib/watermark'
+import {
+  addWatermarkToImage,
+  calculateWatermarkIndex,
+} from '@/shared/lib/watermark'
 import { TruckData } from '@/shared/model/truck'
 
 interface FileSystemHandle {
@@ -260,6 +263,7 @@ const generateTextContent = (truckData: TruckData): string => {
 export const downloadTruckData = async (
   rootDirectoryHandle: FileSystemDirectoryHandle,
   truckData: TruckData,
+  watermarkIndex?: number,
   onProgress?: (progress: number, downloaded: number, total: number) => void,
   abortSignal?: AbortSignal
 ): Promise<void> => {
@@ -298,7 +302,7 @@ export const downloadTruckData = async (
       // 워터마크 적용된 이미지 가져오기
       const watermarkedBlob = await addWatermarkToImage(
         imageUrl,
-        {},
+        { watermarkIndex },
         abortSignal
       )
       const arrayBuffer = await watermarkedBlob.arrayBuffer()
@@ -328,13 +332,16 @@ export const downloadAsZip = async (
   const zip = new JSZip()
   let processedCount = 0
 
-  for (const truckData of truckDataList) {
+  for (const [truckIndex, truckData] of truckDataList.entries()) {
     if (abortSignal?.aborted) {
       throw new Error('다운로드가 취소되었습니다.')
     }
 
     const folderName = truckData.vnumber.replace(/[<>:"/\\|?*]/g, '_')
     const folder = zip.folder(folderName)
+
+    // 트럭 순서에 따른 워터마크 인덱스 할당 (순환)
+    const watermarkIndex = calculateWatermarkIndex(truckIndex)
 
     if (!folder) {
       continue
@@ -357,7 +364,7 @@ export const downloadAsZip = async (
         // 워터마크 적용된 이미지 가져오기
         const watermarkedBlob = await addWatermarkToImage(
           imageUrl,
-          {},
+          { watermarkIndex },
           abortSignal
         )
         const arrayBuffer = await watermarkedBlob.arrayBuffer()
