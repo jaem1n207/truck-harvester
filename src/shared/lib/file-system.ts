@@ -153,35 +153,28 @@ export const clearStoredDirectoryHandle = async (): Promise<void> => {
 /**
  * 디렉토리 핸들의 권한 상태를 확인하고 필요시 재요청
  * Chrome의 Persistent Permissions 기능을 활용하여 3-way prompt 트리거
+ * 저장된 핸들에 대해서는 자동으로 3-way prompt가 표시됨
  */
 export const checkAndRequestPermission = async (
   dirHandle: FileSystemDirectoryHandle
 ): Promise<boolean> => {
   if (!dirHandle.requestPermission) {
     // requestPermission이 지원되지 않는 경우 (일부 브라우저)
-    return true // 기본적으로 권한이 있다고 가정
+    console.log(
+      '[file-system] requestPermission not supported, assuming granted'
+    )
+    return true
   }
 
   try {
-    // 먼저 현재 권한 상태를 확인
-    const currentPermission = await dirHandle.requestPermission({
-      mode: 'readwrite',
-    })
-
-    if (currentPermission === 'granted') {
-      return true
-    }
-
-    // 권한이 없는 경우, 3-way prompt를 트리거하기 위해 다시 요청
-    // Chrome 122+에서는 저장된 Handle에 대해 requestPermission 호출시
-    // "Allow this time", "Allow on every visit", "Don't allow" 3가지 옵션 제공
-    console.log(
-      '[file-system] Requesting persistent permissions with 3-way prompt'
-    )
+    // 단일 requestPermission 호출로 권한 확인 및 요청을 모두 처리
+    // Chrome 122+에서는 저장된 Handle에 대해 자동으로 3-way prompt 표시:
+    // "Allow this time", "Allow on every visit", "Don't allow"
+    console.log('[file-system] Checking/requesting permissions...')
     const permission = await dirHandle.requestPermission({ mode: 'readwrite' })
 
     if (permission === 'granted') {
-      console.log('[file-system] Persistent permissions granted')
+      console.log('[file-system] Permissions granted (persistent or temporary)')
       return true
     }
 
@@ -216,20 +209,43 @@ export const requestPersistentPermissionAndStore = async (
   return hasPermission
 }
 
+// 전역 상태로 파일 피커 활성화 상태 추적
+let isDirectoryPickerActive = false
+
 export const selectDirectory =
   async (): Promise<FileSystemDirectoryHandle | null> => {
     if (!isFileSystemAccessSupported()) {
       throw new Error('File System Access API가 지원되지 않는 브라우저입니다.')
     }
 
+    // 이미 파일 피커가 활성화되어 있으면 중복 호출 방지
+    if (isDirectoryPickerActive) {
+      console.warn(
+        '[file-system] Directory picker already active, ignoring duplicate call'
+      )
+      return null
+    }
+
     try {
+      isDirectoryPickerActive = true
       const dirHandle = await window.showDirectoryPicker!()
       return dirHandle
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
         return null // 사용자가 취소함
       }
+
+      // NotAllowedError도 조용히 처리
+      if ((error as Error).name === 'NotAllowedError') {
+        console.warn(
+          '[file-system] Directory picker not allowed or already active'
+        )
+        return null
+      }
+
       throw error
+    } finally {
+      isDirectoryPickerActive = false
     }
   }
 

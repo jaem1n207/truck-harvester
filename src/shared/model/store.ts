@@ -24,6 +24,9 @@ interface AppState {
   setDirectoryHandle: (handle: FileSystemDirectoryHandle | null) => void
 
   // Persistent permissions support
+  hasTriedRestore: boolean
+  isRehydrated: boolean
+  setIsRehydrated: (state: boolean) => void
   restorePersistedDirectoryHandle: () => Promise<void>
 
   // URLs and validation
@@ -85,7 +88,15 @@ export const useAppStore = create<AppState>()(
       setDirectoryHandle: (handle) => set({ directoryHandle: handle }),
 
       // Persistent permissions support
+      hasTriedRestore: false,
+      isRehydrated: false,
+      setIsRehydrated: (state) => set({ isRehydrated: state }),
       restorePersistedDirectoryHandle: async () => {
+        console.log('[store] Attempting directory handle restoration...')
+
+        // 복원 시도 플래그 설정 (디버깅용, 차단용이 아님)
+        set({ hasTriedRestore: true })
+
         try {
           console.log(
             '[store] Attempting to restore persisted directory handle...'
@@ -97,29 +108,50 @@ export const useAppStore = create<AppState>()(
               '[store] Directory handle restored, checking permissions...'
             )
 
+            // 먼저 핸들을 설정하여 UI가 복원 상태를 알 수 있도록 함
+            set({ directoryHandle: restoredHandle })
+            set((state) => ({
+              config: {
+                ...state.config,
+                selectedDirectory: restoredHandle.name,
+              },
+            }))
+
             // Chrome Persistent Permissions: 저장된 Handle에 대해 requestPermission 호출
-            // 이전에 권한을 부여받았고 IndexedDB에 저장된 Handle이라면 3-way prompt가 표시됨
+            // 이전에 "Allow on every visit"을 선택했다면 즉시 granted 반환
+            // 그렇지 않다면 3-way prompt 표시
             const hasPermission =
               await checkAndRequestPermission(restoredHandle)
 
             if (hasPermission) {
               console.log(
-                '[store] Persistent permissions granted, restoring directory handle'
+                '[store] Persistent permissions confirmed - directory handle restored successfully'
               )
-              set({ directoryHandle: restoredHandle })
-
-              // config의 selectedDirectory도 업데이트
+              // 권한이 확인되었으므로 핸들을 다시 저장 (영구 권한 유지)
+              try {
+                const { storeDirectoryHandle } = await import(
+                  '@/shared/lib/file-system'
+                )
+                await storeDirectoryHandle(restoredHandle)
+              } catch (storeError) {
+                console.warn(
+                  '[store] Failed to re-store directory handle:',
+                  storeError
+                )
+              }
+            } else {
+              console.log(
+                '[store] Persistent permissions denied, clearing directory handle and stored data'
+              )
+              // 권한이 거부되었으면 상태와 저장된 핸들을 모두 정리
+              set({ directoryHandle: null })
               set((state) => ({
                 config: {
                   ...state.config,
-                  selectedDirectory: restoredHandle.name,
+                  selectedDirectory: undefined,
                 },
               }))
-            } else {
-              console.log(
-                '[store] Persistent permissions denied, clearing stored handle'
-              )
-              // 권한이 거부되었으면 저장된 핸들을 정리
+
               try {
                 const { clearStoredDirectoryHandle } = await import(
                   '@/shared/lib/file-system'
@@ -228,6 +260,7 @@ export const useAppStore = create<AppState>()(
           parseResult: null,
           startTime: null,
           directoryHandle: null,
+          hasTriedRestore: false, // reset 시 복원 플래그도 초기화
         }),
     }),
     {
@@ -236,6 +269,20 @@ export const useAppStore = create<AppState>()(
         config: state.config,
         urlsText: state.urlsText,
       }),
+      onRehydrateStorage: () => {
+        console.log('[store] Starting rehydration...')
+        return (state, error) => {
+          if (error) {
+            console.error('[store] Rehydration failed:', error)
+          } else {
+            console.log(
+              '[store] Rehydration completed, calling setIsRehydrated',
+              { rehydratedConfig: state?.config }
+            )
+            state?.setIsRehydrated(true)
+          }
+        }
+      },
     }
   )
 )

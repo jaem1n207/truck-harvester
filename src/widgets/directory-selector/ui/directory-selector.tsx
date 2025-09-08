@@ -26,13 +26,14 @@ export const DirectorySelector = () => {
     config,
     updateConfig,
     directoryHandle,
+    hasTriedRestore,
+    isRehydrated,
     restorePersistedDirectoryHandle,
   } = useAppStore()
   const { selectAndStoreDirectory } = useTruckProcessor()
   const [isSelecting, setIsSelecting] = React.useState(false)
   const [hasPermission, setHasPermission] = React.useState<boolean | null>(null)
   const [isCheckingPermission, setIsCheckingPermission] = React.useState(false)
-  const [hasTriedRestore, setHasTriedRestore] = React.useState(false)
 
   // UI 표시용 디렉토리명 변환
   const getDisplayName = (selectedDirectory: string | undefined) => {
@@ -46,13 +47,75 @@ export const DirectorySelector = () => {
   const isZipMode = config.selectedDirectory === 'ZIP_DOWNLOAD'
   const isSupported = isFileSystemAccessSupported()
 
-  // 컴포넌트 마운트시 저장된 directoryHandle 복원 시도 (한 번만)
+  // localStorage 디버깅
   React.useEffect(() => {
-    if (!hasTriedRestore && isSupported && !isZipMode) {
-      setHasTriedRestore(true)
+    const storedData = localStorage.getItem('truck-harvester-storage')
+    console.log(
+      '[directory-selector] localStorage data:',
+      storedData ? JSON.parse(storedData) : 'none'
+    )
+  }, [])
+
+  // Zustand rehydration 완료 후 저장된 directoryHandle 복원 시도
+  React.useEffect(() => {
+    console.log('[directory-selector] useEffect triggered with state:', {
+      isRehydrated,
+      hasTriedRestore,
+      isSupported,
+      isZipMode,
+      selectedDirectory: config.selectedDirectory,
+      hasDirectoryHandle: !!directoryHandle,
+      fullConfig: config,
+    })
+
+    // 더 스마트한 복원 조건: directoryHandle이 없고 selectedDirectory가 있으면 항상 복원 시도
+    const shouldAttemptRestore =
+      isRehydrated && // rehydration 완료 대기
+      isSupported &&
+      !isZipMode &&
+      config.selectedDirectory &&
+      config.selectedDirectory !== 'ZIP_DOWNLOAD' &&
+      !directoryHandle // directoryHandle이 없으면 hasTriedRestore 상관없이 복원 시도
+
+    if (shouldAttemptRestore) {
+      console.log(
+        '[directory-selector] ✅ All conditions met! Attempting to restore directory handle...',
+        {
+          selectedDirectory: config.selectedDirectory,
+          hasTriedRestore,
+          isRehydrated,
+          fullConfig: config,
+        }
+      )
       restorePersistedDirectoryHandle()
+    } else {
+      console.log('[directory-selector] ❌ Skipping restore attempt', {
+        isRehydrated,
+        hasTriedRestore,
+        isSupported,
+        isZipMode,
+        selectedDirectory: config.selectedDirectory,
+        hasDirectoryHandle: !!directoryHandle,
+        reasons: {
+          needsRehydration: !isRehydrated,
+          notSupported: !isSupported,
+          isZipMode: isZipMode,
+          noSelectedDirectory: !config.selectedDirectory,
+          isZipDirectory: config.selectedDirectory === 'ZIP_DOWNLOAD',
+          alreadyHasHandle: !!directoryHandle,
+          // hasTriedRestore는 더 이상 차단 조건이 아님
+        },
+      })
     }
-  }, [hasTriedRestore, isSupported, isZipMode, restorePersistedDirectoryHandle])
+  }, [
+    isRehydrated, // rehydration 상태 추가
+    hasTriedRestore,
+    isSupported,
+    isZipMode,
+    config, // 전체 config 객체 추가
+    directoryHandle,
+    restorePersistedDirectoryHandle,
+  ])
 
   // directoryHandle 변경 시 권한 확인
   React.useEffect(() => {
@@ -64,10 +127,24 @@ export const DirectorySelector = () => {
 
       setIsCheckingPermission(true)
       try {
+        console.log(
+          '[directory-selector] Checking permissions for directory handle'
+        )
         const permission = await checkAndRequestPermission(directoryHandle)
         setHasPermission(permission)
+
+        // 권한이 확인되면 핸들을 다시 저장하여 영구성 보장
+        if (permission) {
+          console.log(
+            '[directory-selector] Re-storing directory handle to ensure persistence'
+          )
+          const { storeDirectoryHandle } = await import(
+            '@/shared/lib/file-system'
+          )
+          await storeDirectoryHandle(directoryHandle)
+        }
       } catch (error) {
-        console.warn('Permission check failed:', error)
+        console.warn('[directory-selector] Permission check failed:', error)
         setHasPermission(false)
       } finally {
         setIsCheckingPermission(false)
@@ -81,9 +158,18 @@ export const DirectorySelector = () => {
   const needsReselection =
     !isZipMode &&
     config.selectedDirectory &&
+    config.selectedDirectory !== 'ZIP_DOWNLOAD' &&
     (!directoryHandle || hasPermission === false)
 
   const handleSelectDirectory = async () => {
+    // 이미 선택 중이면 중복 호출 방지
+    if (isSelecting) {
+      console.log(
+        '[directory-selector] Directory selection already in progress'
+      )
+      return
+    }
+
     try {
       setIsSelecting(true)
       await selectAndStoreDirectory()
@@ -93,6 +179,14 @@ export const DirectorySelector = () => {
       trackDownloadMethod('file_system_api')
     } catch (error) {
       console.error('디렉토리 선택 오류:', error)
+
+      // NotAllowedError (File picker already active) 처리
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        console.warn(
+          '[directory-selector] File picker already active or permission denied'
+        )
+        // 사용자에게 알림 없이 조용히 처리 (이미 다이얼로그가 열려있음을 의미)
+      }
     } finally {
       setIsSelecting(false)
     }
