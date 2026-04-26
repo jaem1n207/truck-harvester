@@ -10,7 +10,11 @@ import {
 import { v2Copy } from '@/v2/shared/lib/copy'
 import { Button } from '@/v2/shared/ui/button'
 
-type DirectoryPermissionState = 'ready' | 'needs-permission' | 'restoring'
+type DirectoryPermissionState =
+  | 'denied'
+  | 'needs-permission'
+  | 'ready'
+  | 'restoring'
 type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
 
 interface DirectorySelectorProps {
@@ -93,6 +97,11 @@ export function DirectorySelector({
             <p className="truncate text-sm font-medium">
               {selectedDirectoryName}
             </p>
+            {permissionState === 'denied' ? (
+              <p className="text-muted-foreground text-xs">
+                저장을 시작하면 폴더를 다시 고릅니다.
+              </p>
+            ) : null}
             {permissionState === 'needs-permission' ? (
               <p className="text-muted-foreground text-xs">
                 저장할 때 폴더 권한을 다시 확인합니다.

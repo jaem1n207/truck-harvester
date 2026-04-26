@@ -82,6 +82,21 @@ describe('DirectorySelector', () => {
     expect(html).toContain('저장할 때 폴더 권한을 다시 확인합니다.')
   })
 
+  it('shows folder re-selection guidance when remembered permission is denied', () => {
+    const html = renderToStaticMarkup(
+      <DirectorySelector
+        isSupported
+        onSelectDirectory={vi.fn()}
+        permissionState="denied"
+        selectedDirectoryName="기억한 저장 폴더"
+      />
+    )
+
+    expect(html).toContain('선택한 저장 폴더')
+    expect(html).toContain('기억한 저장 폴더')
+    expect(html).toContain('저장을 시작하면 폴더를 다시 고릅니다.')
+  })
+
   it('passes the remembered folder to the picker start location', async () => {
     const originalWindow = browserGlobal.window
     const originalPicker = browserGlobal.showDirectoryPicker
