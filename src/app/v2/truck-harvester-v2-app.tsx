@@ -42,7 +42,11 @@ const saveFailureMessage =
   '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
 const saveFolderPickerId = 'truck-harvester-v2-save-folder'
 
-type DirectoryPermissionState = 'ready' | 'needs-permission' | 'restoring'
+type DirectoryPermissionState =
+  | 'denied'
+  | 'needs-permission'
+  | 'ready'
+  | 'restoring'
 type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
 
 const pickSaveDirectory = pickWritableDirectory as (options: {
@@ -136,6 +140,11 @@ export function TruckHarvesterV2App() {
             return
           }
 
+          if (permission === 'denied') {
+            setDirectoryPermissionState('denied')
+            return
+          }
+
           setDirectoryPermissionState('needs-permission')
         })
         .catch(() => {
@@ -172,12 +181,33 @@ export function TruckHarvesterV2App() {
     const activeDirectory = directory ?? rememberedDirectory
 
     if (activeDirectory) {
+      if (directoryPermissionState === 'denied') {
+        const nextDirectory = await pickSaveDirectory({
+          id: saveFolderPickerId,
+          startIn: 'downloads',
+        })
+
+        if (!nextDirectory) {
+          return undefined
+        }
+
+        await savePersistedDirectoryHandle(nextDirectory)
+
+        if (isMountedRef.current) {
+          setDirectory(nextDirectory)
+          setRememberedDirectory(nextDirectory)
+          setDirectoryPermissionState('ready')
+        }
+
+        return nextDirectory
+      }
+
       const hasPermission =
         await requestWritableDirectoryPermission(activeDirectory)
 
       if (!hasPermission) {
         if (isMountedRef.current) {
-          setDirectoryPermissionState('needs-permission')
+          setDirectoryPermissionState('denied')
         }
         return undefined
       }
@@ -445,7 +475,11 @@ export function TruckHarvesterV2App() {
               isSupported={fileSystemSupported}
               onSelectDirectory={selectDirectory}
               permissionState={directoryPermissionState}
-              pickerStartIn={directory ?? rememberedDirectory ?? 'downloads'}
+              pickerStartIn={
+                directoryPermissionState === 'denied'
+                  ? 'downloads'
+                  : (directory ?? rememberedDirectory ?? 'downloads')
+              }
               selectedDirectoryName={(directory ?? rememberedDirectory)?.name}
             />
             <CompletionNotificationToggle

@@ -512,4 +512,161 @@ describe('TruckHarvesterV2App persistence', () => {
     )
     expect(statusRegion?.textContent).toContain('저장 완료')
   })
+
+  it('opens a fresh picker when the restored folder permission is denied', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=5'
+    const queryPermission = vi.fn().mockResolvedValue('denied')
+    const requestPermission = vi.fn().mockResolvedValue('denied')
+    const writable = {
+      close: vi.fn().mockResolvedValue(undefined),
+      write: vi.fn().mockResolvedValue(undefined),
+    }
+    const fileHandle = {
+      createWritable: vi.fn().mockResolvedValue(writable),
+    }
+    const vehicleDirectory = {
+      getFileHandle: vi.fn().mockResolvedValue(fileHandle),
+    }
+    const restoredDirectory: WritableDirectoryHandle = {
+      getDirectoryHandle: async () => {
+        throw new Error('권한이 거절된 폴더에는 저장하지 않아야 합니다.')
+      },
+      getFileHandle: async () => {
+        throw new Error('권한이 거절된 폴더에는 저장하지 않아야 합니다.')
+      },
+      name: 'truck-test',
+      queryPermission,
+      requestPermission,
+    }
+    const pickedDirectory: WritableDirectoryHandle = {
+      getDirectoryHandle: vi.fn().mockResolvedValue(vehicleDirectory),
+      getFileHandle: vi.fn().mockResolvedValue(fileHandle),
+      name: 'truck-test',
+      queryPermission: vi.fn().mockResolvedValue('granted'),
+      requestPermission: vi.fn().mockResolvedValue('granted'),
+    }
+
+    installDom(restoredDirectory)
+    const showDirectoryPicker = vi.fn().mockResolvedValue(pickedDirectory)
+    Object.defineProperty(window, 'showDirectoryPicker', {
+      configurable: true,
+      value: showDirectoryPicker,
+    })
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              url: truckUrl,
+              vname: '익스 내장탑 2.5톤',
+              vehicleName: '익스 내장탑 2.5톤',
+              vnumber: '부산34나5678',
+              price: {
+                raw: 2700,
+                rawWon: 27000000,
+                label: '2,700만원',
+                compactLabel: '2,700만원',
+              },
+              year: '2021',
+              mileage: '90,000km',
+              options: '내장탑',
+              images: [],
+            },
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      ),
+    })
+    const { TruckHarvesterV2App } = await import('../truck-harvester-v2-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterV2App />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+
+    const pasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: {
+        getData: () => truckUrl,
+      },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(pasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    const startButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '확인된 1대 저장 시작'
+    )
+    const statusRegion = container.querySelector(
+      'section[aria-labelledby="prepared-listing-status-title"]'
+    )
+
+    if (!(startButton instanceof HTMLButtonElement)) {
+      throw new Error('저장 시작 버튼을 찾지 못했습니다.')
+    }
+
+    await act(async () => {
+      startButton.dispatchEvent(
+        new dom!.window.MouseEvent('click', { bubbles: true })
+      )
+      await Promise.resolve()
+    })
+
+    for (let index = 0; index < 6; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(requestPermission).not.toHaveBeenCalled()
+    expect(showDirectoryPicker).toHaveBeenCalledWith({
+      id: 'truck-harvester-v2-save-folder',
+      mode: 'readwrite',
+      startIn: 'downloads',
+    })
+    expect(pickedDirectory.getDirectoryHandle).toHaveBeenCalledWith(
+      '부산34나5678',
+      { create: true }
+    )
+    expect(statusRegion?.textContent).toContain('저장 완료')
+  })
 })
