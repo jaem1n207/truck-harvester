@@ -13,31 +13,47 @@ export interface UrlInputFailure {
 
 export type UrlInputResult = UrlInputSuccess | UrlInputFailure
 
-const splitAddressLines = (value: string) =>
-  value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
+const supportedTruckUrlPattern =
+  /https?:\/\/www\.truck-no1\.co\.kr\/model\/DetailView\.asp\?[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]+/gi
+const trailingChatPunctuationPattern = /[.,)\]}]+$/g
+
+const stripTrailingChatPunctuation = (value: string) =>
+  value.replace(trailingChatPunctuationPattern, '')
+
+export function extractTruckUrlsFromText(value: string): string[] {
+  const normalizedUrls = new Set<string>()
+  const matches = value.match(supportedTruckUrlPattern) ?? []
+
+  for (const match of matches) {
+    try {
+      normalizedUrls.add(normalizeTruckUrl(stripTrailingChatPunctuation(match)))
+    } catch {
+      continue
+    }
+  }
+
+  return Array.from(normalizedUrls)
+}
 
 export function parseUrlInputText(value: string): UrlInputResult {
-  const rawUrls = splitAddressLines(value)
-
-  if (rawUrls.length === 0) {
+  if (value.trim().length === 0) {
     return {
       success: false,
       message: v2Copy.urlInput.errors.empty,
     }
   }
 
-  try {
-    return {
-      success: true,
-      urls: Array.from(new Set(rawUrls.map((url) => normalizeTruckUrl(url)))),
-    }
-  } catch {
+  const urls = extractTruckUrlsFromText(value)
+
+  if (urls.length === 0) {
     return {
       success: false,
       message: v2Copy.urlInput.errors.invalid,
     }
+  }
+
+  return {
+    success: true,
+    urls,
   }
 }
