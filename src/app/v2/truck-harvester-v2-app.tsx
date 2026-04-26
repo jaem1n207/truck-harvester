@@ -172,6 +172,27 @@ export function TruckHarvesterV2App() {
     const activeDirectory = directory ?? rememberedDirectory
 
     if (activeDirectory) {
+      if (!directory && directoryPermissionState === 'needs-permission') {
+        const nextDirectory = await pickSaveDirectory({
+          id: saveFolderPickerId,
+          startIn: activeDirectory,
+        })
+
+        if (!nextDirectory) {
+          return undefined
+        }
+
+        await savePersistedDirectoryHandle(nextDirectory)
+
+        if (isMountedRef.current) {
+          setDirectory(nextDirectory)
+          setRememberedDirectory(nextDirectory)
+          setDirectoryPermissionState('ready')
+        }
+
+        return nextDirectory
+      }
+
       const hasPermission =
         await requestWritableDirectoryPermission(activeDirectory)
 

@@ -363,7 +363,7 @@ describe('TruckHarvesterV2App persistence', () => {
     expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
   })
 
-  it('keeps the input usable when a restored folder permission request does not finish', async () => {
+  it('uses a fresh folder pick when restored folder permission cannot continue', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=4'
     const queryPermission = vi.fn().mockResolvedValue('prompt')
@@ -381,8 +381,30 @@ describe('TruckHarvesterV2App persistence', () => {
       queryPermission,
       requestPermission,
     }
+    const writable = {
+      close: vi.fn().mockResolvedValue(undefined),
+      write: vi.fn().mockResolvedValue(undefined),
+    }
+    const fileHandle = {
+      createWritable: vi.fn().mockResolvedValue(writable),
+    }
+    const vehicleDirectory = {
+      getFileHandle: vi.fn().mockResolvedValue(fileHandle),
+    }
+    const pickedDirectory: WritableDirectoryHandle = {
+      getDirectoryHandle: vi.fn().mockResolvedValue(vehicleDirectory),
+      getFileHandle: vi.fn().mockResolvedValue(fileHandle),
+      name: 'truck-test',
+      queryPermission: vi.fn().mockResolvedValue('granted'),
+      requestPermission: vi.fn().mockResolvedValue('granted'),
+    }
 
     installDom(restoredDirectory)
+    const showDirectoryPicker = vi.fn().mockResolvedValue(pickedDirectory)
+    Object.defineProperty(window, 'showDirectoryPicker', {
+      configurable: true,
+      value: showDirectoryPicker,
+    })
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi.fn().mockResolvedValue(
@@ -483,9 +505,23 @@ describe('TruckHarvesterV2App persistence', () => {
       await Promise.resolve()
     })
 
-    expect(requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
-    expect(textareaElement.disabled).toBe(false)
-    expect(startButtonElement.disabled).toBe(false)
-    expect(statusRegion?.textContent).toContain('저장 준비 완료')
+    for (let index = 0; index < 6; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(requestPermission).not.toHaveBeenCalled()
+    expect(showDirectoryPicker).toHaveBeenCalledWith({
+      id: 'truck-harvester-v2-save-folder',
+      mode: 'readwrite',
+      startIn: restoredDirectory,
+    })
+    expect(pickedDirectory.getDirectoryHandle).toHaveBeenCalledWith(
+      '서울12가3456',
+      { create: true }
+    )
+    expect(statusRegion?.textContent).toContain('저장 완료')
   })
 })
