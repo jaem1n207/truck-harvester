@@ -70,7 +70,8 @@ describe('PreparedListingStatusPanel', () => {
       <PreparedListingStatusPanel items={items} />
     )
 
-    expect(html).toContain('오늘 작업')
+    expect(html).toContain('저장 진행 상황')
+    expect(html).not.toContain('오늘 작업')
     expect(html).toContain('3대 중 1대 저장 완료')
     expect(html).toContain('현대 메가트럭')
     expect(html).toContain('기아 봉고 냉동탑차')

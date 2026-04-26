@@ -88,6 +88,7 @@ test('saves a pasted chip workbench batch with readable listing labels', async (
   const chipInput = page.getByRole('region', { name: '매물 주소 넣기' })
   await expect(chipInput.getByText('[활어차]포터2 슈퍼캡 1')).toBeVisible()
   await expect(chipInput.getByText('[활어차]포터2 슈퍼캡 2')).toBeVisible()
+  const statusPanel = page.getByRole('region', { name: '저장 진행 상황' })
 
   const startButton = page.getByRole('button', {
     name: '확인된 2대 저장 시작',
@@ -96,6 +97,10 @@ test('saves a pasted chip workbench batch with readable listing labels', async (
   await startButton.click()
 
   await expect(page.getByText('truck-test')).toBeVisible()
-  await expect(page.getByText('2대 저장 완료')).toBeVisible()
+  await expect(statusPanel.getByText('2대 저장 완료')).toBeVisible()
+  await expect(statusPanel.getByText('[활어차]포터2 슈퍼캡 1')).toBeVisible()
+  await expect(statusPanel.getByText('[활어차]포터2 슈퍼캡 2')).toBeVisible()
+  await expect(chipInput.getByText('[활어차]포터2 슈퍼캡 1')).toHaveCount(0)
+  await expect(chipInput.getByText('[활어차]포터2 슈퍼캡 2')).toHaveCount(0)
   await expect(page.getByText('truck-1')).toHaveCount(0)
 })

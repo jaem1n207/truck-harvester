@@ -85,9 +85,12 @@ test('completes a 10-address batch with streamed parsed results', async ({
 
   const chipInput = page.getByRole('region', { name: '매물 주소 넣기' })
   await expect(chipInput.getByText('현대 마이티 10')).toBeVisible()
+  const statusPanel = page.getByRole('region', { name: '저장 진행 상황' })
 
   await page.getByRole('button', { name: '확인된 10대 저장 시작' }).click()
 
-  await expect(page.getByText('10대 저장 완료')).toBeVisible()
+  await expect(statusPanel.getByText('10대 저장 완료')).toBeVisible()
+  await expect(statusPanel.getByText('현대 마이티 10')).toBeVisible()
+  await expect(chipInput.getByText('현대 마이티 10')).toHaveCount(0)
   await expect(page.getByText('주목 필요')).toHaveCount(0)
 })

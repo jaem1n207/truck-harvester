@@ -1,22 +1,42 @@
+import { createRequire } from 'node:module'
+
 import { act } from 'react'
 
 import { createRoot, type Root } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import V2Page from '../page'
+import {
+  createPreparedListingStore,
+  selectCheckingPreparedListings,
+  selectReadyPreparedListings,
+} from '@/v2/features/listing-preparation/model/prepared-listing-store'
 
-const listingPreparationMocks = vi.hoisted(() => ({
+const listingPreparationMocks = {
   prepareListingUrls: vi.fn(),
-}))
+}
+const require = createRequire(import.meta.url)
+const { mock } = require('bun:test') as {
+  mock: {
+    module: (specifier: string, factory: () => Record<string, unknown>) => void
+    restore: () => void
+  }
+}
+const { JSDOM } = require('jsdom') as {
+  JSDOM: new (
+    html: string,
+    options: { url: string }
+  ) => {
+    window: Window & typeof globalThis
+  }
+}
 
-vi.mock('@/v2/features/listing-preparation', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@/v2/features/listing-preparation')>()
-
+mock.module('@/v2/features/listing-preparation', () => {
   return {
-    ...actual,
+    createPreparedListingStore,
     prepareListingUrls: listingPreparationMocks.prepareListingUrls,
+    selectCheckingPreparedListings,
+    selectReadyPreparedListings,
   }
 })
 
@@ -33,6 +53,44 @@ const secondTruckUrl =
 
 let root: Root | null = null
 let container: HTMLDivElement | null = null
+let dom: { window: Window & typeof globalThis } | null = null
+
+const installDom = () => {
+  dom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'http://localhost/v2',
+  })
+
+  Object.defineProperties(globalThis, {
+    document: {
+      configurable: true,
+      value: dom.window.document,
+    },
+    DOMException: {
+      configurable: true,
+      value: dom.window.DOMException,
+    },
+    Event: {
+      configurable: true,
+      value: dom.window.Event,
+    },
+    HTMLTextAreaElement: {
+      configurable: true,
+      value: dom.window.HTMLTextAreaElement,
+    },
+    MutationObserver: {
+      configurable: true,
+      value: dom.window.MutationObserver,
+    },
+    navigator: {
+      configurable: true,
+      value: dom.window.navigator,
+    },
+    window: {
+      configurable: true,
+      value: dom.window,
+    },
+  })
+}
 
 afterEach(() => {
   if (root) {
@@ -44,22 +102,28 @@ afterEach(() => {
   container?.remove()
   root = null
   container = null
+  dom?.window.close()
+  dom = null
   vi.clearAllMocks()
+  mock.restore()
 })
 
 describe('V2Page', () => {
   it('provides a stable fallback anchor for onboarding', () => {
+    const V2Page = require('../page').default
     const html = renderToStaticMarkup(<V2Page />)
 
     expect(html).toContain('data-tour="v2-page"')
   })
 
   it('renders the operational v2 flow instead of the placeholder preview', () => {
+    const V2Page = require('../page').default
     const html = renderToStaticMarkup(<V2Page />)
 
     expect(html).toContain('매물 주소 넣기')
     expect(html).toContain('복사한 내용을 그대로 붙여넣으세요')
-    expect(html).toContain('오늘 작업')
+    expect(html).toContain('저장 진행 상황')
+    expect(html).not.toContain('오늘 작업')
     expect(html).toContain('압축 파일로 저장됩니다')
     expect(html).toContain('도움말')
     expect(html).not.toContain('가져올 매물')
@@ -70,10 +134,12 @@ describe('V2Page', () => {
     listingPreparationMocks.prepareListingUrls.mockReturnValue(
       new Promise(() => {})
     )
+    installDom()
 
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
+    const V2Page = require('../page').default
 
     await act(async () => {
       root?.render(<V2Page />)
@@ -151,10 +217,12 @@ describe('V2Page', () => {
       previewPromises.push(previewPromise)
       return previewPromise
     })
+    installDom()
 
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
+    const V2Page = require('../page').default
 
     await act(async () => {
       root?.render(<V2Page />)

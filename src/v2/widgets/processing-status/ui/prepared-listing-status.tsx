@@ -112,7 +112,7 @@ export function PreparedListingStatusPanel({
           className="text-lg font-semibold"
           id="prepared-listing-status-title"
         >
-          오늘 작업
+          저장 진행 상황
         </h2>
         <p
           className={cn(

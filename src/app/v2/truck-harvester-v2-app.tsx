@@ -78,6 +78,9 @@ export function TruckHarvesterV2App() {
   const onboardingState = useStore(onboardingStore, (state) => state)
   const readyListings = selectReadyPreparedListings(preparedState)
   const checkingListings = selectCheckingPreparedListings(preparedState)
+  const inputListings = preparedState.items.filter(
+    (item) => item.status !== 'saved'
+  )
 
   useEffect(() => {
     isMountedRef.current = true
@@ -429,7 +432,7 @@ export function TruckHarvesterV2App() {
                 canRemoveItem={canRemovePreparedItem}
                 disabled={isSaving}
                 duplicateMessage={duplicateMessage}
-                items={preparedState.items}
+                items={inputListings}
                 onPasteText={handlePasteText}
                 onRemove={(id) => preparedStore.getState().remove(id)}
                 onStart={() => void startSavingReadyListings()}
