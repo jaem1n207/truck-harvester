@@ -89,6 +89,7 @@ export interface PreparedListingState {
   markReady: (url: string, listing: TruckListing) => void
   markReadyById: (id: string, listing: TruckListing) => void
   markInvalid: (url: string, message: string) => void
+  markInvalidById: (id: string, message: string) => void
   markFailed: (url: string, message: string) => void
   markFailedById: (id: string, message: string) => void
   markSaving: (id: string, progress: PreparedListingSaveProgress) => void
@@ -139,6 +140,17 @@ const createReadyItem = (
   url: item.url,
   label: listingLabel(listing),
   listing,
+})
+
+const createInvalidItem = (
+  item: PreparedListing,
+  message: string
+): InvalidPreparedListing => ({
+  status: 'invalid',
+  id: item.id,
+  url: item.url,
+  label: invalidLabel,
+  message,
 })
 
 const createFailedItem = (
@@ -215,13 +227,15 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
       })),
     markInvalid: (url, message) =>
       set((state) => ({
-        items: updateByUrl(state.items, url, (item) => ({
-          status: 'invalid',
-          id: item.id,
-          url: item.url,
-          label: invalidLabel,
-          message,
-        })),
+        items: updateByUrl(state.items, url, (item) =>
+          createInvalidItem(item, message)
+        ),
+      })),
+    markInvalidById: (id, message) =>
+      set((state) => ({
+        items: updateById(state.items, id, (item) =>
+          item.status === 'checking' ? createInvalidItem(item, message) : item
+        ),
       })),
     markFailed: (url, message) =>
       set((state) => ({

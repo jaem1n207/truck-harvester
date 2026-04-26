@@ -143,6 +143,36 @@ describe('prepared listing store', () => {
     })
   })
 
+  it('marks a checking item invalid by id without touching newer same-url items', () => {
+    const store = createPreparedListingStore()
+    store.getState().addUrls([firstUrl])
+
+    const staleItem = store.getState().items[0]
+    store.getState().remove(staleItem.id)
+    store.getState().addUrls([firstUrl])
+
+    const newerItem = store.getState().items[0]
+    store.setState({ items: [staleItem, newerItem] })
+
+    store
+      .getState()
+      .markInvalidById(
+        staleItem.id,
+        '매물 정보를 찾지 못했어요. 주소를 다시 확인해 주세요.'
+      )
+
+    expect(store.getState().items).toEqual([
+      {
+        status: 'invalid',
+        id: staleItem.id,
+        url: firstUrl,
+        label: '주소 확인 필요',
+        message: '매물 정보를 찾지 못했어요. 주소를 다시 확인해 주세요.',
+      },
+      newerItem,
+    ])
+  })
+
   it('tracks save progress and selects ready listings only', () => {
     const store = createPreparedListingStore()
     store.getState().addUrls([firstUrl, secondUrl])
