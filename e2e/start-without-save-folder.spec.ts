@@ -281,11 +281,36 @@ test('uses the folder picked during start as the selected save folder', async ({
 
   await page.reload()
 
-  await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
-  await expect(page.getByText('truck-test')).toBeVisible()
+  await expect(page.getByText('선택한 저장 폴더')).not.toBeVisible()
+  await expect(page.getByText('truck-test')).not.toBeVisible()
   await expect
     .poll(() =>
       page.evaluate(() => window.__v2DirectoryWrites.pickedFolders.length)
     )
     .toBe(1)
+
+  await pasteTextInto(page.getByRole('textbox', { name: '매물 주소' }), urls[0])
+  await page.evaluate(() => {
+    window.__v2DirectoryWrites.pickerArmed = true
+  })
+  await page.getByRole('button', { name: '확인된 1대 저장 시작' }).click()
+
+  await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
+  await expect(page.getByText('truck-test')).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__v2DirectoryWrites.vehicleFolders.length)
+    )
+    .toBe(1)
+
+  const writesAfterReload = await page.evaluate(
+    () => window.__v2DirectoryWrites
+  )
+
+  expect(writesAfterReload).toMatchObject({
+    pickedFolders: ['truck-test', 'truck-test'],
+    vehicleFolders: ['서울01가1234'],
+    zipBlobUrls: 0,
+    pickerArmed: false,
+  })
 })
