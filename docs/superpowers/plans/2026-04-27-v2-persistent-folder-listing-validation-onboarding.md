@@ -207,7 +207,7 @@ it('opens the folder picker near the remembered directory', async () => {
 Run:
 
 ```bash
-bun test src/v2/features/file-management/__tests__/directory-handle-storage.test.ts src/v2/features/file-management/__tests__/file-system.test.ts --run
+bun run test -- --run src/v2/features/file-management/__tests__/directory-handle-storage.test.ts src/v2/features/file-management/__tests__/file-system.test.ts
 ```
 
 Expected: FAIL because `directory-handle-storage.ts` and picker options do not exist yet.
@@ -420,7 +420,7 @@ export {
 Run:
 
 ```bash
-bun test src/v2/features/file-management/__tests__/directory-handle-storage.test.ts src/v2/features/file-management/__tests__/file-system.test.ts --run
+bun run test -- --run src/v2/features/file-management/__tests__/directory-handle-storage.test.ts src/v2/features/file-management/__tests__/file-system.test.ts
 ```
 
 Expected: PASS.
@@ -580,7 +580,7 @@ describe('TruckHarvesterV2App persisted directory', () => {
 Run:
 
 ```bash
-bun test src/v2/widgets/directory-selector/ui/__tests__/directory-selector.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx --run
+bun run test -- --run src/v2/widgets/directory-selector/ui/__tests__/directory-selector.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx
 ```
 
 Expected: FAIL because the selector has no permission state or picker start props and the app does not load persisted directory handles.
@@ -762,7 +762,7 @@ Update the rendered selector:
 Run:
 
 ```bash
-bun test src/v2/widgets/directory-selector/ui/__tests__/directory-selector.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx --run
+bun run test -- --run src/v2/widgets/directory-selector/ui/__tests__/directory-selector.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx
 ```
 
 Expected: PASS.
@@ -842,7 +842,7 @@ it('does not mark a page with missing listing identity ready', async () => {
 Run:
 
 ```bash
-bun test src/v2/features/listing-preparation/model/__tests__/prepared-listing-store.test.ts src/v2/features/listing-preparation/model/__tests__/prepare-listings.test.ts --run
+bun run test -- --run src/v2/features/listing-preparation/model/__tests__/prepared-listing-store.test.ts src/v2/features/listing-preparation/model/__tests__/prepare-listings.test.ts
 ```
 
 Expected: FAIL because `markInvalidById()` and missing-identity validation do not exist.
@@ -905,7 +905,7 @@ store.getState().markReadyById(itemId, listing)
 Run:
 
 ```bash
-bun test src/v2/features/listing-preparation/model/__tests__/prepared-listing-store.test.ts src/v2/features/listing-preparation/model/__tests__/prepare-listings.test.ts --run
+bun run test -- --run src/v2/features/listing-preparation/model/__tests__/prepared-listing-store.test.ts src/v2/features/listing-preparation/model/__tests__/prepare-listings.test.ts
 ```
 
 Expected: PASS.
@@ -1001,7 +1001,7 @@ Update E2E assertions that look for `오늘 작업` to `저장 진행 상황`.
 Run:
 
 ```bash
-bun test src/v2/widgets/processing-status/ui/__tests__/prepared-listing-status.test.tsx src/app/v2/__tests__/page.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx --run
+bun run test -- --run src/v2/widgets/processing-status/ui/__tests__/prepared-listing-status.test.tsx src/app/v2/__tests__/page.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx
 ```
 
 Expected: FAIL because the old heading still renders and saved items still feed `ListingChipInput`.
@@ -1045,7 +1045,7 @@ Keep the full list in the progress panel:
 Run:
 
 ```bash
-bun test src/v2/widgets/processing-status/ui/__tests__/prepared-listing-status.test.tsx src/app/v2/__tests__/page.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx --run
+bun run test -- --run src/v2/widgets/processing-status/ui/__tests__/prepared-listing-status.test.tsx src/app/v2/__tests__/page.test.tsx src/app/v2/__tests__/truck-harvester-v2-app-persistence.test.tsx
 ```
 
 Expected: PASS.
@@ -1170,7 +1170,7 @@ expect(tourSteps[0].description).toBe(
 Run:
 
 ```bash
-bun test src/v2/shared/model/__tests__/onboarding-store.test.ts src/v2/features/onboarding/lib/__tests__/spotlight-geometry.test.ts src/v2/features/onboarding/lib/__tests__/tour-steps.test.ts --run
+bun run test -- --run src/v2/shared/model/__tests__/onboarding-store.test.ts src/v2/features/onboarding/lib/__tests__/spotlight-geometry.test.ts src/v2/features/onboarding/lib/__tests__/tour-steps.test.ts
 ```
 
 Expected: FAIL because `goToPreviousStep()` and spotlight geometry do not exist and the first-step copy still mentions duplicate handling.
@@ -1281,7 +1281,7 @@ description:
 Run:
 
 ```bash
-bun test src/v2/shared/model/__tests__/onboarding-store.test.ts src/v2/features/onboarding/lib/__tests__/spotlight-geometry.test.ts src/v2/features/onboarding/lib/__tests__/tour-steps.test.ts --run
+bun run test -- --run src/v2/shared/model/__tests__/onboarding-store.test.ts src/v2/features/onboarding/lib/__tests__/spotlight-geometry.test.ts src/v2/features/onboarding/lib/__tests__/tour-steps.test.ts
 ```
 
 Expected: PASS.
@@ -1350,7 +1350,7 @@ it('disables the previous control on the first step', () => {
 Run:
 
 ```bash
-bun test src/v2/features/onboarding/ui/__tests__/tour-overlay.test.tsx --run
+bun run test -- --run src/v2/features/onboarding/ui/__tests__/tour-overlay.test.tsx
 ```
 
 Expected: FAIL because `onPrevious`, spotlight layers, and new Motion markers do not exist.
@@ -1595,7 +1595,7 @@ Update `src/app/v2/truck-harvester-v2-app.tsx`:
 Run:
 
 ```bash
-bun test src/v2/features/onboarding/ui/__tests__/tour-overlay.test.tsx src/app/v2/__tests__/page.test.tsx --run
+bun run test -- --run src/v2/features/onboarding/ui/__tests__/tour-overlay.test.tsx src/app/v2/__tests__/page.test.tsx
 ```
 
 Expected: PASS.
