@@ -40,4 +40,24 @@ describe('spotlight geometry', () => {
       )
     ).toEqual({ left: 100, top: 414 })
   })
+
+  it('keeps the popover visible when it is wider than the viewport', () => {
+    const position = getPopoverPosition(
+      { left: 100, top: 120, width: 80, height: 80 },
+      { width: 280, height: 500 },
+      { width: 320, height: 90 }
+    )
+
+    expect(position.left).toBeGreaterThanOrEqual(0)
+  })
+
+  it('keeps the popover visible when it is taller than the viewport', () => {
+    const position = getPopoverPosition(
+      { left: 100, top: 260, width: 80, height: 80 },
+      { width: 500, height: 280 },
+      { width: 180, height: 320 }
+    )
+
+    expect(position.top).toBeGreaterThanOrEqual(0)
+  })
 })

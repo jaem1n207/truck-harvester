@@ -21,6 +21,20 @@ const popoverGap = 16
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
 
+const getPopoverAxisPosition = (
+  value: number,
+  viewportSize: number,
+  popoverSize: number
+) => {
+  const maxPosition = viewportSize - popoverSize - spotlightMargin
+
+  if (maxPosition < spotlightMargin) {
+    return clamp(value, 0, Math.max(maxPosition, 0))
+  }
+
+  return clamp(value, spotlightMargin, maxPosition)
+}
+
 export function getSpotlightRect(
   target: TargetRect,
   viewport: ViewportRect,
@@ -50,17 +64,19 @@ export function getPopoverPosition(
   popover: PopoverRect
 ) {
   const centeredLeft = spotlight.left + spotlight.width / 2 - popover.width / 2
-  const maxLeft = viewport.width - popover.width - spotlightMargin
-  const left = clamp(centeredLeft, spotlightMargin, maxLeft)
+  const left = getPopoverAxisPosition(
+    centeredLeft,
+    viewport.width,
+    popover.width
+  )
   const belowTop = spotlight.top + spotlight.height + popoverGap
   const top =
     belowTop + popover.height + spotlightMargin <= viewport.height
       ? belowTop
       : spotlight.top - popover.height - popoverGap
-  const maxTop = viewport.height - popover.height - spotlightMargin
 
   return {
     left,
-    top: clamp(top, spotlightMargin, maxTop),
+    top: getPopoverAxisPosition(top, viewport.height, popover.height),
   }
 }
