@@ -10,15 +10,29 @@ import {
 import { v2Copy } from '@/v2/shared/lib/copy'
 import { Button } from '@/v2/shared/ui/button'
 
+type DirectoryPermissionState = 'ready' | 'needs-permission' | 'restoring'
+type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
+
 interface DirectorySelectorProps {
   isSupported?: boolean
-  onSelectDirectory: (directory: WritableDirectoryHandle) => void
+  onSelectDirectory: (
+    directory: WritableDirectoryHandle
+  ) => Promise<void> | void
+  permissionState?: DirectoryPermissionState
+  pickerStartIn?: DirectoryPickerStartIn
   selectedDirectoryName?: string
 }
+
+const pickSaveDirectory = pickWritableDirectory as (options: {
+  id: string
+  startIn: DirectoryPickerStartIn
+}) => Promise<WritableDirectoryHandle | undefined>
 
 export function DirectorySelector({
   isSupported = isFileSystemAccessAvailable(),
   onSelectDirectory,
+  permissionState = 'ready',
+  pickerStartIn,
   selectedDirectoryName,
 }: DirectorySelectorProps) {
   if (!isSupported) {
@@ -50,10 +64,13 @@ export function DirectorySelector({
       <div>
         <Button
           onClick={async () => {
-            const directory = await pickWritableDirectory()
+            const directory = await pickSaveDirectory({
+              id: 'truck-harvester-v2-save-folder',
+              startIn: pickerStartIn ?? 'downloads',
+            })
 
             if (directory) {
-              onSelectDirectory(directory)
+              await onSelectDirectory(directory)
             }
           }}
           type="button"
@@ -76,6 +93,11 @@ export function DirectorySelector({
             <p className="truncate text-sm font-medium">
               {selectedDirectoryName}
             </p>
+            {permissionState === 'needs-permission' ? (
+              <p className="text-muted-foreground text-xs">
+                저장할 때 폴더 권한을 다시 확인합니다.
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}

@@ -3,6 +3,7 @@ import { isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
+import { type WritableDirectoryHandle } from '@/v2/features/file-management'
 import { v2Copy } from '@/v2/shared/lib/copy'
 
 import { DirectorySelector } from '../directory-selector'
@@ -10,6 +11,11 @@ import { DirectorySelector } from '../directory-selector'
 interface ClickableProps {
   children?: ReactNode
   onClick?: () => Promise<void>
+}
+
+const browserGlobal = globalThis as typeof globalThis & {
+  showDirectoryPicker?: unknown
+  window?: typeof globalThis & { showDirectoryPicker?: unknown }
 }
 
 const findClickHandler = (node: ReactNode): (() => Promise<void>) => {
@@ -61,6 +67,61 @@ describe('DirectorySelector', () => {
     expect(html).toContain('data-selected-folder-icon="true"')
   })
 
+  it('shows remembered folder permission guidance when permission needs confirmation', () => {
+    const html = renderToStaticMarkup(
+      <DirectorySelector
+        isSupported
+        onSelectDirectory={vi.fn()}
+        permissionState="needs-permission"
+        selectedDirectoryName="기억한 저장 폴더"
+      />
+    )
+
+    expect(html).toContain('선택한 저장 폴더')
+    expect(html).toContain('기억한 저장 폴더')
+    expect(html).toContain('저장할 때 폴더 권한을 다시 확인합니다.')
+  })
+
+  it('passes the remembered folder to the picker start location', async () => {
+    const originalWindow = browserGlobal.window
+    const originalPicker = browserGlobal.showDirectoryPicker
+    const rememberedDirectory = {
+      name: '기억한 저장 폴더',
+    } as WritableDirectoryHandle
+    const pickedDirectory = {
+      name: '새 저장 폴더',
+    } as WritableDirectoryHandle
+    const onSelectDirectory = vi.fn()
+
+    const picker = vi.fn().mockResolvedValue(pickedDirectory)
+    browserGlobal.showDirectoryPicker = picker
+    Object.defineProperty(browserGlobal, 'window', {
+      configurable: true,
+      value: browserGlobal,
+    })
+
+    const element = DirectorySelector({
+      isSupported: true,
+      onSelectDirectory,
+      pickerStartIn: rememberedDirectory,
+    })
+    const click = findClickHandler(element)
+
+    await expect(click()).resolves.toBeUndefined()
+    expect(picker).toHaveBeenCalledWith({
+      id: 'truck-harvester-v2-save-folder',
+      mode: 'readwrite',
+      startIn: rememberedDirectory,
+    })
+    expect(onSelectDirectory).toHaveBeenCalledWith(pickedDirectory)
+
+    browserGlobal.showDirectoryPicker = originalPicker
+    Object.defineProperty(browserGlobal, 'window', {
+      configurable: true,
+      value: originalWindow,
+    })
+  })
+
   it('renders zip fallback copy when direct save is unavailable', () => {
     const html = renderToStaticMarkup(
       <DirectorySelector isSupported={false} onSelectDirectory={vi.fn()} />
@@ -71,11 +132,16 @@ describe('DirectorySelector', () => {
   })
 
   it('treats a canceled folder picker as no selection', async () => {
-    const originalPicker = window.showDirectoryPicker
+    const originalWindow = browserGlobal.window
+    const originalPicker = browserGlobal.showDirectoryPicker
     const onSelectDirectory = vi.fn()
-    window.showDirectoryPicker = vi
+    browserGlobal.showDirectoryPicker = vi
       .fn()
       .mockRejectedValue(new DOMException('취소됨', 'AbortError'))
+    Object.defineProperty(browserGlobal, 'window', {
+      configurable: true,
+      value: browserGlobal,
+    })
 
     const element = DirectorySelector({ isSupported: true, onSelectDirectory })
     const click = findClickHandler(element)
@@ -83,6 +149,10 @@ describe('DirectorySelector', () => {
     await expect(click()).resolves.toBeUndefined()
     expect(onSelectDirectory).not.toHaveBeenCalled()
 
-    window.showDirectoryPicker = originalPicker
+    browserGlobal.showDirectoryPicker = originalPicker
+    Object.defineProperty(browserGlobal, 'window', {
+      configurable: true,
+      value: originalWindow,
+    })
   })
 })
