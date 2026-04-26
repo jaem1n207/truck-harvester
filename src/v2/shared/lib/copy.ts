@@ -1,13 +1,14 @@
 export const v2Copy = {
   urlInput: {
-    title: '매물 주소 붙여넣기',
-    description: '한 줄에 하나씩 매물 상세 화면 주소를 넣어주세요.',
+    title: '매물 주소 넣기',
+    description:
+      '복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다.',
     label: '매물 주소',
-    placeholder: 'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=...',
-    submit: '가져오기 시작',
+    placeholder: '복사한 내용을 여기에 붙여넣으세요',
+    submit: '매물 확인 시작',
     errors: {
-      empty: '가져올 매물 주소를 한 개 이상 넣어주세요.',
-      invalid: '지원하는 매물 상세 화면 주소만 넣어주세요.',
+      empty: '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.',
+      invalid: '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.',
     },
   },
   urlList: {

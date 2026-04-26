@@ -24,6 +24,8 @@ const normalizedUrls = [
   'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3',
   secondUrl,
 ]
+const requiredRecoveryMessage =
+  '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.'
 
 describe('url input schema', () => {
   it('extracts supported truck urls from pasted chat text and removes duplicates', () => {
@@ -95,14 +97,16 @@ describe('url input schema', () => {
   it('returns Korean recovery copy for empty input', () => {
     expect(parseUrlInputText('   ')).toEqual({
       success: false,
-      message: v2Copy.urlInput.errors.empty,
+      message: requiredRecoveryMessage,
     })
+    expect(v2Copy.urlInput.errors.empty).toBe(requiredRecoveryMessage)
   })
 
   it('returns Korean recovery copy for unsupported addresses', () => {
     expect(parseUrlInputText('https://example.com/truck/1')).toEqual({
       success: false,
-      message: v2Copy.urlInput.errors.invalid,
+      message: requiredRecoveryMessage,
     })
+    expect(v2Copy.urlInput.errors.invalid).toBe(requiredRecoveryMessage)
   })
 })
