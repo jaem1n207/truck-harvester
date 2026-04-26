@@ -43,6 +43,10 @@ const installDom = () => {
       configurable: true,
       value: dom.window.HTMLElement,
     },
+    KeyboardEvent: {
+      configurable: true,
+      value: dom.window.KeyboardEvent,
+    },
     window: {
       configurable: true,
       value: dom.window,
@@ -88,6 +92,10 @@ describe('TourOverlay', () => {
     expect(html).toContain('data-motion="tour-highlight"')
     expect(html).toContain('data-motion="tour-card"')
     expect(html).toContain('disabled=""')
+    expect(html).not.toContain('pointer-events-none fixed inset-0')
+    expect(html).toContain('data-tour-card="true"')
+    expect(html).toContain('max-h-[calc(100dvh-32px)]')
+    expect(html).toContain('overflow-y-auto')
   })
 
   it('keeps the previous control disabled on the first step', async () => {
@@ -162,5 +170,85 @@ describe('TourOverlay', () => {
 
     expect(onPrevious).toHaveBeenCalledTimes(1)
     expect(onNext).toHaveBeenCalledTimes(1)
+  })
+
+  it('moves focus into the dialog, traps Tab, closes on Escape, and restores focus', async () => {
+    const onClose = vi.fn()
+
+    installDom()
+    const backgroundButton = document.createElement('button')
+    backgroundButton.textContent = '배경 버튼'
+    document.body.append(backgroundButton)
+    backgroundButton.focus()
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <TourOverlay
+          currentStep={1}
+          isOpen
+          onClose={onClose}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          steps={tourSteps}
+        />
+      )
+    })
+
+    const closeButton = container.querySelector<HTMLButtonElement>(
+      'button[data-tour-control="close"]'
+    )
+    const nextButton = container.querySelector<HTMLButtonElement>(
+      'button[data-tour-control="next"]'
+    )
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')
+
+    expect(document.activeElement).toBe(closeButton)
+
+    nextButton?.focus()
+    await act(async () => {
+      nextButton?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          key: 'Tab',
+        })
+      )
+    })
+
+    expect(document.activeElement).toBe(closeButton)
+
+    closeButton?.focus()
+    await act(async () => {
+      closeButton?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          key: 'Tab',
+          shiftKey: true,
+        })
+      )
+    })
+
+    expect(document.activeElement).toBe(nextButton)
+
+    await act(async () => {
+      dialog?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          key: 'Escape',
+        })
+      )
+    })
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      root?.unmount()
+    })
+
+    root = null
+    expect(document.activeElement).toBe(backgroundButton)
   })
 })

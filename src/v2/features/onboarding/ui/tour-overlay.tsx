@@ -1,6 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react'
 
 import { motion } from 'motion/react'
 
@@ -77,6 +84,20 @@ const getElementRect = (element: Element): TargetRect => {
 
 const toFixedPx = (value: number) => `${Math.max(value, 0)}px`
 
+const focusableSelector = [
+  'button:not([disabled])',
+  'a[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+const getFocusableElements = (element: HTMLElement) =>
+  Array.from(element.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (focusableElement) => !focusableElement.hasAttribute('disabled')
+  )
+
 export function TourOverlay({
   isOpen,
   currentStep,
@@ -87,6 +108,8 @@ export function TourOverlay({
 }: TourOverlayProps) {
   const tourCardMotion = useV2MotionPreset('tourCard')
   const tourHighlightMotion = useV2MotionPreset('tourHighlight')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const previousActiveElementRef = useRef<HTMLElement | null>(null)
   const [geometry, setGeometry] = useState<TourGeometry>(() =>
     createFallbackGeometry()
   )
@@ -123,6 +146,29 @@ export function TourOverlay({
       window.removeEventListener('scroll', updateGeometry, true)
     }
   }, [isOpen, step])
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      return
+    }
+
+    previousActiveElementRef.current =
+      typeof window !== 'undefined' &&
+      document.activeElement instanceof window.HTMLElement
+        ? document.activeElement
+        : null
+
+    const focusableElements = dialogRef.current
+      ? getFocusableElements(dialogRef.current)
+      : []
+
+    focusableElements[0]?.focus()
+
+    return () => {
+      previousActiveElementRef.current?.focus()
+      previousActiveElementRef.current = null
+    }
+  }, [isOpen, step.id])
 
   const dimStyles = useMemo(() => {
     const { spotlight, viewport } = geometry
@@ -174,10 +220,56 @@ export function TourOverlay({
     return null
   }
 
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      onClose()
+      return
+    }
+
+    if (event.key !== 'Tab') {
+      return
+    }
+
+    const focusableElements = getFocusableElements(event.currentTarget)
+
+    if (focusableElements.length === 0) {
+      event.preventDefault()
+      return
+    }
+
+    const firstElement = focusableElements[0]
+    const lastElement = focusableElements[focusableElements.length - 1]
+    const activeElement = document.activeElement
+
+    if (event.shiftKey) {
+      if (
+        activeElement === firstElement ||
+        activeElement === event.currentTarget
+      ) {
+        event.preventDefault()
+        lastElement.focus()
+      }
+
+      return
+    }
+
+    if (
+      activeElement === lastElement ||
+      !event.currentTarget.contains(activeElement)
+    ) {
+      event.preventDefault()
+      firstElement.focus()
+    }
+  }
+
   return (
     <div
       aria-modal="true"
-      className="pointer-events-none fixed inset-0 z-50"
+      className="fixed inset-0 z-50"
+      data-tour-modal-root="true"
+      onKeyDown={handleDialogKeyDown}
+      ref={dialogRef}
       role="dialog"
     >
       <div
@@ -210,8 +302,9 @@ export function TourOverlay({
         {...tourHighlightMotion}
       />
       <motion.div
-        className="border-border bg-card text-card-foreground pointer-events-auto fixed rounded-xl border p-5 shadow-lg"
+        className="border-border bg-card text-card-foreground fixed max-h-[calc(100dvh-32px)] overflow-y-auto rounded-xl border p-5 shadow-lg"
         data-motion="tour-card"
+        data-tour-card="true"
         key={`${step.id}-card`}
         style={popoverStyle}
         {...tourCardMotion}
@@ -227,6 +320,7 @@ export function TourOverlay({
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button
             className="text-muted-foreground hover:bg-muted rounded-lg px-3 py-2 text-sm"
+            data-tour-control="close"
             onClick={onClose}
             type="button"
           >
