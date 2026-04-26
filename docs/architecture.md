@@ -7,20 +7,25 @@ must not import legacy watermarking or Sentry code.
 
 ```mermaid
 flowchart LR
-  A["Staff paste listing addresses"] --> B["URL input widget validates addresses"]
-  B --> C["Batch processor schedules parse jobs"]
-  C --> D["POST /api/v2/parse-truck once per address"]
-  D --> E["Pure Cheerio parser returns truck listing data"]
-  E --> F["Zustand batch state updates each item"]
-  F --> G["Processing widgets stream status cards"]
-  G --> H["File System Access API saves image folders"]
-  G --> I["ZIP fallback downloads archive"]
-  F --> J["Attention panel holds retry or skip work"]
+  A["Staff paste copied chat text"] --> B["Chip input extracts truck listing addresses"]
+  B --> C["Prepared listing store adds checking chips"]
+  C --> D["Preview runner schedules parse jobs with concurrency 5"]
+  D --> E["POST /api/v2/parse-truck once per address"]
+  E --> F["Pure Cheerio parser returns truck listing data"]
+  F --> G["Prepared listing store marks chips ready or failed"]
+  G --> H["User starts saving ready listings"]
+  H --> I["File System Access API saves per-truck folders"]
+  H --> J["ZIP fallback downloads archive when folder saving is unavailable"]
+  I --> K["Prepared status panel shows saved labels and completion summary"]
+  J --> K
+  K --> L["Optional desktop notification"]
 ```
 
-The client owns scheduling with concurrency 5. The server endpoint accepts
-one address at a time so each request can stay inside the short Vercel
-Hobby execution budget.
+The client owns preview scheduling with concurrency 5. The server endpoint
+accepts one address at a time so each request can stay inside the short
+Vercel Hobby execution budget. The visible user state is the prepared
+listing list: raw URLs are translated into readable listing-name chips
+before saving starts.
 
 ## Sequence
 
@@ -28,30 +33,38 @@ Hobby execution budget.
 sequenceDiagram
   participant User as Staff
   participant Page as /v2 page
-  participant Batch as processTruckBatch
+  participant Prep as prepareListingUrls
   participant API as /api/v2/parse-truck
-  participant Store as batch store
+  participant Store as prepared listing store
   participant Save as file management
+  participant Notify as desktop notification
 
-  User->>Page: Paste addresses and start
-  Page->>Batch: Start jobs with concurrency 5
+  User->>Page: Paste copied chat text
+  Page->>Store: add checking chips for supported addresses
+  Page->>Prep: Start preview jobs with concurrency 5
   loop Each listing address
-    Batch->>Store: setParsing
-    Batch->>API: POST one address
-    API-->>Batch: parsed listing or typed failure
-    Batch->>Store: setParsed or setFailed
+    Prep->>API: POST one address
+    API-->>Prep: parsed listing or typed failure
+    Prep->>Store: markReady or markFailed by chip id
   end
-  Page->>Save: Save each parsed listing
-  Save-->>Store: setDownloaded or setFailed
-  Store-->>Page: render done, in-progress, and attention groups
+  User->>Page: Click 확인된 N대 저장 시작
+  Page->>Save: Save ready listings
+  Save-->>Store: markSaving, markSaved, or markFailed
+  Store-->>Page: render readable progress and completion summary
+  Page-->>Notify: optional completion notification
 ```
+
+Route-level controllers abort active preview and save work when `/v2`
+unmounts. New paste runs do not cancel earlier checking chips; only the
+latest paste run may update helper text such as duplicate warnings.
 
 ## Layer Responsibilities
 
 - `src/app/v2`: route composition, page layout, and wiring.
 - `src/v2/widgets`: user-facing blocks that compose features and shared
   selectors.
-- `src/v2/features`: workflows such as parsing, saving, and onboarding.
+- `src/v2/features`: workflows such as listing preparation, parsing,
+  saving, completion notifications, and onboarding.
 - `src/v2/entities`: pure schemas and state contracts.
 - `src/v2/shared`: utilities, stores, selectors, and low-level UI.
 - `src/v2/design-system`: tokens and motion presets for `/v2`.
