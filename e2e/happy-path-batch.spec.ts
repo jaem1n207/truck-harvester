@@ -1,9 +1,17 @@
 import { expect, test } from '@playwright/test'
 
+import { pasteTextInto } from './paste'
+
 const buildTruckUrl = (index: number) =>
   `https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=${index}`
 
 const urls = Array.from({ length: 10 }, (_, index) => buildTruckUrl(index + 1))
+const mixedChatText = urls
+  .map(
+    (url, index) =>
+      `사장님 ${index + 1}번 매물 확인 부탁드립니다.\n${url}\n사진까지 저장해 주세요.`
+  )
+  .join('\n\n')
 const onboardingStorageKey = 'truck-harvester:v2:onboarding'
 
 test('completes a 10-address batch with streamed parsed results', async ({
@@ -70,10 +78,16 @@ test('completes a 10-address batch with streamed parsed results', async ({
 
   await page.goto('/v2')
 
-  await page.getByLabel('매물 주소').fill(urls.join('\n'))
-  await page.getByRole('button', { name: '가져오기 시작' }).click()
+  await pasteTextInto(
+    page.getByRole('textbox', { name: '매물 주소' }),
+    mixedChatText
+  )
 
-  await expect(page.getByText('truck-10')).toBeVisible()
-  await expect(page.getByText('저장 완료').first()).toBeVisible()
+  const chipInput = page.getByRole('region', { name: '매물 주소 넣기' })
+  await expect(chipInput.getByText('현대 마이티 10')).toBeVisible()
+
+  await page.getByRole('button', { name: '확인된 10대 저장 시작' }).click()
+
+  await expect(page.getByText('10대 저장 완료')).toBeVisible()
   await expect(page.getByText('주목 필요')).toHaveCount(0)
 })

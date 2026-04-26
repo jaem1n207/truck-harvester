@@ -1,11 +1,17 @@
 import { expect, test } from '@playwright/test'
 
+import { pasteTextInto } from './paste'
+
 const onboardingStorageKey = 'truck-harvester:v2:onboarding'
 
 const urls = [
   'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=1',
   'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=2',
 ]
+const mixedChatText = `오늘 저장할 매물입니다.
+
+첫 번째는 ${urls[0]} 이고,
+두 번째는 ${urls[1]} 입니다.`
 
 declare global {
   interface Window {
@@ -106,8 +112,11 @@ test('uses the folder picked during start as the selected save folder', async ({
   })
 
   await page.goto('/v2')
-  await page.getByLabel('매물 주소').fill(urls.join('\n'))
-  await page.getByRole('button', { name: '가져오기 시작' }).click()
+  await pasteTextInto(
+    page.getByRole('textbox', { name: '매물 주소' }),
+    mixedChatText
+  )
+  await page.getByRole('button', { name: '확인된 2대 저장 시작' }).click()
 
   await expect(page.getByText('고른 저장 폴더')).toBeVisible()
   await expect
