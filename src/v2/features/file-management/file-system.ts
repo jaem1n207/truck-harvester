@@ -61,6 +61,11 @@ function assertNotAborted(signal?: AbortSignal) {
   }
 }
 
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException
+    ? error.name === 'AbortError'
+    : error instanceof Error && error.name === 'AbortError'
+
 async function writeFile(
   directory: WritableDirectoryHandle,
   name: string,
@@ -104,25 +109,32 @@ export async function saveTruckToDirectory(
     assertNotAborted(signal)
 
     try {
-      await writeFile(
-        vehicleDirectory,
-        buildImageFileName(index),
-        await fetchImageBytes(imageUrl, signal)
-      )
+      const imageBytes = await fetchImageBytes(imageUrl, signal)
+
+      assertNotAborted(signal)
+      await writeFile(vehicleDirectory, buildImageFileName(index), imageBytes)
+      assertNotAborted(signal)
       downloadedImages += 1
       onProgress?.(
         Math.round((downloadedImages / totalImages) * 100),
         downloadedImages,
         totalImages
       )
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw error
+      }
+
+      assertNotAborted(signal)
       continue
     }
   }
 
+  assertNotAborted(signal)
   await writeFile(
     vehicleDirectory,
     buildTextFileName(truck.vnumber),
     buildTruckTextContent(truck)
   )
+  assertNotAborted(signal)
 }

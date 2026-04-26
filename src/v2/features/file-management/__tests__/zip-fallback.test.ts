@@ -68,6 +68,78 @@ describe('createTruckZipBlob', () => {
     expect(progress).toEqual([50, 100])
   })
 
+  it('rejects abort during image fetch without reporting truck progress', async () => {
+    const controller = new AbortController()
+    const progress: number[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              reject(
+                new DOMException('다운로드가 취소되었습니다.', 'AbortError')
+              )
+            })
+          })
+      )
+    )
+
+    const zipPromise = createTruckZipBlob(
+      [{ ...listing, images: ['https://img.example.com/one.jpg'] }],
+      {
+        signal: controller.signal,
+        onProgress: (value) => progress.push(value),
+      }
+    )
+
+    controller.abort()
+
+    await expect(zipPromise).rejects.toThrow('다운로드가 취소되었습니다.')
+    expect(progress).toEqual([])
+  })
+
+  it('does not create a download link when aborted after zip generation', async () => {
+    const controller = new AbortController()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('image-bytes', { status: 200 }))
+    )
+    vi.spyOn(JSZip.prototype, 'generateAsync').mockImplementation(async () => {
+      controller.abort()
+      return new Blob(['zip-bytes'])
+    })
+    const click = vi.fn()
+    const anchor = {
+      href: '',
+      download: '',
+      click,
+    } as unknown as HTMLAnchorElement
+    const createElement = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue(anchor)
+    const appendChild = vi
+      .spyOn(document.body, 'appendChild')
+      .mockImplementation((node) => node)
+    const removeChild = vi
+      .spyOn(document.body, 'removeChild')
+      .mockImplementation((node) => node)
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:v2-zip'),
+      revokeObjectURL: vi.fn(),
+    })
+
+    await expect(
+      downloadTruckZip([listing], { signal: controller.signal })
+    ).rejects.toThrow('다운로드가 취소되었습니다.')
+
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(createElement).not.toHaveBeenCalled()
+    expect(appendChild).not.toHaveBeenCalled()
+    expect(removeChild).not.toHaveBeenCalled()
+    expect(click).not.toHaveBeenCalled()
+  })
+
   it('downloads the generated zip with a stable Korean filename', async () => {
     vi.stubGlobal(
       'fetch',

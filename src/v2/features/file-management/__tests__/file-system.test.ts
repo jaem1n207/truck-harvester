@@ -146,4 +146,37 @@ describe('v2 file-system', () => {
     ).rejects.toThrow('다운로드가 취소되었습니다.')
     expect(rootDirectory.getDirectoryHandle).not.toHaveBeenCalled()
   })
+
+  it('rejects AbortError from image fetch without writing final text', async () => {
+    const controller = new AbortController()
+    const singleImageListing = {
+      ...listing,
+      images: ['https://img.example.com/one.jpg'],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new DOMException('다운로드가 취소되었습니다.', 'AbortError')
+      })
+    )
+    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
+    const progress: Array<[number, number, number]> = []
+
+    const savePromise = saveTruckToDirectory(
+      rootDirectory,
+      singleImageListing,
+      {
+        signal: controller.signal,
+        onProgress: (progressValue, downloaded, total) =>
+          progress.push([progressValue, downloaded, total]),
+      }
+    )
+
+    await expect(savePromise).rejects.toThrow('다운로드가 취소되었습니다.')
+    expect(vehicleDirectory.getFileHandle).not.toHaveBeenCalledWith(
+      '12가_3456 원고.txt',
+      { create: true }
+    )
+    expect(progress).toEqual([[0, 0, 1]])
+  })
 })

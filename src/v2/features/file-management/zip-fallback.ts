@@ -18,6 +18,17 @@ interface DownloadTruckZipOptions extends CreateTruckZipBlobOptions {
   date?: Date
 }
 
+function assertNotAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException('다운로드가 취소되었습니다.', 'AbortError')
+  }
+}
+
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException
+    ? error.name === 'AbortError'
+    : error instanceof Error && error.name === 'AbortError'
+
 async function fetchImageBytes(url: string, signal?: AbortSignal) {
   const response = await fetch(url, { signal })
 
@@ -35,9 +46,7 @@ export async function createTruckZipBlob(
   const zip = new JSZip()
 
   for (const [truckIndex, truck] of trucks.entries()) {
-    if (signal?.aborted) {
-      throw new DOMException('다운로드가 취소되었습니다.', 'AbortError')
-    }
+    assertNotAborted(signal)
 
     const folder = zip.folder(buildTruckFolderName(truck.vnumber))
 
@@ -48,24 +57,32 @@ export async function createTruckZipBlob(
     folder.file(buildTextFileName(truck.vnumber), buildTruckTextContent(truck))
 
     for (const [imageIndex, imageUrl] of truck.images.entries()) {
-      if (signal?.aborted) {
-        throw new DOMException('다운로드가 취소되었습니다.', 'AbortError')
-      }
+      assertNotAborted(signal)
 
       try {
-        folder.file(
-          buildImageFileName(imageIndex),
-          await fetchImageBytes(imageUrl, signal)
-        )
-      } catch {
+        const imageBytes = await fetchImageBytes(imageUrl, signal)
+
+        assertNotAborted(signal)
+        folder.file(buildImageFileName(imageIndex), imageBytes)
+      } catch (error) {
+        if (isAbortError(error)) {
+          throw error
+        }
+
+        assertNotAborted(signal)
         continue
       }
     }
 
+    assertNotAborted(signal)
     onProgress?.(Math.round(((truckIndex + 1) / trucks.length) * 100))
   }
 
-  return zip.generateAsync({ type: 'blob' })
+  assertNotAborted(signal)
+  const blob = await zip.generateAsync({ type: 'blob' })
+
+  assertNotAborted(signal)
+  return blob
 }
 
 export async function downloadTruckZip(
@@ -73,6 +90,8 @@ export async function downloadTruckZip(
   { date = new Date(), ...options }: DownloadTruckZipOptions = {}
 ) {
   const blob = await createTruckZipBlob(trucks, options)
+
+  assertNotAborted(options.signal)
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
 
