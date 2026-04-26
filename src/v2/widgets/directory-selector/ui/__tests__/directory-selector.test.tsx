@@ -47,6 +47,20 @@ describe('DirectorySelector', () => {
     expect(html).toContain('data-tour="directory-selector"')
   })
 
+  it('shows the selected save folder with a folder icon hint', () => {
+    const html = renderToStaticMarkup(
+      <DirectorySelector
+        isSupported
+        onSelectDirectory={vi.fn()}
+        selectedDirectoryName="고른 저장 폴더"
+      />
+    )
+
+    expect(html).toContain('선택한 저장 폴더')
+    expect(html).toContain('고른 저장 폴더')
+    expect(html).toContain('data-selected-folder-icon="true"')
+  })
+
   it('renders zip fallback copy when direct save is unavailable', () => {
     const html = renderToStaticMarkup(
       <DirectorySelector isSupported={false} onSelectDirectory={vi.fn()} />

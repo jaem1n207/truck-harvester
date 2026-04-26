@@ -1,9 +1,10 @@
 'use client'
 
-import { FolderOpen } from 'lucide-react'
+import { FolderCheck, FolderOpen } from 'lucide-react'
 
 import {
   isFileSystemAccessAvailable,
+  pickWritableDirectory,
   type WritableDirectoryHandle,
 } from '@/v2/features/file-management'
 import { v2Copy } from '@/v2/shared/lib/copy'
@@ -12,29 +13,13 @@ import { Button } from '@/v2/shared/ui/button'
 interface DirectorySelectorProps {
   isSupported?: boolean
   onSelectDirectory: (directory: WritableDirectoryHandle) => void
-}
-
-async function chooseDirectory() {
-  const picker = window.showDirectoryPicker
-
-  if (!picker) {
-    return undefined
-  }
-
-  try {
-    return (await picker()) as WritableDirectoryHandle
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return undefined
-    }
-
-    throw error
-  }
+  selectedDirectoryName?: string
 }
 
 export function DirectorySelector({
   isSupported = isFileSystemAccessAvailable(),
   onSelectDirectory,
+  selectedDirectoryName,
 }: DirectorySelectorProps) {
   if (!isSupported) {
     return (
@@ -65,7 +50,7 @@ export function DirectorySelector({
       <div>
         <Button
           onClick={async () => {
-            const directory = await chooseDirectory()
+            const directory = await pickWritableDirectory()
 
             if (directory) {
               onSelectDirectory(directory)
@@ -77,6 +62,23 @@ export function DirectorySelector({
           {v2Copy.directorySelector.choose}
         </Button>
       </div>
+      {selectedDirectoryName ? (
+        <div className="border-border bg-muted/40 text-foreground flex items-start gap-2 rounded-lg border px-3 py-2">
+          <FolderCheck
+            aria-hidden="true"
+            className="text-primary mt-0.5 size-4 shrink-0"
+            data-selected-folder-icon="true"
+          />
+          <div className="grid min-w-0 gap-0.5">
+            <p className="text-muted-foreground text-xs font-medium">
+              선택한 저장 폴더
+            </p>
+            <p className="truncate text-sm font-medium">
+              {selectedDirectoryName}
+            </p>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
