@@ -6,17 +6,16 @@ experience. Widgets may import from `features`, `entities`, and
 
 ## Current Widgets
 
-- `url-input/`: Korean address entry, validation, and entered-address
-  list.
+- `url-input/`: Korean paste surface and prepared-listing chips.
 - `directory-selector/`: save-folder selection and zip fallback copy.
-- `processing-status/`: streamed per-truck status cards and "주목 필요"
-  recovery panel.
+- `processing-status/`: readable prepared-listing progress and completion
+  summary.
 
 ## Rules
 
 - User-facing copy comes from `src/v2/shared/lib/copy.ts`.
 - Keep controls self-explanatory for non-technical dealership staff.
-- Use `src/v2/shared/model` selectors for status grouping instead of
+- Use exported feature/shared selectors for status grouping instead of
   recalculating completion rules in each widget.
 - Keep component tests close to each widget under `ui/__tests__`.
 

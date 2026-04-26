@@ -14,10 +14,10 @@ features and widgets to import. Keep this layer free of legacy
 ## State Rules
 
 - Model state uses discriminated unions. Components and features must
-  transition batch items through exported store actions instead of
-  mutating item status fields directly.
-- Use selectors for derived groups such as "주목 필요", "진행 중", and
-  "완료" so widgets share one completion rule.
+  transition items through exported store actions instead of mutating item
+  status fields directly.
+- Use selectors for derived groups such as checking, ready, saving, and
+  saved so widgets share one completion rule.
 - Browser persistence must be injected or guarded for SSR. Do not read
   `localStorage` during module initialization.
 - User-facing copy remains Korean-only and recovery-oriented.
