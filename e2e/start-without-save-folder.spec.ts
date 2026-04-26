@@ -37,6 +37,53 @@ test('uses the folder picked during start as the selected save folder', async ({
         files: [] as string[],
         zipBlobUrls: 0,
       }
+      const directoryStorageKey = 'e2e:v2:selected-directory-handle'
+      const createWritable = async () => ({
+        async write() {
+          return undefined
+        },
+        async close() {
+          return undefined
+        },
+      })
+      const createDirectoryHandle = (): FileSystemDirectoryHandle =>
+        ({
+          name: 'truck-test',
+          kind: 'directory',
+          async queryPermission() {
+            return 'granted'
+          },
+          async requestPermission() {
+            return 'granted'
+          },
+          async getDirectoryHandle(name: string) {
+            writes.vehicleFolders.push(name)
+
+            return {
+              name,
+              kind: 'directory',
+              async queryPermission() {
+                return 'granted'
+              },
+              async requestPermission() {
+                return 'granted'
+              },
+              async getDirectoryHandle() {
+                return this as FileSystemDirectoryHandle
+              },
+              async getFileHandle(fileName: string) {
+                writes.files.push(`${name}/${fileName}`)
+
+                return { createWritable }
+              },
+            } as unknown as FileSystemDirectoryHandle
+          },
+          async getFileHandle(fileName: string) {
+            writes.files.push(fileName)
+
+            return { createWritable }
+          },
+        }) as unknown as FileSystemDirectoryHandle
 
       Object.defineProperty(window, '__v2DirectoryWrites', {
         configurable: true,
@@ -49,34 +96,103 @@ test('uses the folder picked during start as the selected save folder', async ({
       }
 
       window.showDirectoryPicker = async () => {
-        writes.pickedFolders.push('고른 저장 폴더')
+        writes.pickedFolders.push('truck-test')
 
-        return {
-          name: '고른 저장 폴더',
-          async getDirectoryHandle(name: string) {
-            writes.vehicleFolders.push(name)
-
-            return {
-              async getFileHandle(fileName: string) {
-                writes.files.push(`${name}/${fileName}`)
-
-                return {
-                  async createWritable() {
-                    return {
-                      async write() {
-                        return undefined
-                      },
-                      async close() {
-                        return undefined
-                      },
-                    }
-                  },
-                }
-              },
-            }
-          },
-        } as unknown as FileSystemDirectoryHandle
+        return createDirectoryHandle()
       }
+
+      Object.defineProperty(window, 'indexedDB', {
+        configurable: true,
+        value: {
+          open() {
+            const request = {
+              error: null,
+              result: {
+                createObjectStore() {
+                  return undefined
+                },
+                transaction() {
+                  const transaction = {
+                    error: null,
+                    onabort: null as (() => void) | null,
+                    oncomplete: null as (() => void) | null,
+                    objectStore() {
+                      return {
+                        get() {
+                          const getRequest = {
+                            error: null,
+                            result: window.localStorage.getItem(
+                              directoryStorageKey
+                            )
+                              ? createDirectoryHandle()
+                              : null,
+                            onsuccess: null as (() => void) | null,
+                            onerror: null as (() => void) | null,
+                          }
+
+                          window.setTimeout(() => getRequest.onsuccess?.(), 0)
+
+                          return getRequest
+                        },
+                        put() {
+                          const putRequest = {
+                            error: null,
+                            result: undefined,
+                            onsuccess: null as (() => void) | null,
+                            onerror: null as (() => void) | null,
+                          }
+
+                          window.localStorage.setItem(
+                            directoryStorageKey,
+                            'truck-test'
+                          )
+                          window.setTimeout(() => {
+                            putRequest.onsuccess?.()
+                            transaction.oncomplete?.()
+                          }, 0)
+
+                          return putRequest
+                        },
+                        delete() {
+                          const deleteRequest = {
+                            error: null,
+                            result: undefined,
+                            onsuccess: null as (() => void) | null,
+                            onerror: null as (() => void) | null,
+                          }
+
+                          window.localStorage.removeItem(directoryStorageKey)
+                          window.setTimeout(() => {
+                            deleteRequest.onsuccess?.()
+                            transaction.oncomplete?.()
+                          }, 0)
+
+                          return deleteRequest
+                        },
+                      }
+                    },
+                  }
+
+                  return transaction
+                },
+                close() {
+                  return undefined
+                },
+              },
+              onupgradeneeded: null as (() => void) | null,
+              onsuccess: null as (() => void) | null,
+              onerror: null as (() => void) | null,
+            }
+
+            window.setTimeout(() => {
+              request.onupgradeneeded?.()
+              request.onsuccess?.()
+            }, 0)
+
+            return request
+          },
+        },
+      })
     },
     [onboardingStorageKey, 'completed']
   )
@@ -118,7 +234,8 @@ test('uses the folder picked during start as the selected save folder', async ({
   )
   await page.getByRole('button', { name: '확인된 2대 저장 시작' }).click()
 
-  await expect(page.getByText('고른 저장 폴더')).toBeVisible()
+  await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
+  await expect(page.getByText('truck-test')).toBeVisible()
   await expect
     .poll(() =>
       page.evaluate(() => window.__v2DirectoryWrites.vehicleFolders.length)
@@ -128,8 +245,13 @@ test('uses the folder picked during start as the selected save folder', async ({
   const writes = await page.evaluate(() => window.__v2DirectoryWrites)
 
   expect(writes).toMatchObject({
-    pickedFolders: ['고른 저장 폴더'],
+    pickedFolders: ['truck-test'],
     vehicleFolders: ['서울01가1234', '서울02가1234'],
     zipBlobUrls: 0,
   })
+
+  await page.reload()
+
+  await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
+  await expect(page.getByText('truck-test')).toBeVisible()
 })

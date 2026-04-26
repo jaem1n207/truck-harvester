@@ -58,6 +58,16 @@ Route-level controllers abort active preview and save work when `/v2`
 unmounts. New paste runs do not cancel earlier checking chips; only the
 latest paste run may update helper text such as duplicate warnings.
 
+## Save Folder Persistence
+
+The `/v2` save-folder selector stores the selected
+`FileSystemDirectoryHandle` in IndexedDB so a refreshed or returning
+Chromium user can see the last selected folder. The app still calls
+`queryPermission({ mode: 'readwrite' })` after restore and
+`requestPermission({ mode: 'readwrite' })` from a user-triggered save action
+before writing, because browser permission can expire when the origin's tabs
+close.
+
 ## Layer Responsibilities
 
 - `src/app/v2`: route composition, page layout, and wiring.
