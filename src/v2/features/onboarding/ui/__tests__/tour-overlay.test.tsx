@@ -82,8 +82,14 @@ describe('TourOverlay', () => {
     )
 
     expect(html).toContain('role="dialog"')
+    expect(html).toContain('aria-labelledby="tour-overlay-addresses-title"')
+    expect(html).toContain(
+      'aria-describedby="tour-overlay-addresses-description"'
+    )
     expect(html).toContain(tourSteps[0].title)
     expect(html).toContain(tourSteps[0].description)
+    expect(html).toContain('id="tour-overlay-addresses-title"')
+    expect(html).toContain('id="tour-overlay-addresses-description"')
     expect(html).toContain('이전')
     expect(html).toContain('다음')
     expect(html).toContain('그만 보기')

@@ -116,6 +116,8 @@ export function TourOverlay({
 
   const stepIndex = Math.min(currentStep, steps.length - 1)
   const step = steps[stepIndex]
+  const stepTitleId = `tour-overlay-${step.id}-title`
+  const stepDescriptionId = `tour-overlay-${step.id}-description`
   const isFirstStep = currentStep <= 0
   const isLastStep = currentStep >= steps.length - 1
 
@@ -265,6 +267,8 @@ export function TourOverlay({
 
   return (
     <div
+      aria-describedby={stepDescriptionId}
+      aria-labelledby={stepTitleId}
       aria-modal="true"
       className="fixed inset-0 z-50"
       data-tour-modal-root="true"
@@ -313,8 +317,12 @@ export function TourOverlay({
           <p className="text-muted-foreground text-xs font-medium">
             {currentStep + 1} / {steps.length}
           </p>
-          <h2 className="text-lg font-semibold">{step.title}</h2>
-          <p className="text-muted-foreground text-sm">{step.description}</p>
+          <h2 className="text-lg font-semibold" id={stepTitleId}>
+            {step.title}
+          </h2>
+          <p className="text-muted-foreground text-sm" id={stepDescriptionId}>
+            {step.description}
+          </p>
         </div>
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
