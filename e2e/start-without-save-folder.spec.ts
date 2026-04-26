@@ -25,7 +25,7 @@ declare global {
   }
 }
 
-test('uses the folder picked during start as the selected save folder', async ({
+test('remembers the folder picked during start and saves through it after reload', async ({
   page,
 }) => {
   await page.addInitScript(
@@ -281,8 +281,8 @@ test('uses the folder picked during start as the selected save folder', async ({
 
   await page.reload()
 
-  await expect(page.getByText('선택한 저장 폴더')).not.toBeVisible()
-  await expect(page.getByText('truck-test')).not.toBeVisible()
+  await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
+  await expect(page.getByText('truck-test')).toBeVisible()
   await expect
     .poll(() =>
       page.evaluate(() => window.__v2DirectoryWrites.pickedFolders.length)
@@ -290,9 +290,6 @@ test('uses the folder picked during start as the selected save folder', async ({
     .toBe(1)
 
   await pasteTextInto(page.getByRole('textbox', { name: '매물 주소' }), urls[0])
-  await page.evaluate(() => {
-    window.__v2DirectoryWrites.pickerArmed = true
-  })
   await page.getByRole('button', { name: '확인된 1대 저장 시작' }).click()
 
   await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
@@ -308,7 +305,7 @@ test('uses the folder picked during start as the selected save folder', async ({
   )
 
   expect(writesAfterReload).toMatchObject({
-    pickedFolders: ['truck-test', 'truck-test'],
+    pickedFolders: ['truck-test'],
     vehicleFolders: ['서울01가1234'],
     zipBlobUrls: 0,
     pickerArmed: false,
