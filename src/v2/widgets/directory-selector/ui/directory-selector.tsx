@@ -21,7 +21,15 @@ async function chooseDirectory() {
     return undefined
   }
 
-  return (await picker()) as WritableDirectoryHandle
+  try {
+    return (await picker()) as WritableDirectoryHandle
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return undefined
+    }
+
+    throw error
+  }
 }
 
 export function DirectorySelector({
