@@ -302,7 +302,10 @@ describe('TruckHarvesterV2App persistence', () => {
       'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
     )
 
-    expect(textarea).toBeInstanceOf(HTMLTextAreaElement)
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+    const textareaElement = textarea
 
     const pasteEvent = new Event('paste', {
       bubbles: true,
@@ -316,7 +319,7 @@ describe('TruckHarvesterV2App persistence', () => {
     })
 
     await act(async () => {
-      textarea?.dispatchEvent(pasteEvent)
+      textareaElement.dispatchEvent(pasteEvent)
     })
 
     for (let index = 0; index < 4; index += 1) {
@@ -358,5 +361,131 @@ describe('TruckHarvesterV2App persistence', () => {
     expect(statusRegion?.textContent).toContain('현대 메가트럭')
     expect(statusRegion?.textContent).toContain('저장 완료')
     expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
+  })
+
+  it('keeps the input usable when a restored folder permission request does not finish', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=4'
+    const queryPermission = vi.fn().mockResolvedValue('prompt')
+    const requestPermission = vi.fn(
+      () => new Promise<PermissionState>(() => undefined)
+    )
+    const restoredDirectory: WritableDirectoryHandle = {
+      getDirectoryHandle: async () => {
+        throw new Error('권한 확인 전에는 저장하지 않아야 합니다.')
+      },
+      getFileHandle: async () => {
+        throw new Error('권한 확인 전에는 저장하지 않아야 합니다.')
+      },
+      name: 'truck-test',
+      queryPermission,
+      requestPermission,
+    }
+
+    installDom(restoredDirectory)
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              url: truckUrl,
+              vname: '덤프 메가트럭 4.5톤',
+              vehicleName: '덤프 메가트럭 4.5톤',
+              vnumber: '서울12가3456',
+              price: {
+                raw: 3200,
+                rawWon: 32000000,
+                label: '3,200만원',
+                compactLabel: '3,200만원',
+              },
+              year: '2020',
+              mileage: '120,000km',
+              options: '덤프',
+              images: [],
+            },
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      ),
+    })
+    const { TruckHarvesterV2App } = await import('../truck-harvester-v2-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterV2App />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+    const textareaElement = textarea
+
+    const pasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: {
+        getData: () => truckUrl,
+      },
+    })
+
+    await act(async () => {
+      textareaElement.dispatchEvent(pasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    const startButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '확인된 1대 저장 시작'
+    )
+    const statusRegion = container.querySelector(
+      'section[aria-labelledby="prepared-listing-status-title"]'
+    )
+
+    if (!(startButton instanceof HTMLButtonElement)) {
+      throw new Error('저장 시작 버튼을 찾지 못했습니다.')
+    }
+    const startButtonElement = startButton
+    expect(statusRegion?.textContent).toContain('저장 준비 완료')
+
+    await act(async () => {
+      startButtonElement.dispatchEvent(
+        new dom!.window.MouseEvent('click', { bubbles: true })
+      )
+      await Promise.resolve()
+    })
+
+    expect(requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
+    expect(textareaElement.disabled).toBe(false)
+    expect(startButtonElement.disabled).toBe(false)
+    expect(statusRegion?.textContent).toContain('저장 준비 완료')
   })
 })

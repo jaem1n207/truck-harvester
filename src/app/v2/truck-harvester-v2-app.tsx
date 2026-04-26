@@ -277,9 +277,6 @@ export function TruckHarvesterV2App() {
       return
     }
 
-    const itemsToSave = readyListings
-    setIsSaving(true)
-
     const controller = new AbortController()
     saveControllerRef.current?.abort()
     saveControllerRef.current = controller
@@ -296,6 +293,9 @@ export function TruckHarvesterV2App() {
       if (runDirectory === undefined) {
         return
       }
+
+      const itemsToSave = readyListings
+      setIsSaving(true)
 
       let savedCount = 0
 
