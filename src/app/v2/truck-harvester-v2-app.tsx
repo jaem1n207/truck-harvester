@@ -13,7 +13,11 @@ import {
 import {
   downloadTruckZip,
   isFileSystemAccessAvailable,
+  loadPersistedDirectoryHandle,
   pickWritableDirectory,
+  queryWritableDirectoryPermission,
+  requestWritableDirectoryPermission,
+  savePersistedDirectoryHandle,
   saveTruckToDirectory,
   type WritableDirectoryHandle,
 } from '@/v2/features/file-management'
@@ -36,6 +40,15 @@ import { ListingChipInput, parseUrlInputText } from '@/v2/widgets/url-input'
 
 const saveFailureMessage =
   '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
+const saveFolderPickerId = 'truck-harvester-v2-save-folder'
+
+type DirectoryPermissionState = 'ready' | 'needs-permission' | 'restoring'
+type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
+
+const pickSaveDirectory = pickWritableDirectory as (options: {
+  id: string
+  startIn: DirectoryPickerStartIn
+}) => Promise<WritableDirectoryHandle | undefined>
 
 export function TruckHarvesterV2App() {
   const [preparedStore] = useState(() => createPreparedListingStore())
@@ -45,9 +58,13 @@ export function TruckHarvesterV2App() {
   const [directory, setDirectory] = useState<WritableDirectoryHandle | null>(
     null
   )
+  const [directoryPermissionState, setDirectoryPermissionState] =
+    useState<DirectoryPermissionState>('restoring')
   const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null)
   const [fileSystemSupported, setFileSystemSupported] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [rememberedDirectory, setRememberedDirectory] =
+    useState<WritableDirectoryHandle | null>(null)
   const [notificationAvailable, setNotificationAvailable] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | 'unsupported'
@@ -80,11 +97,55 @@ export function TruckHarvesterV2App() {
   }, [onboardingStore])
 
   useEffect(() => {
+    let isActive = true
     const timer = window.setTimeout(() => {
-      setFileSystemSupported(isFileSystemAccessAvailable())
+      const supported = isFileSystemAccessAvailable()
+      setFileSystemSupported(supported)
+
+      if (!supported) {
+        setDirectoryPermissionState('ready')
+        return
+      }
+
+      void loadPersistedDirectoryHandle()
+        .then(async (restoredDirectory) => {
+          if (!isActive || !isMountedRef.current) {
+            return
+          }
+
+          if (!restoredDirectory) {
+            setDirectoryPermissionState('ready')
+            return
+          }
+
+          const permission =
+            await queryWritableDirectoryPermission(restoredDirectory)
+
+          if (!isActive || !isMountedRef.current) {
+            return
+          }
+
+          setRememberedDirectory(restoredDirectory)
+
+          if (permission === 'granted') {
+            setDirectory(restoredDirectory)
+            setDirectoryPermissionState('ready')
+            return
+          }
+
+          setDirectoryPermissionState('needs-permission')
+        })
+        .catch(() => {
+          if (isActive && isMountedRef.current) {
+            setDirectoryPermissionState('ready')
+          }
+        })
     }, 0)
 
-    return () => window.clearTimeout(timer)
+    return () => {
+      isActive = false
+      window.clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {
@@ -101,25 +162,62 @@ export function TruckHarvesterV2App() {
   }, [])
 
   const resolveSaveDirectoryForRun = async () => {
-    if (directory) {
-      return directory
-    }
-
     if (!isFileSystemAccessAvailable()) {
       return null
     }
 
-    const nextDirectory = await pickWritableDirectory()
+    const activeDirectory = directory ?? rememberedDirectory
+
+    if (activeDirectory) {
+      const hasPermission =
+        await requestWritableDirectoryPermission(activeDirectory)
+
+      if (!hasPermission) {
+        if (isMountedRef.current) {
+          setDirectoryPermissionState('needs-permission')
+        }
+        return undefined
+      }
+
+      await savePersistedDirectoryHandle(activeDirectory)
+
+      if (isMountedRef.current) {
+        setDirectory(activeDirectory)
+        setRememberedDirectory(activeDirectory)
+        setDirectoryPermissionState('ready')
+      }
+
+      return activeDirectory
+    }
+
+    const nextDirectory = await pickSaveDirectory({
+      id: saveFolderPickerId,
+      startIn: 'downloads',
+    })
 
     if (!nextDirectory) {
       return undefined
     }
 
+    await savePersistedDirectoryHandle(nextDirectory)
+
     if (isMountedRef.current) {
       setDirectory(nextDirectory)
+      setRememberedDirectory(nextDirectory)
+      setDirectoryPermissionState('ready')
     }
 
     return nextDirectory
+  }
+
+  const selectDirectory = async (nextDirectory: WritableDirectoryHandle) => {
+    await savePersistedDirectoryHandle(nextDirectory)
+
+    if (isMountedRef.current) {
+      setDirectory(nextDirectory)
+      setRememberedDirectory(nextDirectory)
+      setDirectoryPermissionState('ready')
+    }
   }
 
   const handlePasteText = (text: string) => {
@@ -342,8 +440,10 @@ export function TruckHarvesterV2App() {
           <div className="grid content-start gap-5">
             <DirectorySelector
               isSupported={fileSystemSupported}
-              onSelectDirectory={(nextDirectory) => setDirectory(nextDirectory)}
-              selectedDirectoryName={directory?.name}
+              onSelectDirectory={selectDirectory}
+              permissionState={directoryPermissionState}
+              pickerStartIn={directory ?? rememberedDirectory ?? 'downloads'}
+              selectedDirectoryName={(directory ?? rememberedDirectory)?.name}
             />
             <CompletionNotificationToggle
               isAvailable={notificationAvailable}
