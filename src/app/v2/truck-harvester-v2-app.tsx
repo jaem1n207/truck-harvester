@@ -465,6 +465,7 @@ export function TruckHarvesterV2App() {
         isOpen={onboardingState.isTourOpen}
         onClose={onboardingState.completeTour}
         onNext={() => onboardingState.goToNextStep(tourSteps.length)}
+        onPrevious={onboardingState.goToPreviousStep}
       />
     </main>
   )
