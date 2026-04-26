@@ -363,24 +363,11 @@ describe('TruckHarvesterV2App persistence', () => {
     expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
   })
 
-  it('uses a safe folder pick when restored folder permission cannot continue', async () => {
+  it('requests permission on the restored folder and saves without opening a picker', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=4'
     const queryPermission = vi.fn().mockResolvedValue('prompt')
-    const requestPermission = vi.fn(
-      () => new Promise<PermissionState>(() => undefined)
-    )
-    const restoredDirectory: WritableDirectoryHandle = {
-      getDirectoryHandle: async () => {
-        throw new Error('권한 확인 전에는 저장하지 않아야 합니다.')
-      },
-      getFileHandle: async () => {
-        throw new Error('권한 확인 전에는 저장하지 않아야 합니다.')
-      },
-      name: 'truck-test',
-      queryPermission,
-      requestPermission,
-    }
+    const requestPermission = vi.fn().mockResolvedValue('granted')
     const writable = {
       close: vi.fn().mockResolvedValue(undefined),
       write: vi.fn().mockResolvedValue(undefined),
@@ -391,16 +378,21 @@ describe('TruckHarvesterV2App persistence', () => {
     const vehicleDirectory = {
       getFileHandle: vi.fn().mockResolvedValue(fileHandle),
     }
-    const pickedDirectory: WritableDirectoryHandle = {
+    const restoredDirectory: WritableDirectoryHandle = {
       getDirectoryHandle: vi.fn().mockResolvedValue(vehicleDirectory),
       getFileHandle: vi.fn().mockResolvedValue(fileHandle),
       name: 'truck-test',
-      queryPermission: vi.fn().mockResolvedValue('granted'),
-      requestPermission: vi.fn().mockResolvedValue('granted'),
+      queryPermission,
+      requestPermission,
     }
 
     installDom(restoredDirectory)
-    const showDirectoryPicker = vi.fn().mockResolvedValue(pickedDirectory)
+    const showDirectoryPicker = vi.fn(() => {
+      throw new DOMException(
+        '저장된 폴더가 있으면 선택기를 다시 열지 않아야 합니다.',
+        'NotAllowedError'
+      )
+    })
     Object.defineProperty(window, 'showDirectoryPicker', {
       configurable: true,
       value: showDirectoryPicker,
@@ -512,13 +504,9 @@ describe('TruckHarvesterV2App persistence', () => {
       })
     }
 
-    expect(requestPermission).not.toHaveBeenCalled()
-    expect(showDirectoryPicker).toHaveBeenCalledWith({
-      id: 'truck-harvester-v2-save-folder',
-      mode: 'readwrite',
-      startIn: 'downloads',
-    })
-    expect(pickedDirectory.getDirectoryHandle).toHaveBeenCalledWith(
+    expect(requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
+    expect(showDirectoryPicker).not.toHaveBeenCalled()
+    expect(restoredDirectory.getDirectoryHandle).toHaveBeenCalledWith(
       '서울12가3456',
       { create: true }
     )

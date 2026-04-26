@@ -38,8 +38,6 @@ import { DirectorySelector } from '@/v2/widgets/directory-selector'
 import { PreparedListingStatusPanel } from '@/v2/widgets/processing-status'
 import { ListingChipInput, parseUrlInputText } from '@/v2/widgets/url-input'
 
-import { installRestoredTabReloadGuard } from './restored-tab-reload'
-
 const saveFailureMessage =
   '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
 const saveFolderPickerId = 'truck-harvester-v2-save-folder'
@@ -100,8 +98,6 @@ export function TruckHarvesterV2App() {
   useEffect(() => {
     onboardingStore.getState().initializeTour()
   }, [onboardingStore])
-
-  useEffect(() => installRestoredTabReloadGuard(), [])
 
   useEffect(() => {
     let isActive = true
@@ -176,27 +172,6 @@ export function TruckHarvesterV2App() {
     const activeDirectory = directory ?? rememberedDirectory
 
     if (activeDirectory) {
-      if (!directory && directoryPermissionState === 'needs-permission') {
-        const nextDirectory = await pickSaveDirectory({
-          id: saveFolderPickerId,
-          startIn: 'downloads',
-        })
-
-        if (!nextDirectory) {
-          return undefined
-        }
-
-        await savePersistedDirectoryHandle(nextDirectory)
-
-        if (isMountedRef.current) {
-          setDirectory(nextDirectory)
-          setRememberedDirectory(nextDirectory)
-          setDirectoryPermissionState('ready')
-        }
-
-        return nextDirectory
-      }
-
       const hasPermission =
         await requestWritableDirectoryPermission(activeDirectory)
 
