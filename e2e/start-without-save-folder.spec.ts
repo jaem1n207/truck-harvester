@@ -20,6 +20,7 @@ declare global {
       vehicleFolders: string[]
       files: string[]
       zipBlobUrls: number
+      pickerArmed: boolean
     }
   }
 }
@@ -38,6 +39,17 @@ test('uses the folder picked during start as the selected save folder', async ({
         zipBlobUrls: 0,
       }
       const directoryStorageKey = 'e2e:v2:selected-directory-handle'
+      const pickedFoldersStorageKey = 'e2e:v2:picked-folders'
+      const readPickedFolders = () =>
+        JSON.parse(
+          window.localStorage.getItem(pickedFoldersStorageKey) ?? '[]'
+        ) as string[]
+      const writePickedFolders = (folders: string[]) => {
+        window.localStorage.setItem(
+          pickedFoldersStorageKey,
+          JSON.stringify(folders)
+        )
+      }
       const createWritable = async () => ({
         async write() {
           return undefined
@@ -87,16 +99,29 @@ test('uses the folder picked during start as the selected save folder', async ({
 
       Object.defineProperty(window, '__v2DirectoryWrites', {
         configurable: true,
-        value: writes,
+        value: {
+          ...writes,
+          pickedFolders: readPickedFolders(),
+          pickerArmed: false,
+        },
       })
 
       window.URL.createObjectURL = () => {
-        writes.zipBlobUrls += 1
+        window.__v2DirectoryWrites.zipBlobUrls += 1
         return 'blob:unexpected-zip'
       }
 
       window.showDirectoryPicker = async () => {
-        writes.pickedFolders.push('truck-test')
+        if (!window.__v2DirectoryWrites.pickerArmed) {
+          throw new DOMException(
+            '저장 폴더 선택기는 사용자 동작에서만 열려야 합니다.',
+            'SecurityError'
+          )
+        }
+
+        window.__v2DirectoryWrites.pickerArmed = false
+        window.__v2DirectoryWrites.pickedFolders.push('truck-test')
+        writePickedFolders(window.__v2DirectoryWrites.pickedFolders)
 
         return createDirectoryHandle()
       }
@@ -232,6 +257,9 @@ test('uses the folder picked during start as the selected save folder', async ({
     page.getByRole('textbox', { name: '매물 주소' }),
     mixedChatText
   )
+  await page.evaluate(() => {
+    window.__v2DirectoryWrites.pickerArmed = true
+  })
   await page.getByRole('button', { name: '확인된 2대 저장 시작' }).click()
 
   await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
@@ -248,10 +276,16 @@ test('uses the folder picked during start as the selected save folder', async ({
     pickedFolders: ['truck-test'],
     vehicleFolders: ['서울01가1234', '서울02가1234'],
     zipBlobUrls: 0,
+    pickerArmed: false,
   })
 
   await page.reload()
 
   await expect(page.getByText('선택한 저장 폴더')).toBeVisible()
   await expect(page.getByText('truck-test')).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__v2DirectoryWrites.pickedFolders.length)
+    )
+    .toBe(1)
 })
