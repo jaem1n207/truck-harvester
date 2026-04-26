@@ -9,11 +9,27 @@ import { type PreparedListingState } from './prepared-listing-store'
 const defaultConcurrency = 5
 const previewFailureMessage =
   '매물 이름을 확인하지 못했어요. 잠시 후 다시 붙여넣어 주세요.'
+const missingListingIdentityMessage =
+  '매물 정보를 찾지 못했어요. 주소를 다시 확인해 주세요.'
+const missingListingIdentityPlaceholder = '차명 정보 없음'
 
 const isAbortError = (error: unknown) =>
   error instanceof DOMException
     ? error.name === 'AbortError'
     : error instanceof Error && error.name === 'AbortError'
+
+const isMissingListingIdentity = (value: string) => {
+  const trimmedValue = value.trim()
+
+  return (
+    trimmedValue.length === 0 ||
+    trimmedValue === missingListingIdentityPlaceholder
+  )
+}
+
+const hasUsableListingIdentity = (listing: TruckListing) =>
+  !isMissingListingIdentity(listing.vname) ||
+  !isMissingListingIdentity(listing.vehicleName)
 
 const findAddedItemIdsByUrl = (
   store: StoreApi<PreparedListingState>,
@@ -80,6 +96,13 @@ export async function prepareListingUrls({
 
       try {
         const listing = await parse(url, signal)
+        if (!hasUsableListingIdentity(listing)) {
+          store
+            .getState()
+            .markInvalidById(itemId, missingListingIdentityMessage)
+          return
+        }
+
         store.getState().markReadyById(itemId, listing)
       } catch (error) {
         if (isAbortError(error)) {

@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { type TruckListing } from '@/v2/entities/truck'
 
 import { prepareListingUrls } from '../prepare-listings'
-import { createPreparedListingStore } from '../prepared-listing-store'
+import {
+  createPreparedListingStore,
+  selectReadyPreparedListings,
+} from '../prepared-listing-store'
 
 const recoveryMessage =
   '매물 이름을 확인하지 못했어요. 잠시 후 다시 붙여넣어 주세요.'
@@ -95,6 +98,27 @@ describe('prepareListingUrls', () => {
       label: '매물 이름을 확인하지 못했어요',
       message: recoveryMessage,
     })
+  })
+
+  it('does not mark a page with missing listing identity ready', async () => {
+    const store = createPreparedListingStore()
+    const url = buildUrl(24)
+    const parse = vi.fn(async () => ({
+      ...createListing(url, 24),
+      vname: '차명 정보 없음',
+      vehicleName: '차명 정보 없음',
+    }))
+
+    const result = await prepareListingUrls({ urls: [url], store, parse })
+
+    expect(result).toEqual({ added: [url], duplicates: [] })
+    expect(store.getState().items[0]).toMatchObject({
+      status: 'invalid',
+      url,
+      label: '주소 확인 필요',
+      message: '매물 정보를 찾지 못했어요. 주소를 다시 확인해 주세요.',
+    })
+    expect(selectReadyPreparedListings(store.getState())).toEqual([])
   })
 
   it('cleans up newly added checking items when the signal is already aborted', async () => {
