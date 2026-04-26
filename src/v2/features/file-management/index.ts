@@ -5,6 +5,7 @@ export {
 } from './filename'
 export {
   isFileSystemAccessAvailable,
+  pickWritableDirectory,
   saveTruckToDirectory,
 } from './file-system'
 export type { WritableDirectoryHandle } from './file-system'

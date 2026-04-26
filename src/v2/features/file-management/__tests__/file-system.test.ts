@@ -118,6 +118,22 @@ describe('v2 file-system', () => {
     ])
   })
 
+  it('writes the text file after image files so modified-date sorting keeps it at the edge', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        return new Response(`image:${url}`, { status: 200 })
+      })
+    )
+    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
+
+    await saveTruckToDirectory(rootDirectory, listing)
+
+    expect(
+      vehicleDirectory.getFileHandle.mock.calls.map(([name]) => name)
+    ).toEqual(['K-001.jpg', 'K-002.jpg', '12가_3456 원고.txt'])
+  })
+
   it('does not create a vehicle folder when already aborted', async () => {
     const { rootDirectory } = createDirectoryHandle()
     const controller = new AbortController()

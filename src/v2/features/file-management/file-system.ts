@@ -17,6 +17,7 @@ interface WritableFileHandle {
 }
 
 export interface WritableDirectoryHandle {
+  name?: string
   getDirectoryHandle: (
     name: string,
     options?: { create?: boolean }
@@ -34,6 +35,24 @@ interface SaveTruckToDirectoryOptions {
 
 export function isFileSystemAccessAvailable() {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window
+}
+
+export async function pickWritableDirectory() {
+  const picker = window.showDirectoryPicker
+
+  if (!picker) {
+    return undefined
+  }
+
+  try {
+    return (await picker()) as WritableDirectoryHandle
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return undefined
+    }
+
+    throw error
+  }
 }
 
 function assertNotAborted(signal?: AbortSignal) {
@@ -76,12 +95,6 @@ export async function saveTruckToDirectory(
     { create: true }
   )
 
-  await writeFile(
-    vehicleDirectory,
-    buildTextFileName(truck.vnumber),
-    buildTruckTextContent(truck)
-  )
-
   const totalImages = truck.images.length
   let downloadedImages = 0
 
@@ -106,4 +119,10 @@ export async function saveTruckToDirectory(
       continue
     }
   }
+
+  await writeFile(
+    vehicleDirectory,
+    buildTextFileName(truck.vnumber),
+    buildTruckTextContent(truck)
+  )
 }
