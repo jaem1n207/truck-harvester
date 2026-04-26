@@ -29,14 +29,6 @@ export const tourSteps = [
     title: '진행 상황을 바로 확인해요',
     description: '처리 중인 매물과 저장 완료된 매물을 한눈에 볼 수 있습니다.',
   },
-  {
-    id: 'attention',
-    anchorSelector: '[data-tour="attention-panel"]',
-    fallbackSelector: '[data-tour="v2-page"]',
-    title: '막힌 매물만 따로 살펴요',
-    description:
-      '다시 시도하거나 건너뛰면 나머지 작업을 계속 마칠 수 있습니다.',
-  },
 ] as const satisfies readonly TourStep[]
 
 export function findTourAnchor(

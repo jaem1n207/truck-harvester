@@ -4,7 +4,7 @@ import { findTourAnchor, tourSteps } from '../tour-steps'
 
 describe('tour steps', () => {
   it('defines a short Korean tour without technical jargon', () => {
-    expect(tourSteps).toHaveLength(4)
+    expect(tourSteps).toHaveLength(3)
 
     for (const step of tourSteps) {
       expect(step.title).toMatch(/[가-힣]/)
@@ -28,5 +28,13 @@ describe('tour steps', () => {
 
     expect(anchor).toBeInstanceOf(HTMLElement)
     expect(anchor?.getAttribute('data-tour')).toBe('v2-page')
+  })
+
+  it('only points to anchors rendered by the chip workbench', () => {
+    expect(tourSteps.map((step) => step.anchorSelector)).toEqual([
+      '[data-tour="url-input"]',
+      '[data-tour="directory-selector"]',
+      '[data-tour="processing-status"]',
+    ])
   })
 })
