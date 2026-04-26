@@ -13,7 +13,7 @@ export const tourSteps = [
     fallbackSelector: '[data-tour="v2-page"]',
     title: '매물 주소부터 넣어요',
     description:
-      '매물 주소를 여러 개 복사해 와서 이 칸에 붙여넣으면, 같은 주소는 한 번만 처리됩니다.',
+      '복사한 매물 주소를 이 칸에 붙여넣으면, 매물 이름을 자동으로 찾아 보여줍니다.',
   },
   {
     id: 'save-folder',

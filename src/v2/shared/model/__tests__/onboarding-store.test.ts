@@ -85,4 +85,19 @@ describe('onboarding store', () => {
       currentStep: 1,
     })
   })
+
+  it('moves to the previous tour step without going below the first step', () => {
+    const store = createOnboardingStore({ storage: createMemoryStorage() })
+
+    store.getState().goToNextStep(4)
+    store.getState().goToNextStep(4)
+    store.getState().goToPreviousStep()
+
+    expect(store.getState().currentStep).toBe(1)
+
+    store.getState().goToPreviousStep()
+    store.getState().goToPreviousStep()
+
+    expect(store.getState().currentStep).toBe(0)
+  })
 })

@@ -19,6 +19,7 @@ export interface OnboardingState {
   completeTour: () => void
   restartTour: () => void
   goToNextStep: (totalSteps: number) => void
+  goToPreviousStep: () => void
 }
 
 export const onboardingStorageKey = 'truck-harvester:v2:onboarding'
@@ -96,5 +97,9 @@ export const createOnboardingStore = ({
           currentStep: state.currentStep + 1,
         }
       }),
+    goToPreviousStep: () =>
+      set((state) => ({
+        currentStep: Math.max(state.currentStep - 1, 0),
+      })),
   }))
 }
