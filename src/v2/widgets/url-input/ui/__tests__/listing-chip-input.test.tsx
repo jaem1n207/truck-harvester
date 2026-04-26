@@ -123,6 +123,30 @@ describe('ListingChipInput', () => {
     expect(html).not.toContain('매물 지우기: 현대 메가트럭')
   })
 
+  it('can keep saved chips fixed while failed chips remain removable', () => {
+    const html = renderToStaticMarkup(
+      renderChipInput({
+        canRemoveItem: (item) => item.status === 'failed',
+        items: [
+          {
+            status: 'saved',
+            id: 'listing-4',
+            url: `${truckListing.url}&saved=1`,
+            label: '저장된 매물',
+            listing: truckListing,
+            downloadedImages: 0,
+            totalImages: 0,
+            progress: 100,
+          },
+          items[2],
+        ],
+      })
+    )
+
+    expect(html).not.toContain('매물 지우기: 저장된 매물')
+    expect(html).toContain('매물 지우기: 매물 이름을 확인하지 못했어요')
+  })
+
   it('shows a plain duplicate message in Korean', () => {
     const html = renderToStaticMarkup(
       renderChipInput({ duplicateMessage: '이미 넣은 매물입니다.' })

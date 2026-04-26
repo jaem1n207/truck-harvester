@@ -13,6 +13,7 @@ interface ListingChipInputProps {
   items: readonly PreparedListing[]
   disabled: boolean
   duplicateMessage: string | null
+  canRemoveItem?: (item: PreparedListing) => boolean
   onPasteText: (text: string) => void
   onRemove: (id: string) => void
   onStart: () => void
@@ -73,6 +74,7 @@ export function ListingChipInput({
   items,
   disabled,
   duplicateMessage,
+  canRemoveItem = () => true,
   onPasteText,
   onRemove,
   onStart,
@@ -147,6 +149,7 @@ export function ListingChipInput({
           {items.map((item) => {
             const needsRecovery =
               item.status === 'invalid' || item.status === 'failed'
+            const canRemove = !disabled && canRemoveItem(item)
 
             return (
               <li
@@ -167,7 +170,7 @@ export function ListingChipInput({
                   ) : null}
                 </span>
 
-                {!disabled ? (
+                {canRemove ? (
                   <Button
                     aria-label={`매물 지우기: ${item.label}`}
                     className="size-6 rounded-md"

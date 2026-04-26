@@ -1,10 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useStore } from 'zustand'
 
-import { type TruckListing } from '@/v2/entities/truck'
+import {
+  CompletionNotificationToggle,
+  isCompletionNotificationAvailable,
+  notifyCompletion,
+  requestCompletionNotificationPermission,
+} from '@/v2/features/completion-notification'
 import {
   downloadTruckZip,
   isFileSystemAccessAvailable,
@@ -13,70 +18,87 @@ import {
   type WritableDirectoryHandle,
 } from '@/v2/features/file-management'
 import {
+  createPreparedListingStore,
+  prepareListingUrls,
+  selectCheckingPreparedListings,
+  selectReadyPreparedListings,
+  type PreparedListing,
+} from '@/v2/features/listing-preparation'
+import {
   HelpMenuButton,
   TourOverlay,
   tourSteps,
 } from '@/v2/features/onboarding'
-import { processTruckBatch } from '@/v2/features/truck-processing'
-import {
-  createOnboardingStore,
-  createTruckBatchStore,
-  selectAttentionNeeded,
-} from '@/v2/shared/model'
+import { createOnboardingStore } from '@/v2/shared/model'
 import { DirectorySelector } from '@/v2/widgets/directory-selector'
-import {
-  AttentionPanel,
-  ProcessingStatus,
-} from '@/v2/widgets/processing-status'
-import { UrlInputForm, UrlList } from '@/v2/widgets/url-input'
+import { PreparedListingStatusPanel } from '@/v2/widgets/processing-status'
+import { ListingChipInput, parseUrlInputText } from '@/v2/widgets/url-input'
 
-const defaultSkipReason = '직원이 건너뛰었습니다.'
+const saveFailureMessage =
+  '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
 
 export function TruckHarvesterV2App() {
-  const [batchStore] = useState(() => createTruckBatchStore())
+  const [preparedStore] = useState(() => createPreparedListingStore())
   const [onboardingStore] = useState(() =>
     createOnboardingStore({ deferInitialTour: true })
   )
-  const [enteredUrls, setEnteredUrls] = useState<string[]>([])
   const [directory, setDirectory] = useState<WritableDirectoryHandle | null>(
     null
   )
+  const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null)
+  const [fileSystemSupported, setFileSystemSupported] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [notificationAvailable, setNotificationAvailable] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >('unsupported')
+  const isMountedRef = useRef(false)
+  const pasteSequenceRef = useRef(0)
+  const previewControllersRef = useRef<Set<AbortController>>(new Set())
+  const saveControllerRef = useRef<AbortController | null>(null)
 
-  const batchState = useStore(batchStore, (state) => state)
+  const preparedState = useStore(preparedStore, (state) => state)
   const onboardingState = useStore(onboardingStore, (state) => state)
-  const attentionItems = selectAttentionNeeded(batchState)
+  const readyListings = selectReadyPreparedListings(preparedState)
+  const checkingListings = selectCheckingPreparedListings(preparedState)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    const previewControllers = previewControllersRef.current
+
+    return () => {
+      isMountedRef.current = false
+      previewControllers.forEach((controller) => controller.abort())
+      previewControllers.clear()
+      saveControllerRef.current?.abort()
+      saveControllerRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     onboardingStore.getState().initializeTour()
   }, [onboardingStore])
 
-  const saveTruck = async (
-    id: string,
-    listing: TruckListing,
-    signal: AbortSignal,
-    targetDirectory: WritableDirectoryHandle | null
-  ) => {
-    if (!targetDirectory) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFileSystemSupported(isFileSystemAccessAvailable())
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!isCompletionNotificationAvailable()) {
       return
     }
 
-    batchStore.getState().setDownloading(id, {
-      downloadedImages: 0,
-      totalImages: listing.images.length,
-      progress: 0,
-    })
-    await saveTruckToDirectory(targetDirectory, listing, {
-      signal,
-      onProgress: (progress, downloadedImages, totalImages) => {
-        batchStore.getState().setDownloading(id, {
-          progress,
-          downloadedImages,
-          totalImages,
-        })
-      },
-    })
-    batchStore.getState().setDownloaded(id)
-  }
+    const timer = window.setTimeout(() => {
+      setNotificationAvailable(true)
+      setNotificationPermission(window.Notification.permission)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
 
   const resolveSaveDirectoryForRun = async () => {
     if (directory) {
@@ -93,108 +115,196 @@ export function TruckHarvesterV2App() {
       return undefined
     }
 
-    setDirectory(nextDirectory)
+    if (isMountedRef.current) {
+      setDirectory(nextDirectory)
+    }
+
     return nextDirectory
   }
 
-  const startBatch = async (urls: string[]) => {
-    const controller = new AbortController()
-    const runDirectory = await resolveSaveDirectoryForRun()
+  const handlePasteText = (text: string) => {
+    const pasteSequence = pasteSequenceRef.current + 1
+    pasteSequenceRef.current = pasteSequence
+    const result = parseUrlInputText(text)
 
-    if (runDirectory === undefined) {
+    if (!result.success) {
+      if (isMountedRef.current && pasteSequenceRef.current === pasteSequence) {
+        setDuplicateMessage(result.message)
+      }
       return
     }
 
-    setEnteredUrls(urls)
-    batchStore.getState().reset()
-    batchStore.getState().addUrls(urls)
-    batchStore
-      .getState()
-      .items.forEach((item) => batchStore.getState().setParsing(item.id))
+    const previewController = new AbortController()
+    previewControllersRef.current.add(previewController)
 
-    const results = await processTruckBatch({
-      urls,
-      signal: controller.signal,
-      onResult: (result) => {
-        if (result.status === 'success') {
-          batchStore.getState().setParsed(result.id, result.listing)
+    void prepareListingUrls({
+      urls: result.urls,
+      store: preparedStore,
+      signal: previewController.signal,
+    })
+      .then((prepareResult) => {
+        if (
+          !isMountedRef.current ||
+          previewController.signal.aborted ||
+          pasteSequenceRef.current !== pasteSequence
+        ) {
           return
         }
 
-        if (result.status === 'failed') {
-          batchStore.getState().setFailed(result.id, {
-            reason: result.reason,
-            message: result.message,
-          })
-        }
-      },
-    })
-
-    for (const result of results) {
-      if (result.status === 'success') {
-        await saveTruck(
-          result.id,
-          result.listing,
-          controller.signal,
-          runDirectory
+        setDuplicateMessage(
+          prepareResult.duplicates.length > 0 ? '이미 넣은 매물이에요.' : null
         )
-      }
-    }
-
-    if (!runDirectory) {
-      const parsedTrucks = results.flatMap((result) =>
-        result.status === 'success' ? [result.listing] : []
-      )
-
-      if (parsedTrucks.length > 0) {
-        await downloadTruckZip(parsedTrucks, { signal: controller.signal })
-      }
-    }
+      })
+      .catch(() => {
+        // Preview cancellation is expected when leaving the route.
+      })
+      .finally(() => {
+        previewControllersRef.current.delete(previewController)
+      })
   }
 
-  const retryItem = async (id: string) => {
-    const item = batchState.items.find((candidate) => candidate.id === id)
+  const requestNotificationPermission = () => {
+    void requestCompletionNotificationPermission().then((permission) => {
+      if (isMountedRef.current) {
+        setNotificationPermission(permission)
+      }
+    })
+  }
 
-    if (!item) {
+  const startSavingReadyListings = async () => {
+    if (isSaving || readyListings.length === 0 || checkingListings.length > 0) {
       return
     }
+
+    const itemsToSave = readyListings
+    setIsSaving(true)
 
     const controller = new AbortController()
-    const runDirectory = await resolveSaveDirectoryForRun()
+    saveControllerRef.current?.abort()
+    saveControllerRef.current = controller
+    const canContinueSave = () =>
+      isMountedRef.current && !controller.signal.aborted
 
-    if (runDirectory === undefined) {
-      return
-    }
+    try {
+      const runDirectory = await resolveSaveDirectoryForRun()
 
-    batchStore.getState().retry(id)
-    batchStore.getState().setParsing(id)
-
-    const [result] = await processTruckBatch({
-      urls: [item.url],
-      signal: controller.signal,
-    })
-
-    if (result.status === 'success') {
-      batchStore.getState().setParsed(id, result.listing)
-      await saveTruck(id, result.listing, controller.signal, runDirectory)
-
-      if (!runDirectory) {
-        await downloadTruckZip([result.listing], { signal: controller.signal })
+      if (!canContinueSave()) {
+        return
       }
-      return
-    }
 
-    if (result.status === 'failed') {
-      batchStore.getState().setFailed(id, {
-        reason: result.reason,
-        message: result.message,
-      })
+      if (runDirectory === undefined) {
+        return
+      }
+
+      let savedCount = 0
+
+      if (runDirectory) {
+        for (const item of itemsToSave) {
+          if (!canContinueSave()) {
+            return
+          }
+
+          preparedStore.getState().markSaving(item.id, {
+            downloadedImages: 0,
+            totalImages: item.listing.images.length,
+            progress: 0,
+          })
+
+          try {
+            await saveTruckToDirectory(runDirectory, item.listing, {
+              signal: controller.signal,
+              onProgress: (progress, downloadedImages, totalImages) => {
+                if (!canContinueSave()) {
+                  return
+                }
+
+                preparedStore.getState().markSaving(item.id, {
+                  progress,
+                  downloadedImages,
+                  totalImages,
+                })
+              },
+            })
+
+            if (!canContinueSave()) {
+              return
+            }
+
+            preparedStore.getState().markSaved(item.id)
+            savedCount += 1
+          } catch {
+            if (!canContinueSave()) {
+              return
+            }
+
+            preparedStore.getState().markFailed(item.url, saveFailureMessage)
+          }
+        }
+      } else {
+        itemsToSave.forEach((item) => {
+          preparedStore.getState().markSaving(item.id, {
+            downloadedImages: 0,
+            totalImages: item.listing.images.length,
+            progress: 0,
+          })
+        })
+
+        try {
+          await downloadTruckZip(
+            itemsToSave.map((item) => item.listing),
+            {
+              signal: controller.signal,
+              onProgress: (progress) => {
+                if (!canContinueSave()) {
+                  return
+                }
+
+                itemsToSave.forEach((item) => {
+                  preparedStore.getState().markSaving(item.id, {
+                    progress,
+                    downloadedImages: 0,
+                    totalImages: item.listing.images.length,
+                  })
+                })
+              },
+            }
+          )
+
+          if (!canContinueSave()) {
+            return
+          }
+
+          itemsToSave.forEach((item) => {
+            preparedStore.getState().markSaved(item.id)
+          })
+          savedCount = itemsToSave.length
+        } catch {
+          if (!canContinueSave()) {
+            return
+          }
+
+          itemsToSave.forEach((item) => {
+            preparedStore.getState().markFailed(item.url, saveFailureMessage)
+          })
+        }
+      }
+
+      if (savedCount > 0 && canContinueSave()) {
+        notifyCompletion(savedCount)
+      }
+    } finally {
+      if (saveControllerRef.current === controller) {
+        saveControllerRef.current = null
+      }
+
+      if (isMountedRef.current) {
+        setIsSaving(false)
+      }
     }
   }
 
-  const skipItem = (id: string) => {
-    batchStore.getState().setSkipped(id, defaultSkipReason)
-  }
+  const canRemovePreparedItem = (item: PreparedListing) =>
+    item.status !== 'saving' && item.status !== 'saved'
 
   return (
     <main
@@ -216,29 +326,33 @@ export function TruckHarvesterV2App() {
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           <div className="grid content-start gap-5">
-            <UrlInputForm onSubmit={(urls) => void startBatch(urls)} />
-            <DirectorySelector
-              isSupported
-              onSelectDirectory={(nextDirectory) => setDirectory(nextDirectory)}
-              selectedDirectoryName={directory?.name}
-            />
-            <UrlList
-              urls={enteredUrls}
-              onRemove={(url) =>
-                setEnteredUrls((currentUrls) =>
-                  currentUrls.filter((currentUrl) => currentUrl !== url)
-                )
-              }
-            />
+            <div data-tour="url-input">
+              <ListingChipInput
+                canRemoveItem={canRemovePreparedItem}
+                disabled={isSaving}
+                duplicateMessage={duplicateMessage}
+                items={preparedState.items}
+                onPasteText={handlePasteText}
+                onRemove={(id) => preparedStore.getState().remove(id)}
+                onStart={() => void startSavingReadyListings()}
+              />
+            </div>
           </div>
 
           <div className="grid content-start gap-5">
-            <ProcessingStatus items={batchState.items} />
-            <AttentionPanel
-              items={attentionItems}
-              onRetry={(id) => void retryItem(id)}
-              onSkip={skipItem}
+            <DirectorySelector
+              isSupported={fileSystemSupported}
+              onSelectDirectory={(nextDirectory) => setDirectory(nextDirectory)}
+              selectedDirectoryName={directory?.name}
             />
+            <CompletionNotificationToggle
+              isAvailable={notificationAvailable}
+              onEnable={requestNotificationPermission}
+              permission={notificationPermission}
+            />
+            <div data-tour="processing-status">
+              <PreparedListingStatusPanel items={preparedState.items} />
+            </div>
           </div>
         </div>
       </section>
