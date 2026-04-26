@@ -4,10 +4,16 @@ const buildTruckUrl = (index: number) =>
   `https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=${index}`
 
 const urls = Array.from({ length: 10 }, (_, index) => buildTruckUrl(index + 1))
+const onboardingStorageKey = 'truck-harvester:v2:onboarding'
 
 test('completes a 10-address batch with streamed parsed results', async ({
   page,
 }) => {
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key, value),
+    [onboardingStorageKey, 'completed']
+  )
+
   await page.route('**/api/v2/parse-truck', async (route) => {
     const request = route.request()
     const body = request.postDataJSON() as { url: string }
@@ -39,11 +45,6 @@ test('completes a 10-address batch with streamed parsed results', async ({
   })
 
   await page.goto('/v2')
-  const closeTourButton = page.getByRole('button', { name: '그만 보기' })
-
-  if (await closeTourButton.isVisible({ timeout: 1_000 }).catch(() => false)) {
-    await closeTourButton.click()
-  }
 
   await page.getByLabel('매물 주소').fill(urls.join('\n'))
   await page.getByRole('button', { name: '가져오기 시작' }).click()

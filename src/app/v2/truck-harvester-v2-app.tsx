@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useStore } from 'zustand'
 
@@ -32,7 +32,9 @@ const defaultSkipReason = '직원이 건너뛰었습니다.'
 
 export function TruckHarvesterV2App() {
   const [batchStore] = useState(() => createTruckBatchStore())
-  const [onboardingStore] = useState(() => createOnboardingStore())
+  const [onboardingStore] = useState(() =>
+    createOnboardingStore({ deferInitialTour: true })
+  )
   const [enteredUrls, setEnteredUrls] = useState<string[]>([])
   const [directory, setDirectory] = useState<WritableDirectoryHandle | null>(
     null
@@ -41,6 +43,10 @@ export function TruckHarvesterV2App() {
   const batchState = useStore(batchStore, (state) => state)
   const onboardingState = useStore(onboardingStore, (state) => state)
   const attentionItems = selectAttentionNeeded(batchState)
+
+  useEffect(() => {
+    onboardingStore.getState().initializeTour()
+  }, [onboardingStore])
 
   const saveTruck = async (
     id: string,

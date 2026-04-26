@@ -8,12 +8,14 @@ export interface OnboardingStorage {
 
 export interface OnboardingStoreOptions {
   storage?: OnboardingStorage
+  deferInitialTour?: boolean
 }
 
 export interface OnboardingState {
   isTourOpen: boolean
   hasCompletedTour: boolean
   currentStep: number
+  initializeTour: () => void
   completeTour: () => void
   restartTour: () => void
   goToNextStep: (totalSteps: number) => void
@@ -43,15 +45,26 @@ const getBrowserStorage = (): OnboardingStorage | undefined => {
 }
 
 export const createOnboardingStore = ({
+  deferInitialTour = false,
   storage = getBrowserStorage(),
 }: OnboardingStoreOptions = {}): StoreApi<OnboardingState> => {
   const hasCompletedTour =
     storage?.getItem(onboardingStorageKey) === completedValue
 
   return createStore<OnboardingState>((set) => ({
-    isTourOpen: !hasCompletedTour,
+    isTourOpen: deferInitialTour ? false : !hasCompletedTour,
     hasCompletedTour,
     currentStep: 0,
+    initializeTour: () => {
+      const nextHasCompletedTour =
+        storage?.getItem(onboardingStorageKey) === completedValue
+
+      set({
+        isTourOpen: !nextHasCompletedTour,
+        hasCompletedTour: nextHasCompletedTour,
+        currentStep: 0,
+      })
+    },
     completeTour: () => {
       storage?.setItem(onboardingStorageKey, completedValue)
       set({

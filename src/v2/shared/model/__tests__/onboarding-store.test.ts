@@ -17,6 +17,34 @@ const createMemoryStorage = (): OnboardingStorage => {
 }
 
 describe('onboarding store', () => {
+  it('can start closed before browser storage is read', () => {
+    const store = createOnboardingStore({
+      deferInitialTour: true,
+      storage: createMemoryStorage(),
+    })
+
+    expect(store.getState()).toMatchObject({
+      isTourOpen: false,
+      hasCompletedTour: false,
+      currentStep: 0,
+    })
+  })
+
+  it('opens a deferred first-visit tour after client mount', () => {
+    const store = createOnboardingStore({
+      deferInitialTour: true,
+      storage: createMemoryStorage(),
+    })
+
+    store.getState().initializeTour()
+
+    expect(store.getState()).toMatchObject({
+      isTourOpen: true,
+      hasCompletedTour: false,
+      currentStep: 0,
+    })
+  })
+
   it('opens the tour on first visit and stores completion', () => {
     const storage = createMemoryStorage()
     const store = createOnboardingStore({ storage })
