@@ -12,7 +12,8 @@ export const tourSteps = [
     anchorSelector: '[data-tour="url-input"]',
     fallbackSelector: '[data-tour="v2-page"]',
     title: '매물 주소부터 넣어요',
-    description: '한 줄에 하나씩 붙여넣으면 중복은 자동으로 정리됩니다.',
+    description:
+      '매물 주소를 여러 개 복사해 와서 이 칸에 붙여넣으면, 같은 주소는 한 번만 처리됩니다.',
   },
   {
     id: 'save-folder',

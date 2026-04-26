@@ -15,6 +15,12 @@ describe('tour steps', () => {
     }
   })
 
+  it('explains pasted addresses in plain staff language', () => {
+    expect(tourSteps[0].description).toBe(
+      '매물 주소를 여러 개 복사해 와서 이 칸에 붙여넣으면, 같은 주소는 한 번만 처리됩니다.'
+    )
+  })
+
   it('uses a safe fallback when the target anchor is missing', () => {
     document.body.innerHTML = '<main data-tour="v2-page"></main>'
 
