@@ -16,7 +16,10 @@ interface WritableFileHandle {
   createWritable: () => Promise<WritableFileStream>
 }
 
+type WritableDirectoryPermissionDescriptor = { mode: 'readwrite' }
+
 export interface WritableDirectoryHandle {
+  kind?: 'directory'
   name?: string
   getDirectoryHandle: (
     name: string,
@@ -26,6 +29,12 @@ export interface WritableDirectoryHandle {
     name: string,
     options?: { create?: boolean }
   ) => Promise<WritableFileHandle>
+  queryPermission?: (
+    descriptor: WritableDirectoryPermissionDescriptor
+  ) => Promise<PermissionState>
+  requestPermission?: (
+    descriptor: WritableDirectoryPermissionDescriptor
+  ) => Promise<PermissionState>
 }
 
 interface SaveTruckToDirectoryOptions {
@@ -33,19 +42,41 @@ interface SaveTruckToDirectoryOptions {
   signal?: AbortSignal
 }
 
+interface PickWritableDirectoryOptions {
+  id?: string
+  startIn?: WritableDirectoryHandle
+}
+
+interface WritableDirectoryPickerOptions {
+  id?: string
+  mode: 'readwrite'
+  startIn?: WritableDirectoryHandle
+}
+
+type WritableDirectoryPicker = (
+  options: WritableDirectoryPickerOptions
+) => Promise<WritableDirectoryHandle>
+
 export function isFileSystemAccessAvailable() {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window
 }
 
-export async function pickWritableDirectory() {
-  const picker = window.showDirectoryPicker
+export async function pickWritableDirectory({
+  id,
+  startIn,
+}: PickWritableDirectoryOptions = {}) {
+  const picker = window.showDirectoryPicker as WritableDirectoryPicker
 
   if (!picker) {
     return undefined
   }
 
   try {
-    return (await picker()) as WritableDirectoryHandle
+    return (await picker({
+      id,
+      mode: 'readwrite',
+      startIn,
+    })) as WritableDirectoryHandle
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return undefined

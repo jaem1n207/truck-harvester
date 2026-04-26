@@ -4,9 +4,13 @@ import { type TruckListing } from '@/v2/entities/truck'
 
 import {
   isFileSystemAccessAvailable,
+  pickWritableDirectory,
   saveTruckToDirectory,
   type WritableDirectoryHandle,
 } from '../file-system'
+
+const originalWindow = globalThis.window
+const originalFetch = globalThis.fetch
 
 const listing: TruckListing = {
   url: 'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3',
@@ -58,25 +62,69 @@ function createDirectoryHandle() {
   }
 }
 
+function stubWindow(value: Record<string, unknown>) {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value,
+  })
+}
+
+function stubFetch(value: typeof fetch) {
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    value,
+  })
+}
+
+function restoreGlobals() {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: originalWindow,
+  })
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    value: originalFetch,
+  })
+}
+
 describe('v2 file-system', () => {
   afterEach(() => {
-    vi.unstubAllGlobals()
+    restoreGlobals()
   })
 
   it('detects File System Access API support', () => {
-    vi.stubGlobal('window', { showDirectoryPicker: vi.fn() })
+    stubWindow({ showDirectoryPicker: vi.fn() })
     expect(isFileSystemAccessAvailable()).toBe(true)
 
-    vi.stubGlobal('window', {})
+    stubWindow({})
     expect(isFileSystemAccessAvailable()).toBe(false)
   })
 
+  it('passes readwrite picker options when selecting a writable directory', async () => {
+    const startIn = createDirectoryHandle().rootDirectory
+    const selectedDirectory = createDirectoryHandle().rootDirectory
+    const showDirectoryPicker = vi.fn(async () => selectedDirectory)
+
+    stubWindow({ showDirectoryPicker })
+
+    await expect(
+      pickWritableDirectory({
+        id: 'truck-harvester-v2-save-folder',
+        startIn,
+      })
+    ).resolves.toBe(selectedDirectory)
+    expect(showDirectoryPicker).toHaveBeenCalledWith({
+      id: 'truck-harvester-v2-save-folder',
+      mode: 'readwrite',
+      startIn,
+    })
+  })
+
   it('saves text and raw image files into a vehicle folder', async () => {
-    vi.stubGlobal(
-      'fetch',
+    stubFetch(
       vi.fn(async (url: string) => {
         return new Response(`image:${url}`, { status: 200 })
-      })
+      }) as typeof fetch
     )
     const { rootDirectory, vehicleDirectory, writables } =
       createDirectoryHandle()
@@ -119,11 +167,10 @@ describe('v2 file-system', () => {
   })
 
   it('writes the text file after image files so modified-date sorting keeps it at the edge', async () => {
-    vi.stubGlobal(
-      'fetch',
+    stubFetch(
       vi.fn(async (url: string) => {
         return new Response(`image:${url}`, { status: 200 })
-      })
+      }) as typeof fetch
     )
     const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
 
@@ -153,11 +200,10 @@ describe('v2 file-system', () => {
       ...listing,
       images: ['https://img.example.com/one.jpg'],
     }
-    vi.stubGlobal(
-      'fetch',
+    stubFetch(
       vi.fn(async () => {
         throw new DOMException('다운로드가 취소되었습니다.', 'AbortError')
-      })
+      }) as typeof fetch
     )
     const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
     const progress: Array<[number, number, number]> = []
