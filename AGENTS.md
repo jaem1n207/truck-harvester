@@ -16,10 +16,10 @@ fast, recoverable, and self-explanatory.
 - Next.js App Router with Turbopack.
 - React 19, TypeScript strict mode, Tailwind CSS 4, shadcn-style
   primitives scoped to `/v2`.
-- Zustand vanilla stores for `/v2` batch and onboarding state.
-- Zod for domain contracts, TanStack Form for address entry.
+- Zustand vanilla stores for `/v2` prepared-listing and onboarding state.
+- Zod for domain contracts and URL extraction.
 - Cheerio for server-side HTML parsing.
-- `p-limit` plus `/v2` retry helpers for client-side concurrency 5.
+- `/v2` concurrency helpers for client-side preview concurrency 5.
 - Vitest, Playwright, and axe for the three-layer test scaffold.
 
 ## Run And Test Commands
@@ -41,8 +41,10 @@ fast, recoverable, and self-explanatory.
 - `src/v2/design-system/` owns token and motion guidance.
 - `src/v2/entities/` owns pure Zod schemas and discriminated unions.
 - `src/v2/shared/` owns base utilities, UI primitives, and shared stores.
-- `src/v2/features/` owns workflows: parsing, file saving, onboarding.
-- `src/v2/widgets/` owns composed user-facing UI blocks.
+- `src/v2/features/` owns workflows: listing preparation, parsing, file
+  saving, completion notifications, onboarding.
+- `src/v2/widgets/` owns composed user-facing UI blocks such as the chip
+  input, directory selector, and prepared status panel.
 - `docs/architecture.md` explains the `/v2` data flow.
 - `docs/runbooks/` contains repeatable change recipes.
 - `docs/decisions/` contains ADRs for rebuild decisions.
@@ -66,7 +68,7 @@ fast, recoverable, and self-explanatory.
 - Do not implement watermarking in `/v2`; legacy watermark code is removed
   only during the separate cutover PR.
 - User-facing `/v2` copy is Korean-only and non-technical.
-- Default batch concurrency is 5 unless a later ADR changes it.
+- Default preview/save concurrency is 5 unless a later ADR changes it.
 
 ## Knowledge Links
 

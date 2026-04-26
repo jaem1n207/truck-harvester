@@ -8,8 +8,8 @@ wire stores, and leave reusable logic in `src/v2/*`.
 
 - Do not import legacy `src/shared/*`, `src/widgets/*`, or watermark code.
 - Keep user-facing text Korean-only and non-technical.
-- The default batch concurrency stays `5` through
-  `processTruckBatch()`.
+- The default preview concurrency stays `5` through the listing
+  preparation workflow.
 - Page tests should prove the operational flow is mounted, not just a
   marketing or placeholder screen.
 - Browser coverage starts with `bun run test:e2e` for the happy path and
