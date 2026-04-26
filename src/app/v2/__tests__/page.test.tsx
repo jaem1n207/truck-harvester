@@ -6,22 +6,10 @@ import { createRoot, type Root } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  createPreparedListingStore,
-  selectCheckingPreparedListings,
-  selectReadyPreparedListings,
-} from '@/v2/features/listing-preparation/model/prepared-listing-store'
-
-const listingPreparationMocks = {
+const listingPreparationMocks = vi.hoisted(() => ({
   prepareListingUrls: vi.fn(),
-}
+}))
 const require = createRequire(import.meta.url)
-const { mock } = require('bun:test') as {
-  mock: {
-    module: (specifier: string, factory: () => Record<string, unknown>) => void
-    restore: () => void
-  }
-}
 const { JSDOM } = require('jsdom') as {
   JSDOM: new (
     html: string,
@@ -31,12 +19,16 @@ const { JSDOM } = require('jsdom') as {
   }
 }
 
-mock.module('@/v2/features/listing-preparation', () => {
+vi.mock('@/v2/features/listing-preparation', async () => {
+  const store = await vi.importActual<
+    typeof import('@/v2/features/listing-preparation/model/prepared-listing-store')
+  >('@/v2/features/listing-preparation/model/prepared-listing-store')
+
   return {
-    createPreparedListingStore,
+    createPreparedListingStore: store.createPreparedListingStore,
     prepareListingUrls: listingPreparationMocks.prepareListingUrls,
-    selectCheckingPreparedListings,
-    selectReadyPreparedListings,
+    selectCheckingPreparedListings: store.selectCheckingPreparedListings,
+    selectReadyPreparedListings: store.selectReadyPreparedListings,
   }
 })
 
@@ -56,38 +48,39 @@ let container: HTMLDivElement | null = null
 let dom: { window: Window & typeof globalThis } | null = null
 
 const installDom = () => {
-  dom = new JSDOM('<!doctype html><html><body></body></html>', {
+  const currentDom = new JSDOM('<!doctype html><html><body></body></html>', {
     url: 'http://localhost/v2',
   })
+  dom = currentDom
 
   Object.defineProperties(globalThis, {
     document: {
       configurable: true,
-      value: dom.window.document,
+      value: currentDom.window.document,
     },
     DOMException: {
       configurable: true,
-      value: dom.window.DOMException,
+      value: currentDom.window.DOMException,
     },
     Event: {
       configurable: true,
-      value: dom.window.Event,
+      value: currentDom.window.Event,
     },
     HTMLTextAreaElement: {
       configurable: true,
-      value: dom.window.HTMLTextAreaElement,
+      value: currentDom.window.HTMLTextAreaElement,
     },
     MutationObserver: {
       configurable: true,
-      value: dom.window.MutationObserver,
+      value: currentDom.window.MutationObserver,
     },
     navigator: {
       configurable: true,
-      value: dom.window.navigator,
+      value: currentDom.window.navigator,
     },
     window: {
       configurable: true,
-      value: dom.window,
+      value: currentDom.window,
     },
   })
 }
@@ -105,19 +98,18 @@ afterEach(() => {
   dom?.window.close()
   dom = null
   vi.clearAllMocks()
-  mock.restore()
 })
 
 describe('V2Page', () => {
-  it('provides a stable fallback anchor for onboarding', () => {
-    const V2Page = require('../page').default
+  it('provides a stable fallback anchor for onboarding', async () => {
+    const V2Page = (await import('../page')).default
     const html = renderToStaticMarkup(<V2Page />)
 
     expect(html).toContain('data-tour="v2-page"')
   })
 
-  it('renders the operational v2 flow instead of the placeholder preview', () => {
-    const V2Page = require('../page').default
+  it('renders the operational v2 flow instead of the placeholder preview', async () => {
+    const V2Page = (await import('../page')).default
     const html = renderToStaticMarkup(<V2Page />)
 
     expect(html).toContain('매물 주소 넣기')
@@ -139,7 +131,7 @@ describe('V2Page', () => {
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
-    const V2Page = require('../page').default
+    const V2Page = (await import('../page')).default
 
     await act(async () => {
       root?.render(<V2Page />)
@@ -222,7 +214,7 @@ describe('V2Page', () => {
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
-    const V2Page = require('../page').default
+    const V2Page = (await import('../page')).default
 
     await act(async () => {
       root?.render(<V2Page />)

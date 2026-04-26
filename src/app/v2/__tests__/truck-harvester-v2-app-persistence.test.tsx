@@ -6,23 +6,28 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { type WritableDirectoryHandle } from '@/v2/features/file-management'
-import { prepareListingUrls } from '@/v2/features/listing-preparation/model/prepare-listings'
-import {
-  createPreparedListingStore,
-  selectCheckingPreparedListings,
-  selectReadyPreparedListings,
-} from '@/v2/features/listing-preparation/model/prepared-listing-store'
+
+vi.mock('@/v2/features/listing-preparation', async () => {
+  const prepare = await vi.importActual<
+    typeof import('@/v2/features/listing-preparation/model/prepare-listings')
+  >('@/v2/features/listing-preparation/model/prepare-listings')
+  const store = await vi.importActual<
+    typeof import('@/v2/features/listing-preparation/model/prepared-listing-store')
+  >('@/v2/features/listing-preparation/model/prepared-listing-store')
+
+  return {
+    createPreparedListingStore: store.createPreparedListingStore,
+    prepareListingUrls: prepare.prepareListingUrls,
+    selectCheckingPreparedListings: store.selectCheckingPreparedListings,
+    selectReadyPreparedListings: store.selectReadyPreparedListings,
+  }
+})
 
 interface JsdomInstance {
   window: Window & typeof globalThis
 }
 
 const require = createRequire(import.meta.url)
-const { mock } = require('bun:test') as {
-  mock: {
-    module: (specifier: string, factory: () => Record<string, unknown>) => void
-  }
-}
 const { JSDOM } = require('jsdom') as {
   JSDOM: new (html: string, options: { url: string }) => JsdomInstance
 }
@@ -32,15 +37,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-
-mock.module('@/v2/features/listing-preparation', () => {
-  return {
-    createPreparedListingStore,
-    prepareListingUrls,
-    selectCheckingPreparedListings,
-    selectReadyPreparedListings,
-  }
-})
 
 interface FakeIdbRequest<T> {
   error: Error | null
@@ -72,9 +68,10 @@ const createRequest = <T,>(result: T): FakeIdbRequest<T> => ({
 })
 
 const installDom = (storedDirectory: WritableDirectoryHandle) => {
-  dom = new JSDOM('<!doctype html><html><body></body></html>', {
+  const currentDom = new JSDOM('<!doctype html><html><body></body></html>', {
     url: 'http://localhost/v2',
   })
+  dom = currentDom
 
   const database = {
     close: vi.fn(),
@@ -114,7 +111,7 @@ const installDom = (storedDirectory: WritableDirectoryHandle) => {
     open: () => {
       const request = createRequest(database)
 
-      dom?.window.setTimeout(() => {
+      currentDom.window.setTimeout(() => {
         request.onsuccess?.()
       }, 0)
 
@@ -125,27 +122,27 @@ const installDom = (storedDirectory: WritableDirectoryHandle) => {
   Object.defineProperties(globalThis, {
     document: {
       configurable: true,
-      value: dom.window.document,
+      value: currentDom.window.document,
     },
     DOMException: {
       configurable: true,
-      value: dom.window.DOMException,
+      value: currentDom.window.DOMException,
     },
     Event: {
       configurable: true,
-      value: dom.window.Event,
+      value: currentDom.window.Event,
     },
     HTMLElement: {
       configurable: true,
-      value: dom.window.HTMLElement,
+      value: currentDom.window.HTMLElement,
     },
     HTMLButtonElement: {
       configurable: true,
-      value: dom.window.HTMLButtonElement,
+      value: currentDom.window.HTMLButtonElement,
     },
     HTMLTextAreaElement: {
       configurable: true,
-      value: dom.window.HTMLTextAreaElement,
+      value: currentDom.window.HTMLTextAreaElement,
     },
     indexedDB: {
       configurable: true,
@@ -153,19 +150,19 @@ const installDom = (storedDirectory: WritableDirectoryHandle) => {
     },
     MutationObserver: {
       configurable: true,
-      value: dom.window.MutationObserver,
+      value: currentDom.window.MutationObserver,
     },
     navigator: {
       configurable: true,
-      value: dom.window.navigator,
+      value: currentDom.window.navigator,
     },
     window: {
       configurable: true,
-      value: dom.window,
+      value: currentDom.window,
     },
   })
 
-  Object.defineProperty(dom.window, 'showDirectoryPicker', {
+  Object.defineProperty(currentDom.window, 'showDirectoryPicker', {
     configurable: true,
     value: vi.fn(),
   })
