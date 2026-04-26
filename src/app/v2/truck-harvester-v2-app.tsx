@@ -7,6 +7,8 @@ import { useStore } from 'zustand'
 import { type TruckListing } from '@/v2/entities/truck'
 import {
   downloadTruckZip,
+  isFileSystemAccessAvailable,
+  pickWritableDirectory,
   saveTruckToDirectory,
   type WritableDirectoryHandle,
 } from '@/v2/features/file-management'
@@ -51,9 +53,10 @@ export function TruckHarvesterV2App() {
   const saveTruck = async (
     id: string,
     listing: TruckListing,
-    signal: AbortSignal
+    signal: AbortSignal,
+    targetDirectory: WritableDirectoryHandle | null
   ) => {
-    if (!directory) {
+    if (!targetDirectory) {
       return
     }
 
@@ -62,7 +65,7 @@ export function TruckHarvesterV2App() {
       totalImages: listing.images.length,
       progress: 0,
     })
-    await saveTruckToDirectory(directory, listing, {
+    await saveTruckToDirectory(targetDirectory, listing, {
       signal,
       onProgress: (progress, downloadedImages, totalImages) => {
         batchStore.getState().setDownloading(id, {
@@ -75,8 +78,33 @@ export function TruckHarvesterV2App() {
     batchStore.getState().setDownloaded(id)
   }
 
+  const resolveSaveDirectoryForRun = async () => {
+    if (directory) {
+      return directory
+    }
+
+    if (!isFileSystemAccessAvailable()) {
+      return null
+    }
+
+    const nextDirectory = await pickWritableDirectory()
+
+    if (!nextDirectory) {
+      return undefined
+    }
+
+    setDirectory(nextDirectory)
+    return nextDirectory
+  }
+
   const startBatch = async (urls: string[]) => {
     const controller = new AbortController()
+    const runDirectory = await resolveSaveDirectoryForRun()
+
+    if (runDirectory === undefined) {
+      return
+    }
+
     setEnteredUrls(urls)
     batchStore.getState().reset()
     batchStore.getState().addUrls(urls)
@@ -104,11 +132,16 @@ export function TruckHarvesterV2App() {
 
     for (const result of results) {
       if (result.status === 'success') {
-        await saveTruck(result.id, result.listing, controller.signal)
+        await saveTruck(
+          result.id,
+          result.listing,
+          controller.signal,
+          runDirectory
+        )
       }
     }
 
-    if (!directory) {
+    if (!runDirectory) {
       const parsedTrucks = results.flatMap((result) =>
         result.status === 'success' ? [result.listing] : []
       )
@@ -127,6 +160,12 @@ export function TruckHarvesterV2App() {
     }
 
     const controller = new AbortController()
+    const runDirectory = await resolveSaveDirectoryForRun()
+
+    if (runDirectory === undefined) {
+      return
+    }
+
     batchStore.getState().retry(id)
     batchStore.getState().setParsing(id)
 
@@ -137,9 +176,9 @@ export function TruckHarvesterV2App() {
 
     if (result.status === 'success') {
       batchStore.getState().setParsed(id, result.listing)
-      await saveTruck(id, result.listing, controller.signal)
+      await saveTruck(id, result.listing, controller.signal, runDirectory)
 
-      if (!directory) {
+      if (!runDirectory) {
         await downloadTruckZip([result.listing], { signal: controller.signal })
       }
       return
@@ -181,6 +220,7 @@ export function TruckHarvesterV2App() {
             <DirectorySelector
               isSupported
               onSelectDirectory={(nextDirectory) => setDirectory(nextDirectory)}
+              selectedDirectoryName={directory?.name}
             />
             <UrlList
               urls={enteredUrls}
