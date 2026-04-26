@@ -42,6 +42,22 @@ export const v2MotionPresets = {
       ease: v2MotionEasings.easeOut,
     },
   },
+  tourCard: {
+    initial: { opacity: 0, y: 10, scale: 0.98 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    transition: {
+      duration: v2MotionDurations.default / 1000,
+      ease: v2MotionEasings.easeOut,
+    },
+  },
+  tourHighlight: {
+    initial: { opacity: 0, scale: 0.98 },
+    animate: { opacity: 1, scale: 1 },
+    transition: {
+      duration: v2MotionDurations.quick / 1000,
+      ease: v2MotionEasings.easeOut,
+    },
+  },
   streamPop: {
     initial: { opacity: 0, scale: 0.96 },
     animate: { opacity: 1, scale: 1 },
