@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AlertTriangle, Check, Plus, Trash2, X } from 'lucide-react'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
@@ -41,11 +41,19 @@ const smoothTransition = {
 
 export const UrlInputForm = () => {
   const { urlsText, setUrlsText } = useAppStore()
-  const [urls, setUrls] = useState<string[]>([])
+  const [urls, setUrls] = useState<string[]>(() =>
+    urlsText
+      .split('\n')
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0)
+  )
   const [currentInput, setCurrentInput] = useState('')
-  const [urlResults, setUrlResults] = useState<UrlValidationResult[]>([])
   const [inputError, setInputError] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const urlResults: UrlValidationResult[] = useMemo(
+    () => validateUrlsFromText(urls.join('\n')),
+    [urls]
+  )
 
   // Callback ref로 더 확실한 포커스 제어
   const inputCallbackRef = useCallback((node: HTMLInputElement | null) => {
@@ -58,25 +66,12 @@ export const UrlInputForm = () => {
     }
   }, [])
 
-  // 초기화 시 urlsText에서 urls 배열 생성
-  useEffect(() => {
-    if (urlsText && urls.length === 0) {
-      const initialUrls = urlsText
-        .split('\n')
-        .map((url) => url.trim())
-        .filter((url) => url.length > 0)
-      setUrls(initialUrls)
-    }
-  }, [urlsText, urls.length])
-
   // urls 배열이 변경될 때마다 urlsText 업데이트
   useEffect(() => {
     const newUrlsText = urls.join('\n')
     if (newUrlsText !== urlsText) {
       setUrlsText(newUrlsText)
     }
-    const results = validateUrlsFromText(newUrlsText)
-    setUrlResults(results)
   }, [urls, setUrlsText, urlsText])
 
   // 페이지 로드 시 자동 포커스 (애니메이션 종료 후 확실히 실행)

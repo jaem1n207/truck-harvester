@@ -196,13 +196,13 @@ async function postHandler(request: NextRequest) {
     if (!validation.success) {
       addTruckProcessingBreadcrumb('parsing_error', {
         error: 'validation_failed',
-        details: validation.error.errors,
+        details: validation.error.issues,
       })
       throw createApiError.badRequest(
         '잘못된 요청 데이터',
         'VALIDATION_ERROR',
         {
-          details: validation.error.errors,
+          details: validation.error.issues,
         }
       )
     }
