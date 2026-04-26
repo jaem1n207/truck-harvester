@@ -105,6 +105,17 @@ describe('directory handle storage', () => {
     )
   })
 
+  it('returns false when requesting writable permission fails', async () => {
+    const requestPermission = vi.fn(async () => {
+      throw new DOMException('권한을 확인하지 못했습니다.', 'NotAllowedError')
+    })
+    const handle = createDirectoryHandle({ requestPermission })
+
+    await expect(requestWritableDirectoryPermission(handle)).resolves.toBe(
+      false
+    )
+  })
+
   it('returns true when requestPermission is unavailable', async () => {
     const handle = createDirectoryHandle()
 

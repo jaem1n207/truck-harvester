@@ -132,8 +132,12 @@ export async function requestWritableDirectoryPermission(
     return true
   }
 
-  return (
-    (await handle.requestPermission(WRITABLE_PERMISSION_DESCRIPTOR)) ===
-    'granted'
-  )
+  try {
+    return (
+      (await handle.requestPermission(WRITABLE_PERMISSION_DESCRIPTOR)) ===
+      'granted'
+    )
+  } catch {
+    return false
+  }
 }
