@@ -80,6 +80,27 @@ describe('prepared listing store', () => {
     expect(selectReadyPreparedListings(store.getState())).toHaveLength(1)
   })
 
+  it('marks checking item ready by id without rewriting non-checking items', () => {
+    const store = createPreparedListingStore()
+    store.getState().addUrls([firstUrl])
+
+    store.getState().markReadyById('listing-1', listing)
+    store
+      .getState()
+      .markFailedById(
+        'listing-1',
+        '다시 확인할 수 있도록 주소를 붙여넣어 주세요.'
+      )
+
+    expect(store.getState().items[0]).toMatchObject({
+      status: 'ready',
+      id: 'listing-1',
+      url: firstUrl,
+      label: listing.vname,
+      listing,
+    })
+  })
+
   it('keeps failed chips removable and explains recovery in Korean', () => {
     const store = createPreparedListingStore()
     store.getState().addUrls([firstUrl])
@@ -100,6 +121,26 @@ describe('prepared listing store', () => {
     store.getState().remove('listing-1')
 
     expect(store.getState().items).toEqual([])
+  })
+
+  it('marks checking item failed by id', () => {
+    const store = createPreparedListingStore()
+    store.getState().addUrls([firstUrl])
+
+    store
+      .getState()
+      .markFailedById(
+        'listing-1',
+        '사이트 응답이 늦어요. 주소를 확인한 뒤 다시 시도해 주세요.'
+      )
+
+    expect(store.getState().items[0]).toMatchObject({
+      status: 'failed',
+      id: 'listing-1',
+      url: firstUrl,
+      label: '매물 이름을 확인하지 못했어요',
+      message: '사이트 응답이 늦어요. 주소를 확인한 뒤 다시 시도해 주세요.',
+    })
   })
 
   it('tracks save progress and selects ready listings only', () => {
@@ -140,7 +181,7 @@ describe('prepared listing store', () => {
     ])
   })
 
-  it('reset clears items and restarts predictable ids', () => {
+  it('reset clears items without reusing issued ids', () => {
     const store = createPreparedListingStore()
     store.getState().addUrls([firstUrl])
 
@@ -150,7 +191,7 @@ describe('prepared listing store', () => {
     expect(store.getState().items).toEqual([
       {
         status: 'checking',
-        id: 'listing-1',
+        id: 'listing-2',
         url: secondUrl,
         label: '매물 이름 찾는 중',
       },

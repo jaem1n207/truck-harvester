@@ -87,8 +87,10 @@ export interface PreparedListingState {
   nextId: number
   addUrls: (urls: string[]) => AddPreparedUrlsResult
   markReady: (url: string, listing: TruckListing) => void
+  markReadyById: (id: string, listing: TruckListing) => void
   markInvalid: (url: string, message: string) => void
   markFailed: (url: string, message: string) => void
+  markFailedById: (id: string, message: string) => void
   markSaving: (id: string, progress: PreparedListingSaveProgress) => void
   markSaved: (id: string) => void
   remove: (id: string) => void
@@ -127,6 +129,28 @@ const updateById = (
   id: string,
   update: (item: PreparedListing) => PreparedListing
 ) => items.map((item) => (item.id === id ? update(item) : item))
+
+const createReadyItem = (
+  item: PreparedListing,
+  listing: TruckListing
+): ReadyPreparedListing => ({
+  status: 'ready',
+  id: item.id,
+  url: item.url,
+  label: listingLabel(listing),
+  listing,
+})
+
+const createFailedItem = (
+  item: PreparedListing,
+  message: string
+): FailedPreparedListing => ({
+  status: 'failed',
+  id: item.id,
+  url: item.url,
+  label: failedLabel,
+  message,
+})
 
 const isReadyPreparedListing = (
   item: PreparedListing
@@ -179,13 +203,15 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
     },
     markReady: (url, listing) =>
       set((state) => ({
-        items: updateByUrl(state.items, url, (item) => ({
-          status: 'ready',
-          id: item.id,
-          url: item.url,
-          label: listingLabel(listing),
-          listing,
-        })),
+        items: updateByUrl(state.items, url, (item) =>
+          createReadyItem(item, listing)
+        ),
+      })),
+    markReadyById: (id, listing) =>
+      set((state) => ({
+        items: updateById(state.items, id, (item) =>
+          item.status === 'checking' ? createReadyItem(item, listing) : item
+        ),
       })),
     markInvalid: (url, message) =>
       set((state) => ({
@@ -199,13 +225,15 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
       })),
     markFailed: (url, message) =>
       set((state) => ({
-        items: updateByUrl(state.items, url, (item) => ({
-          status: 'failed',
-          id: item.id,
-          url: item.url,
-          label: failedLabel,
-          message,
-        })),
+        items: updateByUrl(state.items, url, (item) =>
+          createFailedItem(item, message)
+        ),
+      })),
+    markFailedById: (id, message) =>
+      set((state) => ({
+        items: updateById(state.items, id, (item) =>
+          item.status === 'checking' ? createFailedItem(item, message) : item
+        ),
       })),
     markSaving: (id, progress) =>
       set((state) => ({
@@ -241,7 +269,7 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
       set((state) => ({
         items: state.items.filter((item) => item.id !== id),
       })),
-    reset: () => set({ items: [], nextId: 1 }),
+    reset: () => set({ items: [] }),
   }))
 
 export const selectReadyPreparedListings = (
