@@ -175,7 +175,7 @@ export function TruckHarvesterV2App() {
       if (!directory && directoryPermissionState === 'needs-permission') {
         const nextDirectory = await pickSaveDirectory({
           id: saveFolderPickerId,
-          startIn: activeDirectory,
+          startIn: 'downloads',
         })
 
         if (!nextDirectory) {

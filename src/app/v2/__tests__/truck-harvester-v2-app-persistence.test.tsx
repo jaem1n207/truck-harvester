@@ -363,7 +363,7 @@ describe('TruckHarvesterV2App persistence', () => {
     expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
   })
 
-  it('uses a fresh folder pick when restored folder permission cannot continue', async () => {
+  it('uses a safe folder pick when restored folder permission cannot continue', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=4'
     const queryPermission = vi.fn().mockResolvedValue('prompt')
@@ -516,7 +516,7 @@ describe('TruckHarvesterV2App persistence', () => {
     expect(showDirectoryPicker).toHaveBeenCalledWith({
       id: 'truck-harvester-v2-save-folder',
       mode: 'readwrite',
-      startIn: restoredDirectory,
+      startIn: 'downloads',
     })
     expect(pickedDirectory.getDirectoryHandle).toHaveBeenCalledWith(
       '서울12가3456',
