@@ -21,6 +21,8 @@ import {
 } from '../lib/spotlight-geometry'
 import { findTourAnchor, type TourStep, tourSteps } from '../lib/tour-steps'
 
+import { TourExampleCard } from './tour-example-card'
+
 interface TourOverlayProps {
   isOpen: boolean
   currentStep: number
@@ -41,7 +43,7 @@ interface TourGeometry {
 
 const popoverSize = {
   width: 384,
-  height: 224,
+  height: 340,
 } as const
 
 const fallbackViewport: ViewportRect = {
@@ -97,6 +99,21 @@ const getFocusableElements = (element: HTMLElement) =>
   Array.from(element.querySelectorAll<HTMLElement>(focusableSelector)).filter(
     (focusableElement) => !focusableElement.hasAttribute('disabled')
   )
+
+const isEditableKeyTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  const tagName = target.tagName.toLowerCase()
+
+  return (
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    tagName === 'select' ||
+    target.isContentEditable
+  )
+}
 
 export function TourOverlay({
   isOpen,
@@ -229,6 +246,25 @@ export function TourOverlay({
       return
     }
 
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if (isEditableKeyTarget(event.target)) {
+        return
+      }
+
+      if (event.key === 'ArrowLeft') {
+        if (!isFirstStep) {
+          event.preventDefault()
+          onPrevious()
+        }
+
+        return
+      }
+
+      event.preventDefault()
+      onNext()
+      return
+    }
+
     if (event.key !== 'Tab') {
       return
     }
@@ -324,6 +360,8 @@ export function TourOverlay({
             {step.description}
           </p>
         </div>
+
+        <TourExampleCard kind={step.exampleKind} />
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button
