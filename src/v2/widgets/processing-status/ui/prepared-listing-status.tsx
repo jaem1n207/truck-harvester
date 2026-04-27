@@ -83,7 +83,7 @@ function PreparedListingStatusIcon({ item }: { item: PreparedListing }) {
 function PreparedListingMessage({ item }: { item: PreparedListing }) {
   if (item.status === 'saving') {
     return (
-      <p className="text-muted-foreground text-sm">
+      <p className="text-muted-foreground text-sm tabular-nums">
         사진 {item.downloadedImages}/{item.totalImages}
       </p>
     )
@@ -109,14 +109,14 @@ export function PreparedListingStatusPanel({
     >
       <div className="grid gap-1.5">
         <h2
-          className="text-lg font-semibold"
+          className="text-lg font-semibold text-balance"
           id="prepared-listing-status-title"
         >
           저장 진행 상황
         </h2>
         <p
           className={cn(
-            'text-sm',
+            'text-sm tabular-nums',
             summary.isComplete
               ? 'font-semibold text-emerald-700 dark:text-emerald-300'
               : 'text-muted-foreground'
@@ -140,7 +140,7 @@ export function PreparedListingStatusPanel({
                 key={item.id}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="min-w-0 text-sm font-semibold">
+                  <span className="min-w-0 text-sm font-semibold text-pretty">
                     {item.label}
                   </span>
                   <span

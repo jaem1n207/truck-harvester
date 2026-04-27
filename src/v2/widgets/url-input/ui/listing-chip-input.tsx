@@ -106,10 +106,13 @@ export function ListingChipInput({
       className="border-border bg-card text-card-foreground grid gap-4 rounded-xl border p-5 shadow-sm"
     >
       <div className="grid gap-1.5">
-        <h2 className="text-lg font-semibold" id="listing-chip-input-title">
+        <h2
+          className="text-lg font-semibold text-balance"
+          id="listing-chip-input-title"
+        >
           {v2Copy.urlInput.title}
         </h2>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-sm text-pretty">
           {v2Copy.urlInput.description}
         </p>
       </div>
@@ -120,7 +123,7 @@ export function ListingChipInput({
         </label>
         <textarea
           aria-describedby="listing-chip-input-helper"
-          className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-28 resize-y rounded-lg border px-3 py-2 text-sm shadow-xs transition-colors outline-none focus-visible:ring-3"
+          className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-28 resize-y rounded-lg border px-3 py-2 text-sm shadow-xs transition-[border-color,box-shadow,color] outline-none focus-visible:ring-3"
           disabled={disabled}
           id="listing-chip-input-textarea"
           onChange={(event) => setDraftText(event.target.value)}
@@ -173,7 +176,7 @@ export function ListingChipInput({
                 {canRemove ? (
                   <Button
                     aria-label={`매물 지우기: ${item.label}`}
-                    className="size-6 rounded-md"
+                    className="relative size-6 rounded-md before:absolute before:top-1/2 before:left-1/2 before:size-10 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']"
                     onClick={() => onRemove(item.id)}
                     size="icon"
                     type="button"
@@ -190,7 +193,12 @@ export function ListingChipInput({
       ) : null}
 
       <div className="flex justify-end">
-        <Button disabled={startDisabled} onClick={onStart} type="button">
+        <Button
+          className="tabular-nums"
+          disabled={startDisabled}
+          onClick={onStart}
+          type="button"
+        >
           {startLabel}
         </Button>
       </div>
