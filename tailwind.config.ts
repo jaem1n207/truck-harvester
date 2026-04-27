@@ -4,10 +4,9 @@ import tailwindcssAnimate from 'tailwindcss-animate'
 export default {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/widgets/**/*.{js,ts,jsx,tsx,mdx}',
     './src/features/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/shared/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/v2/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {

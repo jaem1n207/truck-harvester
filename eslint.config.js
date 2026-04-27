@@ -1,16 +1,11 @@
-import js from '@eslint/js'
-import { FlatCompat } from '@eslint/eslintrc'
-
-const compat = new FlatCompat({
-  // import.meta.dirname is available after Node.js v20.11.0
-  baseDirectory: import.meta.dirname,
-  recommendedConfig: js.configs.recommended,
-})
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import prettier from 'eslint-config-prettier'
 
 const eslintConfig = [
-  ...compat.config({
-    extends: ['next/core-web-vitals', 'next/typescript', 'prettier'],
-    ignorePatterns: [
+  ...nextVitals,
+  prettier,
+  {
+    ignores: [
       'node_modules/**',
       '.next/**',
       'out/**',
@@ -20,6 +15,9 @@ const eslintConfig = [
       'next-env.d.ts',
       '*.config.*',
     ],
+  },
+  {
+    files: ['**/*.{ts,tsx,js,jsx}'],
     rules: {
       'import/order': [
         'error',
@@ -79,6 +77,11 @@ const eslintConfig = [
               position: 'before',
             },
             {
+              pattern: '@/v2/**',
+              group: 'internal',
+              position: 'before',
+            },
+            {
               pattern: '@/shared/**',
               group: 'internal',
               position: 'before',
@@ -93,7 +96,7 @@ const eslintConfig = [
         },
       ],
     },
-  }),
+  },
 ]
 
 export default eslintConfig

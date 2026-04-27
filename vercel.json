@@ -6,7 +6,7 @@
   "framework": "nextjs",
   "regions": ["icn1"],
   "functions": {
-    "app/api/parse-truck/route.ts": {
+    "app/api/v2/parse-truck/route.ts": {
       "maxDuration": 60
     }
   },

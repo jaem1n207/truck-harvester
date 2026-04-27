@@ -1,354 +1,446 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { ArrowLeft, Settings, Truck } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-
-import { DirectorySelector } from '@/widgets/directory-selector/ui/directory-selector'
-import { ProcessingStatus } from '@/widgets/processing-status/ui/processing-status'
-import { UrlInputForm } from '@/widgets/url-input/ui/url-input-form'
+import { useStore } from 'zustand'
 
 import {
-  trackFeatureUsage,
-  trackProcessingCancel,
-  trackProcessingStart,
-  trackStepTransition,
-} from '@/shared/lib/analytics'
-import { addSentryBreadcrumb, setRouteContext } from '@/shared/lib/sentry-utils'
-import { getValidUrls, validateUrlsFromText } from '@/shared/lib/url-validator'
-import { useTruckProcessor } from '@/shared/lib/use-truck-processor'
-import { useAppStore } from '@/shared/model/store'
-import { Button } from '@/shared/ui/button'
-import { ClientGate } from '@/shared/ui/client-gate'
-import { ErrorBoundaryWrapper } from '@/shared/ui/error-boundary'
-import { ModeToggle } from '@/shared/ui/mode-toggle'
+  CompletionNotificationToggle,
+  isCompletionNotificationAvailable,
+  notifyCompletion,
+  requestCompletionNotificationPermission,
+} from '@/v2/features/completion-notification'
+import {
+  downloadTruckZip,
+  isFileSystemAccessAvailable,
+  pickWritableDirectory,
+  requestWritableDirectoryPermission,
+  saveTruckToDirectory,
+  type WritableDirectoryHandle,
+} from '@/v2/features/file-management'
+import {
+  createPreparedListingStore,
+  prepareListingUrls,
+  selectCheckingPreparedListings,
+  selectReadyPreparedListings,
+  type PreparedListing,
+} from '@/v2/features/listing-preparation'
+import {
+  HelpMenuButton,
+  TourOverlay,
+  tourSteps,
+} from '@/v2/features/onboarding'
+import { createOnboardingStore } from '@/v2/shared/model'
+import { DirectorySelector } from '@/v2/widgets/directory-selector'
+import { PreparedListingStatusPanel } from '@/v2/widgets/processing-status'
+import { ListingChipInput, parseUrlInputText } from '@/v2/widgets/url-input'
 
-export const TruckHarvesterApp = () => {
-  const { currentStep, setCurrentStep, reset, urlsText, config, isProcessing } =
-    useAppStore()
-  const { processUrls, cancelProcessing } = useTruckProcessor()
+const saveFailureMessage =
+  '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
+const saveFolderPickerId = 'truck-harvester-v2-save-folder'
+
+type DirectoryPermissionState = 'denied' | 'ready'
+type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
+
+const pickSaveDirectory = pickWritableDirectory as (options: {
+  id: string
+  startIn: DirectoryPickerStartIn
+}) => Promise<WritableDirectoryHandle | undefined>
+
+export function TruckHarvesterApp() {
+  const [preparedStore] = useState(() => createPreparedListingStore())
+  const [onboardingStore] = useState(() =>
+    createOnboardingStore({ deferInitialTour: true })
+  )
+  const [directory, setDirectory] = useState<WritableDirectoryHandle | null>(
+    null
+  )
+  const [directoryPermissionState, setDirectoryPermissionState] =
+    useState<DirectoryPermissionState>('ready')
+  const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null)
+  const [fileSystemSupported, setFileSystemSupported] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [notificationAvailable, setNotificationAvailable] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >('unsupported')
+  const isMountedRef = useRef(false)
+  const pasteSequenceRef = useRef(0)
+  const previewControllersRef = useRef<Set<AbortController>>(new Set())
+  const saveControllerRef = useRef<AbortController | null>(null)
+
+  const preparedState = useStore(preparedStore, (state) => state)
+  const onboardingState = useStore(onboardingStore, (state) => state)
+  const readyListings = selectReadyPreparedListings(preparedState)
+  const checkingListings = selectCheckingPreparedListings(preparedState)
+  const inputListings = preparedState.items.filter(
+    (item) => item.status !== 'saved'
+  )
 
   useEffect(() => {
-    // Sentry 라우트 컨텍스트 설정
-    setRouteContext('/')
-    addSentryBreadcrumb('App mounted', 'navigation', 'info', { currentStep })
+    isMountedRef.current = true
+    const previewControllers = previewControllersRef.current
 
-    // Analytics: 앱 시작 추적
-    trackFeatureUsage('app_mounted')
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (currentStep === 'parsing' || currentStep === 'downloading') {
-        addSentryBreadcrumb(
-          'User attempted to leave during processing',
-          'user_action',
-          'warning',
-          { currentStep }
-        )
-        e.preventDefault()
-        return '작업이 진행 중입니다. 정말로 페이지를 떠나시겠습니까?'
-      }
+    return () => {
+      isMountedRef.current = false
+      previewControllers.forEach((controller) => controller.abort())
+      previewControllers.clear()
+      saveControllerRef.current?.abort()
+      saveControllerRef.current = null
     }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    // Analytics: 단계 변화 추적
-    if (currentStep !== 'input') {
-      const steps = ['input', 'parsing', 'downloading', 'completed']
-      const currentIndex = steps.indexOf(currentStep)
-      const previousStep =
-        currentIndex > 0 ? steps[currentIndex - 1] : 'initial'
-      trackStepTransition(previousStep, currentStep)
+    onboardingStore.getState().initializeTour()
+  }, [onboardingStore])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const supported = isFileSystemAccessAvailable()
+      setFileSystemSupported(supported)
+
+      if (!supported) {
+        setDirectoryPermissionState('ready')
+        return
+      }
+
+      setDirectoryPermissionState('ready')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
     }
-  }, [currentStep])
+  }, [])
 
-  const handleStartProcessing = () => {
-    // URL 유효성 검증
-    const urlResults = validateUrlsFromText(urlsText)
-    const validUrls = getValidUrls(urlResults)
-    const hasErrors = urlResults.some((result) => result.error)
-
-    if (validUrls.length === 0) {
-      alert('중고트럭 매물 주소를 입력해주세요.')
+  useEffect(() => {
+    if (!isCompletionNotificationAvailable()) {
       return
     }
 
-    if (hasErrors) {
-      alert(
-        '입력한 주소 중 올바르지 않은 것이 있습니다. 확인 후 다시 시도해주세요.'
-      )
+    const timer = window.setTimeout(() => {
+      setNotificationAvailable(true)
+      setNotificationPermission(window.Notification.permission)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  const resolveSaveDirectoryForRun = async () => {
+    if (!isFileSystemAccessAvailable()) {
+      return null
+    }
+
+    const activeDirectory = directory
+
+    if (activeDirectory) {
+      if (directoryPermissionState === 'denied') {
+        const nextDirectory = await pickSaveDirectory({
+          id: saveFolderPickerId,
+          startIn: 'downloads',
+        })
+
+        if (!nextDirectory) {
+          return undefined
+        }
+
+        if (isMountedRef.current) {
+          setDirectory(nextDirectory)
+          setDirectoryPermissionState('ready')
+        }
+
+        return nextDirectory
+      }
+
+      const hasPermission =
+        await requestWritableDirectoryPermission(activeDirectory)
+
+      if (!hasPermission) {
+        if (isMountedRef.current) {
+          setDirectoryPermissionState('denied')
+        }
+        return undefined
+      }
+
+      if (isMountedRef.current) {
+        setDirectory(activeDirectory)
+        setDirectoryPermissionState('ready')
+      }
+
+      return activeDirectory
+    }
+
+    const nextDirectory = await pickSaveDirectory({
+      id: saveFolderPickerId,
+      startIn: 'downloads',
+    })
+
+    if (!nextDirectory) {
+      return undefined
+    }
+
+    if (isMountedRef.current) {
+      setDirectory(nextDirectory)
+      setDirectoryPermissionState('ready')
+    }
+
+    return nextDirectory
+  }
+
+  const selectDirectory = async (nextDirectory: WritableDirectoryHandle) => {
+    if (isMountedRef.current) {
+      setDirectory(nextDirectory)
+      setDirectoryPermissionState('ready')
+    }
+  }
+
+  const handlePasteText = (text: string) => {
+    const pasteSequence = pasteSequenceRef.current + 1
+    pasteSequenceRef.current = pasteSequence
+    const result = parseUrlInputText(text)
+
+    if (!result.success) {
+      if (isMountedRef.current && pasteSequenceRef.current === pasteSequence) {
+        setDuplicateMessage(result.message)
+      }
       return
     }
 
-    if (!config.selectedDirectory) {
-      alert('저장 위치를 선택해주세요.')
-      return
-    }
+    const previewController = new AbortController()
+    previewControllersRef.current.add(previewController)
 
-    // Analytics: 처리 시작 추적
-    trackProcessingStart(validUrls.length)
+    void prepareListingUrls({
+      urls: result.urls,
+      store: preparedStore,
+      signal: previewController.signal,
+    })
+      .then((prepareResult) => {
+        if (
+          !isMountedRef.current ||
+          previewController.signal.aborted ||
+          pasteSequenceRef.current !== pasteSequence
+        ) {
+          return
+        }
 
-    processUrls()
-  }
-
-  // 버튼 활성화 조건 검사
-  const getButtonState = () => {
-    const urlResults = validateUrlsFromText(urlsText)
-    const validUrls = getValidUrls(urlResults)
-    const hasErrors = urlResults.some((result) => result.error)
-
-    // 처리중이면 비활성화
-    if (isProcessing) {
-      return { disabled: true, text: '처리 중...', error: null }
-    }
-
-    // URL이 비어있으면
-    if (!urlsText.trim()) {
-      return { disabled: true, text: '매물 주소를 입력하세요', error: null }
-    }
-
-    // 유효한 URL이 없으면
-    if (validUrls.length === 0) {
-      return {
-        disabled: true,
-        text: '매물 주소를 입력하세요',
-        error: '유효한 중고트럭 매물 주소를 입력해주세요.',
-      }
-    }
-
-    // URL에 오류가 있으면
-    if (hasErrors) {
-      return {
-        disabled: true,
-        text: '주소를 확인하세요',
-        error: '입력한 주소 중 올바르지 않은 것이 있습니다.',
-      }
-    }
-
-    // 저장 위치가 선택되지 않았으면
-    if (!config.selectedDirectory) {
-      return {
-        disabled: true,
-        text: '저장 위치를 선택하세요',
-        error: '파일을 저장할 위치를 먼저 선택해주세요.',
-      }
-    }
-
-    // 모든 조건을 만족하면 활성화
-    return {
-      disabled: false,
-      text: `${validUrls.length}개 매물 정보 수집하기`,
-      error: null,
-    }
-  }
-
-  const handleCancel = () => {
-    // Analytics: 처리 취소 추적
-    trackProcessingCancel(currentStep)
-
-    cancelProcessing()
-    setCurrentStep('input')
-  }
-
-  const handleReset = () => {
-    // Analytics: 리셋 추적
-    trackFeatureUsage('reset_app')
-
-    reset()
-    setCurrentStep('input')
-  }
-
-  const renderStep = () => {
-    switch (currentStep) {
-      case 'input':
-        const buttonState = getButtonState()
-
-        return (
-          <div className="space-y-8">
-            <DirectorySelector />
-            <UrlInputForm />
-
-            <div className="space-y-2">
-              {/* 오류 메시지 표시 */}
-              {buttonState.error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-center"
-                >
-                  <div
-                    className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
-                    role="alert"
-                    aria-live="polite"
-                  >
-                    <span aria-hidden="true">⚠️</span>
-                    <span>{buttonState.error}</span>
-                  </div>
-                </motion.div>
-              )}
-
-              <div className="flex justify-center">
-                <Button
-                  onClick={handleStartProcessing}
-                  size="lg"
-                  disabled={buttonState.disabled}
-                >
-                  {buttonState.text}
-                </Button>
-              </div>
-            </div>
-          </div>
+        setDuplicateMessage(
+          prepareResult.duplicates.length > 0 ? '이미 넣은 매물이에요.' : null
         )
+      })
+      .catch(() => {
+        // Preview cancellation is expected when leaving the route.
+      })
+      .finally(() => {
+        previewControllersRef.current.delete(previewController)
+      })
+  }
 
-      case 'parsing':
-      case 'downloading':
-        return <ProcessingStatus onCancel={handleCancel} />
+  const requestNotificationPermission = () => {
+    void requestCompletionNotificationPermission().then((permission) => {
+      if (isMountedRef.current) {
+        setNotificationPermission(permission)
+      }
+    })
+  }
 
-      case 'completed':
-        return (
-          <div className="space-y-6">
-            <ProcessingStatus onCancel={handleCancel} />
-            <div className="flex justify-center gap-4">
-              <Button variant="outline" onClick={handleReset}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                새로 시작
-              </Button>
-            </div>
-          </div>
-        )
+  const startSavingReadyListings = async () => {
+    if (isSaving || readyListings.length === 0 || checkingListings.length > 0) {
+      return
+    }
 
-      default:
-        return null
+    const controller = new AbortController()
+    saveControllerRef.current?.abort()
+    saveControllerRef.current = controller
+    const canContinueSave = () =>
+      isMountedRef.current && !controller.signal.aborted
+
+    try {
+      const runDirectory = await resolveSaveDirectoryForRun()
+
+      if (!canContinueSave()) {
+        return
+      }
+
+      if (runDirectory === undefined) {
+        return
+      }
+
+      const itemsToSave = readyListings
+      setIsSaving(true)
+
+      let savedCount = 0
+
+      if (runDirectory) {
+        for (const item of itemsToSave) {
+          if (!canContinueSave()) {
+            return
+          }
+
+          preparedStore.getState().markSaving(item.id, {
+            downloadedImages: 0,
+            totalImages: item.listing.images.length,
+            progress: 0,
+          })
+
+          try {
+            await saveTruckToDirectory(runDirectory, item.listing, {
+              signal: controller.signal,
+              onProgress: (progress, downloadedImages, totalImages) => {
+                if (!canContinueSave()) {
+                  return
+                }
+
+                preparedStore.getState().markSaving(item.id, {
+                  progress,
+                  downloadedImages,
+                  totalImages,
+                })
+              },
+            })
+
+            if (!canContinueSave()) {
+              return
+            }
+
+            preparedStore.getState().markSaved(item.id)
+            savedCount += 1
+          } catch {
+            if (!canContinueSave()) {
+              return
+            }
+
+            preparedStore.getState().markFailed(item.url, saveFailureMessage)
+          }
+        }
+      } else {
+        itemsToSave.forEach((item) => {
+          preparedStore.getState().markSaving(item.id, {
+            downloadedImages: 0,
+            totalImages: item.listing.images.length,
+            progress: 0,
+          })
+        })
+
+        try {
+          await downloadTruckZip(
+            itemsToSave.map((item) => item.listing),
+            {
+              signal: controller.signal,
+              onProgress: (progress) => {
+                if (!canContinueSave()) {
+                  return
+                }
+
+                itemsToSave.forEach((item) => {
+                  preparedStore.getState().markSaving(item.id, {
+                    progress,
+                    downloadedImages: 0,
+                    totalImages: item.listing.images.length,
+                  })
+                })
+              },
+            }
+          )
+
+          if (!canContinueSave()) {
+            return
+          }
+
+          itemsToSave.forEach((item) => {
+            preparedStore.getState().markSaved(item.id)
+          })
+          savedCount = itemsToSave.length
+        } catch {
+          if (!canContinueSave()) {
+            return
+          }
+
+          itemsToSave.forEach((item) => {
+            preparedStore.getState().markFailed(item.url, saveFailureMessage)
+          })
+        }
+      }
+
+      if (savedCount > 0 && canContinueSave()) {
+        notifyCompletion(savedCount)
+      }
+    } finally {
+      if (saveControllerRef.current === controller) {
+        saveControllerRef.current = null
+      }
+
+      if (isMountedRef.current) {
+        setIsSaving(false)
+      }
     }
   }
+
+  const canRemovePreparedItem = (item: PreparedListing) =>
+    item.status !== 'saving' && item.status !== 'saved'
 
   return (
-    <ErrorBoundaryWrapper identifier="main-app">
-      <main className="min-h-screen" id="main-content">
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-4 flex justify-end">
-            <ClientGate>
-              <ModeToggle />
-            </ClientGate>
-          </div>
-          {/* Header */}
-          <motion.header
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12 text-center"
-          >
-            <div className="mb-4 flex items-center justify-center gap-3">
-              <div className="bg-primary rounded-xl p-3" aria-hidden="true">
-                <Truck className="text-primary-foreground h-8 w-8" />
-              </div>
-              <h1 className="text-foreground text-4xl font-bold">
-                트럭 매물 수집기
-              </h1>
-            </div>
-            <p className="text-muted-foreground mx-auto max-w-2xl text-lg">
-              URL을 입력하면 자동으로 정보를 추출하고 이미지와 함께 정리된
-              파일로 생성합니다.
+    <main
+      className="bg-background text-foreground min-h-dvh"
+      data-tour="v2-page"
+    >
+      <section className="mx-auto grid min-h-dvh w-full max-w-6xl gap-6 px-6 py-8 md:px-10">
+        <header className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-muted-foreground text-sm font-medium">
+              새 작업 화면
             </p>
-          </motion.header>
+            <h1 className="text-foreground text-2xl font-semibold tracking-normal">
+              트럭 매물 수집기
+            </h1>
+          </div>
+          <HelpMenuButton onRestartTour={onboardingState.restartTour} />
+        </header>
 
-          {/* Step Indicator */}
-          <ErrorBoundaryWrapper identifier="step-indicator">
-            <motion.nav
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mb-8 flex items-center justify-center"
-              aria-label="처리 단계 표시기"
-            >
-              <ol
-                className="flex flex-wrap items-center justify-center"
-                role="list"
-              >
-                {[
-                  { key: 'input', label: '설정 & 입력', icon: Settings },
-                  { key: 'parsing', label: '분석', icon: Truck },
-                  { key: 'downloading', label: '다운로드', icon: Truck },
-                  { key: 'completed', label: '완료', icon: Truck },
-                ].map(({ key, label, icon: Icon }, index) => {
-                  const isActive = currentStep === key
-                  const isCompleted =
-                    ['input', 'parsing', 'downloading'].indexOf(currentStep) >
-                    index
-
-                  const stepStatus = isActive
-                    ? '현재 단계'
-                    : isCompleted
-                      ? '완료된 단계'
-                      : '대기 중인 단계'
-
-                  return (
-                    <li key={key} className="flex items-center" role="listitem">
-                      <div
-                        className={`flex items-center gap-2 rounded-full px-4 py-2 transition-all ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : isCompleted
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-muted text-muted-foreground'
-                        }`}
-                        aria-label={`${label} - ${stepStatus}`}
-                        aria-current={isActive ? 'step' : undefined}
-                      >
-                        <Icon className="h-4 w-4" aria-hidden="true" />
-                        <span className="text-sm font-medium">{label}</span>
-                      </div>
-                      {index < 3 && (
-                        <div
-                          className={`mx-2 h-0.5 w-8 transition-all ${
-                            isCompleted ? 'bg-green-300' : 'bg-muted'
-                          }`}
-                          aria-hidden="true"
-                        />
-                      )}
-                    </li>
-                  )
-                })}
-              </ol>
-            </motion.nav>
-          </ErrorBoundaryWrapper>
-
-          {/* Main Content */}
-          <AnimatePresence mode="wait">
-            <motion.section
-              key={currentStep}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="flex justify-center"
-              aria-label={`${currentStep === 'input' ? '설정 및 입력' : currentStep === 'parsing' ? '분석' : currentStep === 'downloading' ? '다운로드' : '완료'} 단계`}
-            >
-              <ErrorBoundaryWrapper identifier={`step-${currentStep}`}>
-                {renderStep()}
-              </ErrorBoundaryWrapper>
-            </motion.section>
-          </AnimatePresence>
-
-          {/* Footer */}
-          <motion.footer
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-muted-foreground mt-16 text-center text-sm"
-            role="contentinfo"
-          >
-            <div className="space-y-2">
-              <p>트럭 매물 수집기 v1.0</p>
-              <p className="text-xs">
-                추가 요청사항 또는 개선사항이 있다면 언제든지 연락 주세요.
-              </p>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <div className="grid content-start gap-5">
+            <div data-tour="url-input">
+              <ListingChipInput
+                canRemoveItem={canRemovePreparedItem}
+                disabled={isSaving}
+                duplicateMessage={duplicateMessage}
+                items={inputListings}
+                onPasteText={handlePasteText}
+                onRemove={(id) => preparedStore.getState().remove(id)}
+                onStart={() => void startSavingReadyListings()}
+              />
             </div>
-          </motion.footer>
+          </div>
+
+          <div className="grid content-start gap-5">
+            <DirectorySelector
+              isSupported={fileSystemSupported}
+              onSelectDirectory={selectDirectory}
+              permissionState={directoryPermissionState}
+              pickerStartIn={
+                directoryPermissionState === 'denied'
+                  ? 'downloads'
+                  : (directory ?? 'downloads')
+              }
+              selectedDirectoryName={directory?.name}
+            />
+            <CompletionNotificationToggle
+              isAvailable={notificationAvailable}
+              onEnable={requestNotificationPermission}
+              permission={notificationPermission}
+            />
+            <div data-tour="processing-status">
+              <PreparedListingStatusPanel items={preparedState.items} />
+            </div>
+          </div>
         </div>
-      </main>
-    </ErrorBoundaryWrapper>
+      </section>
+
+      <TourOverlay
+        currentStep={onboardingState.currentStep}
+        isOpen={onboardingState.isTourOpen}
+        onClose={onboardingState.completeTour}
+        onNext={() => onboardingState.goToNextStep(tourSteps.length)}
+        onPrevious={onboardingState.goToPreviousStep}
+      />
+    </main>
   )
 }
