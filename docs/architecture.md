@@ -1,7 +1,11 @@
-# Truck Harvester v2 Architecture
+# Truck Harvester Architecture
 
-`/v2` is a parallel rebuild. It must not break the legacy `/` route and it
-must not import legacy watermarking or Sentry code.
+The rebuilt app is served from `/`. The implementation still lives under
+`src/v2/*` as an internal namespace, but users no longer need to open a
+separate `/v2` route. The old `/v2` URL redirects to `/` for compatibility.
+
+The runtime does not use Sentry or watermarking. Images are fetched and saved
+directly, and the current parse API is `POST /api/v2/parse-truck`.
 
 ## Runtime Flow
 
@@ -32,7 +36,7 @@ before saving starts.
 ```mermaid
 sequenceDiagram
   participant User as Staff
-  participant Page as /v2 page
+  participant Page as / page
   participant Prep as prepareListingUrls
   participant API as /api/v2/parse-truck
   participant Store as prepared listing store
@@ -54,13 +58,13 @@ sequenceDiagram
   Page-->>Notify: optional completion notification
 ```
 
-Route-level controllers abort active preview and save work when `/v2`
-unmounts. New paste runs do not cancel earlier checking chips; only the
-latest paste run may update helper text such as duplicate warnings.
+Route-level controllers abort active preview and save work when the root app
+unmounts. New paste runs do not cancel earlier checking chips; only the latest
+paste run may update helper text such as duplicate warnings.
 
 ## Save Folder Persistence
 
-The `/v2` save-folder selector stores the selected
+The root save-folder selector stores the selected
 `FileSystemDirectoryHandle` in IndexedDB so a refreshed or returning
 Chromium user can see the last selected folder. The app still calls
 `queryPermission({ mode: 'readwrite' })` after restore and
@@ -70,19 +74,19 @@ close.
 
 ## Layer Responsibilities
 
-- `src/app/v2`: route composition, page layout, and wiring.
+- `src/app`: root route composition, page layout, and wiring.
 - `src/v2/widgets`: user-facing blocks that compose features and shared
   selectors.
 - `src/v2/features`: workflows such as listing preparation, parsing,
   saving, completion notifications, and onboarding.
 - `src/v2/entities`: pure schemas and state contracts.
 - `src/v2/shared`: utilities, stores, selectors, and low-level UI.
-- `src/v2/design-system`: tokens and motion presets for `/v2`.
+- `src/v2/design-system`: tokens and motion presets for the root app.
 
 ## Guardrails
 
-- No Sentry in `/v2`.
-- No watermark in `/v2`.
+- No Sentry.
+- No watermarking.
 - User-facing copy is Korean-only.
 - Default concurrency is 5.
 - New deferred work should become a GitHub issue instead of staying as a

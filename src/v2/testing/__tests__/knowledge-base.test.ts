@@ -59,8 +59,11 @@ describe('v2 AI knowledge base', () => {
     const architecture = readText('docs/architecture.md')
 
     expect(architecture).toContain('```mermaid')
+    expect(architecture).toContain('The rebuilt app is served from `/`')
     expect(architecture).toContain('/api/v2/parse-truck')
     expect(architecture).toContain('concurrency 5')
+    expect(architecture).not.toContain('parallel rebuild')
+    expect(architecture).not.toContain('must not break the legacy `/` route')
   })
 
   it('documents the onboarding tour example cards and keyboard movement', () => {
