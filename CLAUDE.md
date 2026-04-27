@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Truck Harvester is a Next.js 15 application that extracts truck listing information from Korean used truck websites. It parses URLs, scrapes truck data including images and specifications, and downloads everything as organized files or ZIP archives.
+Truck Harvester is a Next.js 16 root app that extracts truck listing information from Korean used truck websites. It parses URLs, scrapes truck data including images and specifications, and downloads everything as organized files or ZIP archives.
 
 ## Development Commands
 
@@ -108,7 +108,7 @@ src/
 
 ### Form Validation & UI Components
 
-- **Form Validation**: Zod schemas with TanStack Form for robust form handling
+- **Validation**: Zod schemas and domain contracts for URL and truck data validation
 - **UI Library**: Radix UI primitives with local shadcn-style components
 - **Design System**: Orange theme preferred for consistent branding
 - **Animations**: Motion/React for smooth transitions, reference MagicUI for advanced animated components
@@ -135,12 +135,12 @@ src/
 
 ### Frontend
 
-- **Framework**: Next.js 15 with App Router and Turbopack
-- **State Management**: Zustand with persistence middleware
+- **Framework**: Next.js 16.2.4 with App Router and Turbopack
+- **State Management**: Vanilla Zustand stores without persistence middleware
 - **UI Components**: Radix UI primitives with local shadcn-style styling
 - **Styling**: Tailwind CSS 4 with custom design tokens
-- **Animations**: Framer Motion for transitions and micro-interactions
-- **Forms**: TanStack Form with Zod validation
+- **Animations**: Motion for transitions and micro-interactions
+- **Validation**: Zod schemas for URL extraction and truck data contracts
 - **Theme**: Static `src/app/theme.css` tokens consumed through Tailwind CSS utilities
 
 ### Backend & APIs
