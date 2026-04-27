@@ -19,7 +19,6 @@ const requiredDocs = [
 
 const layerAgentFiles = [
   'AGENTS.md',
-  'src/app/v2/AGENTS.md',
   'src/v2/AGENTS.md',
   'src/v2/entities/AGENTS.md',
   'src/v2/features/AGENTS.md',

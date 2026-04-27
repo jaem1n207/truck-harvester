@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
@@ -26,13 +26,37 @@ const deletedPaths = [
   'public/watermark-5.png',
 ]
 
-const sourceFiles = [
-  'src/app/layout.tsx',
-  'src/app/page.tsx',
-  'src/app/truck-harvester-app.tsx',
-  'src/app/global-error.tsx',
-  'src/app/not-found.tsx',
-]
+const sourceRoots = ['src/app', 'src/v2']
+
+const isRuntimeSourceFile = (path: string) => {
+  return (
+    (path.endsWith('.ts') || path.endsWith('.tsx')) &&
+    !path.includes('/__tests__/') &&
+    !path.endsWith('.test.ts') &&
+    !path.endsWith('.test.tsx') &&
+    !path.endsWith('AGENTS.md')
+  )
+}
+
+const collectRuntimeSourceFiles = (path: string): string[] => {
+  const stats = statSync(path)
+
+  if (stats.isFile()) {
+    return isRuntimeSourceFile(path) ? [path] : []
+  }
+
+  if (!stats.isDirectory()) {
+    return []
+  }
+
+  return readdirSync(path)
+    .flatMap((entry) => collectRuntimeSourceFiles(join(path, entry)))
+    .sort()
+}
+
+const runtimeSourceFiles = sourceRoots.flatMap((path) =>
+  collectRuntimeSourceFiles(join(root, path))
+)
 
 describe('legacy cleanup boundary', () => {
   it('removes legacy runtime files and watermark assets', () => {
@@ -41,15 +65,16 @@ describe('legacy cleanup boundary', () => {
     }
   })
 
-  it('keeps root runtime free of legacy imports and Sentry', () => {
-    for (const path of sourceFiles) {
-      const source = readFileSync(join(root, path), 'utf8')
+  it('keeps active runtime source free of legacy imports and Sentry', () => {
+    for (const path of runtimeSourceFiles) {
+      const source = readFileSync(path, 'utf8')
+      const runtimePath = relative(root, path)
 
-      expect(source).not.toContain('@/shared')
-      expect(source).not.toContain('@/widgets')
-      expect(source).not.toContain('@sentry/nextjs')
-      expect(source).not.toMatch(/Sentry|sentry/)
-      expect(source).not.toMatch(/watermark|Watermark/)
+      expect(source, runtimePath).not.toContain('@/shared')
+      expect(source, runtimePath).not.toContain('@/widgets')
+      expect(source, runtimePath).not.toContain('@sentry/nextjs')
+      expect(source, runtimePath).not.toMatch(/Sentry|sentry/)
+      expect(source, runtimePath).not.toMatch(/watermark|Watermark/)
     }
   })
 })
