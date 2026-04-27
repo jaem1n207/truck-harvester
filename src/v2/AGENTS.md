@@ -1,8 +1,15 @@
 # src/v2 AGENTS.md
 
-`src/v2` contains the parallel rebuild for `/v2`. Do not import legacy
-watermark code here. Do not move or delete legacy `src/shared`,
-`src/widgets`, or `src/app/page.tsx` while `/v2` is incomplete.
+`src/v2` contains the current truck harvester implementation used by the root
+`/` route. The folder name remains `v2` to preserve the rebuild namespace and
+avoid unnecessary import churn after cutover.
+
+## Hard Rules
+
+- Do not import legacy `src/shared/*` or `src/widgets/*`; those folders were removed after cutover.
+- Do not add Sentry.
+- Do not add watermarking.
+- Keep user-facing copy Korean-only and understandable for non-technical staff.
 
 ## Layer Map
 
@@ -13,14 +20,12 @@ watermark code here. Do not move or delete legacy `src/shared`,
   downloads, and per-item states.
 - `features/`: business workflows such as parsing, retrying, saving, and
   onboarding.
-- `widgets/`: composed UI blocks for the `/v2` page.
+- `widgets/`: composed UI blocks for the root page.
 
 ## Rules
 
-- UI copy is Korean-only and written for non-technical dealership staff.
 - Default client concurrency is `5`.
-- `/v2` has no Sentry dependency.
-- Use `src/app/v2/theme.css` tokens instead of raw colors in components.
+- Use `src/app/theme.css` tokens instead of raw colors in components.
 - Keep public APIs explicit with `index.ts` files as slices grow.
 
 ## Knowledge Links
