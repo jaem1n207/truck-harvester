@@ -4,17 +4,7 @@ const nextConfig: NextConfig = {
   // 성능 최적화 설정
   experimental: {
     // 번들 크기 최적화
-    optimizePackageImports: [
-      'lucide-react',
-      '@radix-ui/react-alert-dialog',
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-progress',
-      '@radix-ui/react-select',
-      '@radix-ui/react-slot',
-      '@radix-ui/react-switch',
-      '@radix-ui/react-toast',
-      'motion',
-    ],
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-slot', 'motion'],
   },
 
   // Turbo 성능 향상
