@@ -14,7 +14,6 @@ Truck Harvester is a Next.js 15 application that extracts truck listing informat
 - `bun run build` - Production build with Turbopack
 - `bun test` - Run Vitest tests
 - `bun run test:coverage` - Run tests with coverage report
-- `bun run test:ui` - Run tests with Vitest UI
 
 ### Code Quality Commands
 
@@ -183,7 +182,6 @@ src/
 
 1. **Pre-commit Hook**: Automatically runs lint-staged (ESLint fix + Prettier)
 2. **Commit Message**: Follows Conventional Commits format, validated by commitlint
-3. **Commitizen**: Use `npx cz` for interactive commit message generation
 
 ### Commit Types
 

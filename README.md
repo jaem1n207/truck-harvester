@@ -58,7 +58,6 @@ bun dev
 ### 테스트
 
 - `bun run test` - Vitest 테스트 실행
-- `bun run test:ui` - Vitest UI 모드
 - `bun run test:coverage` - 테스트 커버리지
 
 ### 전체 코드 점검 스크립트
@@ -132,16 +131,15 @@ docs: README 설치 가이드 업데이트
 refactor: 컴포넌트 구조 개선
 ```
 
-### Commitizen 사용 (권장)
+### 커밋 작성
 
-대화형 커밋 메시지 작성을 위해 Commitizen을 사용할 수 있습니다:
+Conventional Commits 형식으로 직접 작성합니다:
 
 ```bash
-# 일반 커밋 대신
-npx cz
-# 또는
-npx git-cz
+git commit -m "fix: 저장 폴더 권한 확인 보정"
 ```
+
+`commit-msg` 훅이 commitlint로 메시지 형식을 검증합니다.
 
 ## 🔍 코드 품질 도구
 
@@ -180,7 +178,7 @@ npx git-cz
 
 3. **커밋 전**
    - Git hooks가 자동으로 검사 실행
-   - 커밋 메시지는 `bunx cz` 사용 권장
+   - 커밋 메시지는 Conventional Commits 형식으로 직접 작성
 
 4. **정기적 점검**
 
