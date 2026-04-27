@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { POST } from '../route'
+import { maxDuration, POST } from '../route'
 
 const validUrl =
   'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3'
@@ -44,6 +44,10 @@ function createRequest(body: unknown) {
 describe('POST /api/v2/parse-truck', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('keeps the route duration above the default site timeout', () => {
+    expect(maxDuration * 1000).toBeGreaterThan(3500)
   })
 
   it('fetches and parses one truck listing address', async () => {

@@ -8,7 +8,7 @@ import { parseTruckHtml } from '@/v2/shared/lib/parse-truck-html'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-export const maxDuration = 3
+export const maxDuration = 5
 
 const parseTruckRequestSchema = z.object({
   url: normalizedTruckUrlSchema,
