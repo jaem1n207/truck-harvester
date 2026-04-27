@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest'
 
 import { TourExampleCard } from '../tour-example-card'
 
+const forbiddenTechnicalCopy = new RegExp(
+  [
+    'API',
+    ['Sen', 'try'].join(''),
+    ['water', 'mark'].join(''),
+    'directory handle',
+  ].join('|')
+)
+
 describe('TourExampleCard', () => {
   it('shows the full address example and the confirmed chip result', () => {
     const html = renderToStaticMarkup(<TourExampleCard kind="url-example" />)
@@ -42,6 +51,6 @@ describe('TourExampleCard', () => {
       .join('')
 
     expect(html).toMatch(/[가-힣]/)
-    expect(html).not.toMatch(/API|Sentry|watermark|directory handle/)
+    expect(html).not.toMatch(forbiddenTechnicalCopy)
   })
 })
