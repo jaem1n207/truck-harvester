@@ -162,7 +162,7 @@ src/
 
 - **Test Runner**: Vitest with React plugin
 - **Environment**: jsdom for browser simulation
-- **Setup**: Custom test setup in `src/shared/lib/test-setup.ts`
+- **Setup**: Vitest uses jsdom directly; there is no legacy shared test setup file.
 - **Coverage**: Vitest coverage with v8 provider
 
 ### Test Structure
