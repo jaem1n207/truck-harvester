@@ -76,7 +76,7 @@ test('completes a 10-address batch with streamed parsed results', async ({
     })
   })
 
-  await page.goto('/v2')
+  await page.goto('/')
 
   await pasteTextInto(
     page.getByRole('textbox', { name: '매물 주소' }),

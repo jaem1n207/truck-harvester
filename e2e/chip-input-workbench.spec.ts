@@ -78,7 +78,7 @@ test('saves a pasted chip workbench batch with readable listing labels', async (
     })
   })
 
-  await page.goto('/v2')
+  await page.goto('/')
 
   await pasteTextInto(
     page.getByRole('textbox', { name: '매물 주소' }),
