@@ -1,5 +1,5 @@
-import { TruckHarvesterV2App } from './truck-harvester-v2-app'
+import { redirect } from 'next/navigation'
 
 export default function V2Page() {
-  return <TruckHarvesterV2App />
+  redirect('/')
 }

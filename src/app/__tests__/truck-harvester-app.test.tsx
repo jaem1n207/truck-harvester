@@ -187,7 +187,7 @@ afterEach(() => {
   })
 })
 
-describe('TruckHarvesterV2App persistence', () => {
+describe('TruckHarvesterApp persistence', () => {
   it('does not restore a persisted writable folder after client mount', async () => {
     const queryPermission = vi.fn().mockResolvedValue('granted')
     const requestPermission = vi.fn().mockResolvedValue('granted')
@@ -204,14 +204,14 @@ describe('TruckHarvesterV2App persistence', () => {
     }
 
     installDom(restoredDirectory)
-    const { TruckHarvesterV2App } = await import('../truck-harvester-v2-app')
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
 
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(<TruckHarvesterV2App />)
+      root?.render(<TruckHarvesterApp />)
       await new Promise((resolve) => window.setTimeout(resolve, 0))
     })
 
@@ -283,14 +283,14 @@ describe('TruckHarvesterV2App persistence', () => {
         )
       ),
     })
-    const { TruckHarvesterV2App } = await import('../truck-harvester-v2-app')
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
 
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(<TruckHarvesterV2App />)
+      root?.render(<TruckHarvesterApp />)
       await new Promise((resolve) => window.setTimeout(resolve, 0))
     })
 
