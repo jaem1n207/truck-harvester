@@ -198,11 +198,11 @@ src/
 
 ### Parse API (`/api/v2/parse-truck`)
 
-- **Input**: Array of truck listing URLs with rate limiting and timeout configuration
-- **Processing**: Sequential URL fetching with Cheerio parsing
+- **Input**: One truck listing `url` per request
+- **Processing**: Server-side fetch and Cheerio parsing for that listing
 - **Output**: Structured TruckData with pricing, specifications, and image URLs
-- **Error Handling**: Individual URL failures don't break batch processing
-- **Rate Limiting**: Configurable delays between requests to respect target sites
+- **Error Handling**: Typed failure response for the requested listing
+- **Batch Control**: Client workflows send one request per prepared listing and own concurrency limits
 
 ### Data Extraction Strategy
 

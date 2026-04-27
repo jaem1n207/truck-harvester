@@ -1,6 +1,7 @@
 # 🚛 트럭 매물 수집기 (Truck Harvester)
 
 중고 트럭 매물 정보와 이미지를 자동으로 수집하고 정리하는 Next.js 15 기반 웹 애플리케이션입니다.
+현재 루트 `/` 경로가 재구축된 앱을 제공합니다. 기존 `/v2` 주소는 호환성을 위해 `/`로 리다이렉트되며, 구현 내부 네임스페이스는 `src/v2/*`에 유지됩니다.
 
 🌐 **라이브 사이트**: [https://truck-harvester.vercel.app/](https://truck-harvester.vercel.app/)
 
@@ -8,13 +9,13 @@
 
 - 📋 **URL 기반 자동 수집**: 중고트럭 매물 URL 입력으로 정보 자동 추출
 - 🖼️ **이미지 일괄 다운로드**: 매물 이미지를 체계적으로 정리하여 다운로드
-- 🎨 **워터마크 자동 추가**: 다운로드 이미지에 지정한 워터마크 적용
+- 🧩 **붙여넣기 주소 정리**: 복사한 대화나 메모에서 지원되는 매물 주소 자동 추출
 - 📁 **파일 시스템 통합**: File System Access API로 브라우저에서 직접 파일 저장
 - 📦 **ZIP 다운로드 대안**: 구형 브라우저를 위한 ZIP 파일 생성 기능
 - 🌙 **다크 모드 지원**: 시스템 설정에 따른 자동 테마 전환
 - ♿ **접근성 최적화**: WCAG 2.1 AA 준수, 키보드 네비게이션 지원
 - 📱 **반응형 디자인**: 모든 디바이스에서 최적화된 사용자 경험
-- 📊 **실시간 분석**: Vercel Analytics와 Sentry 통합 모니터링
+- ⚙️ **현재 파싱 API**: `POST /api/v2/parse-truck`
 
 ## 🛠️ 개발 환경 설정
 
@@ -203,7 +204,7 @@ npx git-cz
 - **API Routes**: Next.js 15 server-side API
 - **Web Scraping**: Cheerio for HTML parsing
 - **File Operations**: File System Access API + JSZip
-- **Image Processing**: Canvas API with watermark system
+- **Image Handling**: Fetched image blobs are saved directly without runtime stamping
 
 ### 상태 관리 & 폼
 
@@ -228,8 +229,7 @@ npx git-cz
 - **SEO**: Next.js Metadata API + OpenGraph images
 - **PWA**: Web App Manifest
 - **Performance**: Bundle optimization, lazy loading
-- **Analytics**: Vercel Analytics
-- **Error Monitoring**: Sentry integration
+- **Runtime Monitoring**: No runtime external error-monitoring SDK
 
 ## 🚀 배포하기
 
@@ -256,10 +256,12 @@ bun run start
 ```text
 src/
 ├── app/                      # Next.js App Router + 글로벌 설정
-│   ├── api/                 # API 라우트 (parse-truck, network-test)
+│   ├── api/v2/parse-truck/  # 현재 서버 파싱 API
 │   ├── globals.css          # 글로벌 스타일 + 접근성 개선
 │   ├── layout.tsx           # 루트 레이아웃 + 메타데이터
-│   ├── page.tsx             # 메인 페이지
+│   ├── page.tsx             # 루트 앱 페이지
+│   ├── theme.css            # 루트 앱 디자인 토큰
+│   ├── v2/page.tsx          # /v2 호환 리다이렉트
 │   ├── opengraph-image.tsx  # OG 이미지 생성
 │   ├── icon.tsx             # 파비콘 생성
 │   ├── apple-icon.tsx       # Apple 아이콘 생성
@@ -267,24 +269,12 @@ src/
 │   ├── robots.ts            # SEO 설정
 │   ├── sitemap.ts           # 사이트맵 생성
 │   └── truck-harvester-app.tsx # 메인 앱 컴포넌트
-├── widgets/                  # 복합 UI 블록
-│   ├── directory-selector/   # 저장 위치 선택
-│   ├── processing-status/    # 처리 상태 표시
-│   └── url-input/           # URL 입력 폼
-├── shared/                   # 공통 모듈
-│   ├── lib/                 # 유틸리티 및 훅
-│   │   ├── analytics.ts     # Vercel Analytics 통합
-│   │   ├── file-system.ts   # 파일 시스템 API
-│   │   ├── watermark.ts     # 이미지 워터마크 처리
-│   │   ├── url-validator.ts # URL 검증
-│   │   └── use-truck-processor.ts # 트럭 데이터 처리 훅
-│   ├── model/               # 데이터 모델
-│   │   ├── store.ts         # Zustand 상태 관리
-│   │   └── truck.ts         # 트럭 데이터 스키마
-│   └── ui/                  # 기본 UI 컴포넌트 (shadcn/ui)
-│       └── animated-ui/     # 애니메이션 컴포넌트
-├── instrumentation.ts        # Sentry 계측
-└── instrumentation-client.ts # 클라이언트 계측
+└── v2/                       # 내부 구현 네임스페이스
+    ├── design-system/       # 토큰과 모션 프리셋
+    ├── entities/            # 트럭, URL, 다운로드 도메인 스키마
+    ├── features/            # 매물 준비, 파싱, 저장, 온보딩 워크플로우
+    ├── shared/              # 공통 유틸리티, 상태, UI 프리미티브
+    └── widgets/             # 루트 앱의 복합 UI 블록
 ```
 
 ## 🔒 보안 & 개인정보
