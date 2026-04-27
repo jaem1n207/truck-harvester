@@ -4,8 +4,9 @@ The rebuilt app is served from `/`. The implementation still lives under
 `src/v2/*` as an internal namespace, but users no longer need to open a
 separate `/v2` route. The old `/v2` URL redirects to `/` for compatibility.
 
-The runtime does not use Sentry or watermarking. Images are fetched and saved
-directly, and the current parse API is `POST /api/v2/parse-truck`.
+The runtime has no external error-monitoring SDK or image-stamping pipeline.
+Images are fetched and saved directly, and the current parse API is
+`POST /api/v2/parse-truck`.
 
 ## Runtime Flow
 
@@ -85,8 +86,8 @@ close.
 
 ## Guardrails
 
-- No Sentry.
-- No watermarking.
+- No external error-monitoring SDK.
+- No image-stamping pipeline.
 - User-facing copy is Korean-only.
 - Default concurrency is 5.
 - New deferred work should become a GitHub issue instead of staying as a
