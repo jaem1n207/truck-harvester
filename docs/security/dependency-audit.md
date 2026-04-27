@@ -9,9 +9,11 @@ graph.
 
 ## Resolution Notes
 
-- Removed unused development-only packages that were carried over from earlier
-  scaffolding: shadcn CLI, MSW, Vitest UI, Commitizen, JSZip/Cheerio ambient
-  types, and the related `test:ui` / Commitizen package configuration.
+- Removed unused direct development dependencies and configuration that were
+  carried over from earlier scaffolding: shadcn CLI, MSW, Vitest UI,
+  Commitizen, JSZip/Cheerio ambient types, shadcn CLI config files, the npm
+  health-check script, and the related `test:ui` / Commitizen package
+  configuration.
 - Replaced the shadcn preset runtime package import with a local CSS snapshot at
   `src/app/shadcn-tailwind.css`, guarded by
   `src/v2/testing/__tests__/theme-source.test.ts`.
