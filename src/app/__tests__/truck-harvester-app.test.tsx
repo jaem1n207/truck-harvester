@@ -69,7 +69,7 @@ const createRequest = <T,>(result: T): FakeIdbRequest<T> => ({
 
 const installDom = (storedDirectory: WritableDirectoryHandle) => {
   const currentDom = new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'http://localhost/v2',
+    url: 'http://localhost/',
   })
   dom = currentDom
 
