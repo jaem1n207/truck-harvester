@@ -35,9 +35,11 @@ describe('TourExampleCard', () => {
   })
 
   it('keeps user-facing copy Korean and avoids technical backend words', () => {
-    const html = renderToStaticMarkup(
-      <TourExampleCard kind="progress-example" />
+    const html = (
+      ['url-example', 'folder-example', 'progress-example'] as const
     )
+      .map((kind) => renderToStaticMarkup(<TourExampleCard kind={kind} />))
+      .join('')
 
     expect(html).toMatch(/[가-힣]/)
     expect(html).not.toMatch(/API|Sentry|watermark|directory handle/)
