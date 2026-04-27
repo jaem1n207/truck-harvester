@@ -5,6 +5,7 @@ import { type TruckListing } from '@/v2/entities/truck'
 import {
   isFileSystemAccessAvailable,
   pickWritableDirectory,
+  requestWritableDirectoryPermission,
   saveTruckToDirectory,
   type WritableDirectoryHandle,
 } from '../file-system'
@@ -118,6 +119,31 @@ describe('v2 file-system', () => {
       mode: 'readwrite',
       startIn,
     })
+  })
+
+  it('requests readwrite permission for a writable directory', async () => {
+    const requestPermission = vi.fn(async () => 'granted' as PermissionState)
+    const directory = {
+      requestPermission,
+    } as unknown as WritableDirectoryHandle
+
+    await expect(requestWritableDirectoryPermission(directory)).resolves.toBe(
+      true
+    )
+    expect(requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
+  })
+
+  it('returns false when writable directory permission fails', async () => {
+    const requestPermission = vi.fn(async () => {
+      throw new DOMException('권한을 확인하지 못했습니다.', 'NotAllowedError')
+    })
+    const directory = {
+      requestPermission,
+    } as unknown as WritableDirectoryHandle
+
+    await expect(requestWritableDirectoryPermission(directory)).resolves.toBe(
+      false
+    )
   })
 
   it('saves text and raw image files into a vehicle folder', async () => {

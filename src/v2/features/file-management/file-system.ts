@@ -17,6 +17,7 @@ interface WritableFileHandle {
 }
 
 type WritableDirectoryPermissionDescriptor = { mode: 'readwrite' }
+const WRITABLE_PERMISSION_DESCRIPTOR = { mode: 'readwrite' } as const
 
 export interface WritableDirectoryHandle {
   kind?: 'directory'
@@ -59,6 +60,23 @@ type WritableDirectoryPicker = (
 
 export function isFileSystemAccessAvailable() {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window
+}
+
+export async function requestWritableDirectoryPermission(
+  handle: WritableDirectoryHandle
+) {
+  if (!handle.requestPermission) {
+    return true
+  }
+
+  try {
+    return (
+      (await handle.requestPermission(WRITABLE_PERMISSION_DESCRIPTOR)) ===
+      'granted'
+    )
+  } catch {
+    return false
+  }
 }
 
 export async function pickWritableDirectory({
