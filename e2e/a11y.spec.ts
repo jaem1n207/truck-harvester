@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test'
 test('v2 landing flow has no critical accessibility violations', async ({
   page,
 }) => {
-  await page.goto('/v2')
+  await page.goto('/')
   await expect(page.getByRole('dialog')).toBeVisible()
 
   const results = await new AxeBuilder({ page })
