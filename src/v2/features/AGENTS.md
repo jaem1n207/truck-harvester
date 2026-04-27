@@ -18,7 +18,7 @@ should not import widgets.
 - Write tests before feature code.
 - Keep API failure messages Korean and recovery-oriented.
 - Default client concurrency is `5`.
-- Do not import Sentry in `/v2`.
+- Do not add an external error-monitoring SDK.
 
 ## Knowledge Links
 

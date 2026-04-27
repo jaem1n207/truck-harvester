@@ -1,8 +1,8 @@
 # src/v2/widgets AGENTS.md
 
-`src/v2/widgets` contains composed UI blocks for the parallel `/v2`
-experience. Widgets may import from `features`, `entities`, and
-`shared`, but must not import legacy `src/widgets/*` or `src/shared/*`.
+`src/v2/widgets` contains composed UI blocks for the root app experience.
+Widgets may import from `features`, `entities`, and `shared`, but must not
+import deleted legacy widget or shared runtime folders.
 
 ## Current Widgets
 

@@ -6,9 +6,9 @@ avoid unnecessary import churn after cutover.
 
 ## Hard Rules
 
-- Do not import legacy `src/shared/*` or `src/widgets/*`; those folders were removed after cutover.
-- Do not add Sentry.
-- Do not add watermarking.
+- Do not import deleted legacy shared/widget runtime folders.
+- Do not add an external error-monitoring SDK.
+- Do not add image stamping.
 - Keep user-facing copy Korean-only and understandable for non-technical staff.
 
 ## Layer Map

@@ -1,8 +1,8 @@
 # src/v2/shared AGENTS.md
 
 `src/v2/shared` contains reusable primitives that are safe for multiple
-features and widgets to import. Keep this layer free of legacy
-`src/shared/*` dependencies and watermark code.
+features and widgets to import. Keep this layer free of deleted legacy
+shared-folder dependencies and image-stamping code.
 
 ## Segments
 
