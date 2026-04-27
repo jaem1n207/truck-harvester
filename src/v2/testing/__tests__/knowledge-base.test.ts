@@ -63,4 +63,13 @@ describe('v2 AI knowledge base', () => {
     expect(architecture).toContain('/api/v2/parse-truck')
     expect(architecture).toContain('concurrency 5')
   })
+
+  it('documents the onboarding tour example cards and keyboard movement', () => {
+    const decision = readText('docs/decisions/0005-onboarding-tour-strategy.md')
+
+    expect(decision).toContain('compact example cards')
+    expect(decision).toContain('ArrowLeft')
+    expect(decision).toContain('ArrowRight')
+    expect(decision).toContain('editable controls')
+  })
 })

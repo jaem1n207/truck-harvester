@@ -22,6 +22,17 @@ placed near the active element. The tour supports previous/next controls and
 keeps animation limited to opacity, transform, and position changes through
 `/v2` Motion presets with reduced-motion fallbacks.
 
+Each step may render compact example cards that show the user action and
+the expected result without mutating real page state. The address step shows
+an address-bar copy example and confirmed listing chip, the save-folder step
+shows the selected folder and per-truck folder result, and the progress step
+shows saving, saved, and optional completion-notification examples.
+
+Keyboard movement mirrors the visible controls: `ArrowLeft` moves to the
+previous step, `ArrowRight` moves to the next step or finishes on the last
+step, and `Escape` closes the tour. Arrow-key movement is ignored when the
+event starts in editable controls so text caret movement remains normal.
+
 ## Consequences
 
 - The tour matches the product voice and motion system.
