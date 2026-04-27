@@ -1,6 +1,6 @@
 # 🚛 트럭 매물 수집기 (Truck Harvester)
 
-중고 트럭 매물 정보와 이미지를 자동으로 수집하고 정리하는 Next.js 15 기반 웹 애플리케이션입니다.
+중고 트럭 매물 정보와 이미지를 자동으로 수집하고 정리하는 Next.js 16 기반 웹 애플리케이션입니다.
 현재 루트 `/` 경로가 재구축된 앱을 제공합니다. 기존 `/v2` 주소는 호환성을 위해 `/`로 리다이렉트되며, 구현 내부 네임스페이스는 `src/v2/*`에 유지됩니다.
 
 🌐 **라이브 사이트**: [https://truck-harvester.vercel.app/](https://truck-harvester.vercel.app/)
@@ -192,7 +192,8 @@ npx git-cz
 
 ### 프론트엔드
 
-- **Framework**: Next.js 15 with App Router & Turbopack
+- **Framework**: Next.js 16.2.4 with App Router & Turbopack
+- **Runtime UI**: React 19.2
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS 4 with design tokens
 - **UI Components**: Radix UI primitives + shadcn/ui
@@ -201,16 +202,16 @@ npx git-cz
 
 ### 백엔드 & API
 
-- **API Routes**: Next.js 15 server-side API
+- **API Routes**: Next.js 16 Node.js route handlers
 - **Web Scraping**: Cheerio for HTML parsing
 - **File Operations**: File System Access API + JSZip
 - **Image Handling**: Fetched image blobs are saved directly without runtime stamping
 
 ### 상태 관리 & 폼
 
-- **State Management**: Zustand with persistence
-- **Form Handling**: TanStack Form + Zod validation
-- **Data Validation**: Zod schemas
+- **State Management**: Vanilla Zustand stores without persistence middleware
+- **Form Handling**: Custom URL chip input with Zod-backed parsing and validation
+- **Data Validation**: Zod 4 schemas
 
 ### 개발 도구 & 품질
 
@@ -279,7 +280,9 @@ src/
 
 ## 🔒 보안 & 개인정보
 
-- 🛡️ **데이터 보안**: 모든 처리는 클라이언트 측에서 수행
-- 🚫 **데이터 수집 없음**: 사용자 입력 정보를 서버에 저장하지 않음
+- 🛡️ **데이터 보안**: 매물 파싱은 `POST /api/v2/parse-truck`에서 Cheerio로
+  서버 측 HTML 요청과 파싱을 수행하고, 저장 파일 생성과 다운로드는
+  브라우저에서 처리
+- 🚫 **데이터 수집 없음**: 사용자 입력, 파싱 결과, 이미지 파일을 서버에 저장하지 않음
 - 🔐 **보안 헤더**: CSP, XSS 보호, 클릭재킹 방지
 - 📝 **투명성**: 오픈 소스로 모든 코드 공개

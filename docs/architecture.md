@@ -65,13 +65,14 @@ paste run may update helper text such as duplicate warnings.
 
 ## Save Folder Persistence
 
-The root save-folder selector stores the selected
-`FileSystemDirectoryHandle` in IndexedDB so a refreshed or returning
-Chromium user can see the last selected folder. The app still calls
-`queryPermission({ mode: 'readwrite' })` after restore and
-`requestPermission({ mode: 'readwrite' })` from a user-triggered save action
-before writing, because browser permission can expire when the origin's tabs
-close.
+The root save-folder selector keeps the selected directory handle only in
+React component state for the active page session. Users choose a save folder
+before saving through the File System Access API, and the app requests
+read/write permission from that user-triggered save flow before writing.
+
+The app does not use IndexedDB for save-folder persistence and does not restore
+a saved handle after reloads or new browser sessions. After a reload or reopen,
+users choose the save folder again.
 
 ## Layer Responsibilities
 
