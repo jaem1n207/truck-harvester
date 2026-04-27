@@ -115,7 +115,7 @@ src/
 - **Design System**: Orange theme preferred for consistent branding
 - **Animations**: Motion/React for smooth transitions, reference MagicUI for advanced animated components
 - **Styling**: Tailwind CSS for utility-first responsive design
-- **Theme Support**: Light/dark/system mode support with next-themes
+- **Theme Support**: Static root theme tokens in `src/app/theme.css`; no runtime theme provider
 - **Accessibility**: Strict adherence to WCAG 2.1 AA guidelines for universal access
 
 ### Testing & Code Quality Philosophy
@@ -143,7 +143,7 @@ src/
 - **Styling**: Tailwind CSS 4 with custom design tokens
 - **Animations**: Framer Motion for transitions and micro-interactions
 - **Forms**: TanStack Form with Zod validation
-- **Theme**: next-themes with dark/light mode support
+- **Theme**: Static `src/app/theme.css` tokens consumed through Tailwind CSS utilities
 
 ### Backend & APIs
 

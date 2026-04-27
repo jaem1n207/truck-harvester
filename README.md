@@ -197,7 +197,7 @@ npx git-cz
 - **Styling**: Tailwind CSS 4 with design tokens
 - **UI Components**: Radix UI primitives + shadcn/ui
 - **Animations**: Motion (formerly Framer Motion)
-- **Theme**: next-themes (다크/라이트 모드)
+- **Theme**: Static root tokens in `src/app/theme.css` with Tailwind CSS utilities
 
 ### 백엔드 & API
 
