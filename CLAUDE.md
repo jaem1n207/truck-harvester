@@ -99,10 +99,10 @@ src/
 ### Code Architecture & Design Patterns
 
 - **Architecture**: Feature-Sliced Design for scalable project organization
-- **FSD Layer Hierarchy**: App → Pages → Widgets → Features → Entities → Shared (unidirectional dependencies)
+- **FSD Layer Hierarchy**: `src/app` routes compose `src/v2/widgets` → `src/v2/features` → `src/v2/entities` → `src/v2/shared`
 - **FSD Segment Structure**: Each slice contains `model/` (state), `ui/` (components), `api/` (server communication), `lib/` (utilities)
 - **Public API Management**: Use `index.ts` files to define clean public APIs for each slice
-- **Current Migration**: Widget-based structure serves as foundation for full FSD implementation
+- **Current Namespace**: Internal FSD layers live under `src/v2/*`; root `src/app` owns routing and app surfaces
 - **Naming Conventions**: kebab-case for files/folders, PascalCase for component names
 - **TypeScript Patterns**: Prefer `interface` over `type`, Union Types over `enum`
 - **Type Safety**: Avoid `any` and type assertions like `as string`, prefer complete type inference including deep nested fields
@@ -357,42 +357,40 @@ All components and features must be fully accessible to users with disabilities,
 - **Error Context**: Capture and log detailed error context for debugging
 - **Recovery Patterns**: Allow users to retry failed operations or continue with partial data
 
-## Feature-Sliced Design Architecture (Target Structure)
+## Feature-Sliced Design Architecture (Current Structure)
 
 ### FSD Layer Definitions
 
 ```text
 src/
-├── app/                    # Global app configuration, providers, routing
-│   ├── providers/         # Theme, error boundary, store providers
-│   ├── layout.tsx         # Global layout and meta
-│   └── globals.css        # Global styles
-├── pages/                  # Route-based page components
-│   ├── truck-harvester/   # Main application page
-│   └── settings/          # Configuration pages
-├── widgets/                # Complex reusable UI blocks (current: directory-selector, url-input, processing-status)
-│   └── [widget-name]/
-│       ├── ui/            # Widget UI components
-│       ├── model/         # Widget-specific state
-│       └── lib/           # Widget utilities
-├── features/               # Business logic features
-│   ├── truck-processing/  # URL validation, parsing, downloading workflow
-│   ├── file-management/   # File system operations, ZIP generation
-│   └── url-validation/    # URL validation and sanitization
-├── entities/               # Core domain models
-│   ├── truck/             # Truck data model and operations
-│   ├── download/          # Download status and progress tracking
-│   └── settings/          # Application configuration
-└── shared/                 # Universal utilities and base components (current implementation)
-    ├── api/               # API clients and contracts
-    ├── lib/               # Cross-feature utilities
-    ├── ui/                # Base UI components (current: buttons, inputs)
-    └── config/            # Global configuration and constants
+├── app/                    # Next.js App Router and root application surfaces
+│   ├── api/v2/parse-truck/ # Current server-side parsing API route
+│   ├── error.tsx          # Root error surface
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Global layout and metadata
+│   ├── not-found.tsx      # Root not-found surface
+│   ├── page.tsx           # Root route for the current app flow
+│   ├── truck-harvester-app.tsx
+│   └── v2/page.tsx        # Compatibility redirect to /
+└── v2/                    # Current internal implementation namespace
+    ├── widgets/           # Composed user-facing blocks for the root app
+    │   └── [widget-name]/
+    │       ├── ui/        # Widget UI components
+    │       ├── model/     # Widget-specific state
+    │       └── lib/       # Widget utilities
+    ├── features/          # Business workflows and side-effect orchestration
+    ├── entities/          # Pure domain schemas, contracts, and rules
+    ├── shared/            # Reusable primitives, stores, selectors, and low-level UI
+    └── design-system/     # Token and motion guidance for the root app
 ```
+
+The `/v2` route exists only as a compatibility redirect to `/`; do not describe it
+as the current app flow. New implementation guidance should point to the root app
+route in `src/app` and the internal FSD layers in `src/v2/*`.
 
 ### Migration Principles
 
-- **Unidirectional Dependencies**: Higher layers import from lower layers only (app → pages → widgets → features → entities → shared)
+- **Unidirectional Dependencies**: Higher layers import from lower layers only (`src/app` → `src/v2/widgets` → `src/v2/features` → `src/v2/entities` → `src/v2/shared`)
 - **Business Domain Organization**: Group by business functionality rather than technical layers
 - **Public API Enforcement**: Each slice exports only necessary interfaces through index.ts
 - **Feature Independence**: Features should be self-contained and interchangeable
