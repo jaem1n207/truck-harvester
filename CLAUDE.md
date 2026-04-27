@@ -28,8 +28,7 @@ Truck Harvester is a Next.js 15 application that extracts truck listing informat
 
 ### Comprehensive Code Check
 
-- `./scripts/code-check.sh` - Complete health check script with detailed output
-- Runs sequential checks: TypeScript → ESLint → Prettier → Tests → Security → Build
+- `bun run code:audit` - Runs sequential checks: TypeScript → ESLint → Prettier → Tests → Security → outdated dependencies
 
 ## Architecture
 
@@ -110,7 +109,7 @@ src/
 ### Form Validation & UI Components
 
 - **Form Validation**: Zod schemas with TanStack Form for robust form handling
-- **UI Library**: shadcn/ui as base, customize using Awesome shadcn/ui
+- **UI Library**: Radix UI primitives with local shadcn-style components
 - **Design System**: Orange theme preferred for consistent branding
 - **Animations**: Motion/React for smooth transitions, reference MagicUI for advanced animated components
 - **Styling**: Tailwind CSS for utility-first responsive design
@@ -138,7 +137,7 @@ src/
 
 - **Framework**: Next.js 15 with App Router and Turbopack
 - **State Management**: Zustand with persistence middleware
-- **UI Components**: Radix UI primitives with shadcn/ui styling
+- **UI Components**: Radix UI primitives with local shadcn-style styling
 - **Styling**: Tailwind CSS 4 with custom design tokens
 - **Animations**: Framer Motion for transitions and micro-interactions
 - **Forms**: TanStack Form with Zod validation
@@ -324,7 +323,7 @@ All components and features must be fully accessible to users with disabilities,
 #### Component Development Standards
 
 - **Radix UI Primitives**: Leverage Radix UI's built-in accessibility features
-- **shadcn/ui Components**: Extend base components while preserving accessibility
+- **Local UI Components**: Extend base components while preserving accessibility
 - **Custom Components**: Follow ARIA Authoring Practices Guide patterns
 - **Focus Management**: Implement proper focus management in dynamic content
 - **Keyboard Event Handling**: Support standard keyboard interaction patterns
