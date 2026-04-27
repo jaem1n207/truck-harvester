@@ -58,6 +58,8 @@ const runtimeSourceFiles = sourceRoots.flatMap((path) =>
   collectRuntimeSourceFiles(join(root, path))
 )
 
+const readProjectFile = (path: string) => readFileSync(join(root, path), 'utf8')
+
 describe('legacy cleanup boundary', () => {
   it('removes legacy runtime files and watermark assets', () => {
     for (const path of deletedPaths) {
@@ -76,5 +78,16 @@ describe('legacy cleanup boundary', () => {
       expect(source, runtimePath).not.toMatch(/Sentry|sentry/)
       expect(source, runtimePath).not.toMatch(/watermark|Watermark/)
     }
+  })
+
+  it('keeps root config free of deleted legacy paths', () => {
+    const vercelConfig = readProjectFile('vercel.json')
+    const tailwindConfig = readProjectFile('tailwind.config.ts')
+
+    expect(vercelConfig).not.toContain('app/api/parse-truck/route.ts')
+    expect(vercelConfig).toContain('app/api/v2/parse-truck/route.ts')
+    expect(tailwindConfig).not.toContain('src/widgets')
+    expect(tailwindConfig).not.toContain('src/shared')
+    expect(tailwindConfig).toContain('src/v2')
   })
 })
