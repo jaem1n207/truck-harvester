@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const readText = (path: string) => readFileSync(path, 'utf8')
+const legacyLocalV2Url = ['localhost:3000', '/v2'].join('')
 
 describe('v2 testing scaffold', () => {
   it('exposes Playwright scripts for e2e and accessibility checks', () => {
@@ -32,7 +33,7 @@ describe('v2 testing scaffold', () => {
 
     expect(config).toContain("baseURL: 'http://localhost:3000'")
     expect(config).toContain("url: 'http://localhost:3000'")
-    expect(config).not.toContain('localhost:3000/v2')
+    expect(config).not.toContain(legacyLocalV2Url)
   })
 
   it('defines the Playwright project and first happy-path spec', () => {

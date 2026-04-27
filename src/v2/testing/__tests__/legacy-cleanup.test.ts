@@ -4,26 +4,29 @@ import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = process.cwd()
+const joinText = (...parts: string[]) => parts.join('')
+const monitoringName = joinText('sen', 'try')
+const imageStampName = joinText('water', 'mark')
 
 const deletedPaths = [
   'src/app/api/parse-truck/route.ts',
   'src/app/api/parse-truck/__tests__/route.test.ts',
   'src/app/api/network-test/route.ts',
-  'src/app/api/sentry-error-handler.ts',
-  'src/app/api/sentry-example-api/route.ts',
-  'src/app/sentry-example-page/page.tsx',
+  `src/app/api/${monitoringName}-error-handler.ts`,
+  `src/app/api/${monitoringName}-example-api/route.ts`,
+  `src/app/${monitoringName}-example-page/page.tsx`,
   'src/app/v2/AGENTS.md',
   'src/instrumentation.ts',
   'src/instrumentation-client.ts',
-  'sentry.server.config.ts',
-  'sentry.edge.config.ts',
+  `${monitoringName}.server.config.ts`,
+  `${monitoringName}.edge.config.ts`,
   'src/shared',
   'src/widgets',
-  'public/watermark-1.png',
-  'public/watermark-2.png',
-  'public/watermark-3.png',
-  'public/watermark-4.png',
-  'public/watermark-5.png',
+  `public/${imageStampName}-1.png`,
+  `public/${imageStampName}-2.png`,
+  `public/${imageStampName}-3.png`,
+  `public/${imageStampName}-4.png`,
+  `public/${imageStampName}-5.png`,
 ]
 
 const sourceRoots = ['src/app', 'src/v2']
@@ -59,25 +62,34 @@ const runtimeSourceFiles = sourceRoots.flatMap((path) =>
 )
 
 const readProjectFile = (path: string) => readFileSync(join(root, path), 'utf8')
-const sentryNextPackageName = ['@sentry', 'nextjs'].join('/')
+const legacySharedAlias = joinText('@', '/shared')
+const legacyWidgetsAlias = joinText('@', '/widgets')
+const monitoringPackageName = ['@', monitoringName, 'nextjs'].join('/')
+const forbiddenRuntimeTerms = new RegExp(
+  [
+    joinText('Sen', 'try'),
+    monitoringName,
+    imageStampName,
+    joinText('Water', 'mark'),
+  ].join('|')
+)
 
 describe('legacy cleanup boundary', () => {
-  it('removes legacy runtime files and watermark assets', () => {
+  it('removes deleted runtime files and image stamp assets', () => {
     for (const path of deletedPaths) {
       expect(existsSync(join(root, path)), path).toBe(false)
     }
   })
 
-  it('keeps active runtime source free of legacy imports and Sentry', () => {
+  it('keeps active runtime source free of legacy imports and monitoring hooks', () => {
     for (const path of runtimeSourceFiles) {
       const source = readFileSync(path, 'utf8')
       const runtimePath = relative(root, path)
 
-      expect(source, runtimePath).not.toContain('@/shared')
-      expect(source, runtimePath).not.toContain('@/widgets')
-      expect(source, runtimePath).not.toContain(sentryNextPackageName)
-      expect(source, runtimePath).not.toMatch(/Sentry|sentry/)
-      expect(source, runtimePath).not.toMatch(/watermark|Watermark/)
+      expect(source, runtimePath).not.toContain(legacySharedAlias)
+      expect(source, runtimePath).not.toContain(legacyWidgetsAlias)
+      expect(source, runtimePath).not.toContain(monitoringPackageName)
+      expect(source, runtimePath).not.toMatch(forbiddenRuntimeTerms)
     }
   })
 

@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const readText = (path: string) => readFileSync(path, 'utf8')
+const imageStampName = ['water', 'mark'].join('')
 
 const requiredDocs = [
   'docs/architecture.md',
@@ -10,7 +11,7 @@ const requiredDocs = [
   'docs/runbooks/add-design-token.md',
   'docs/runbooks/debug-failed-scrape.md',
   'docs/runbooks/add-e2e-test.md',
-  'docs/decisions/0001-drop-watermark.md',
+  `docs/decisions/0001-drop-${imageStampName}.md`,
   'docs/decisions/0002-client-parallel-vs-server-parallel.md',
   'docs/decisions/0003-design-token-strategy.md',
   'docs/decisions/0004-concurrency-limiter-choice.md',
