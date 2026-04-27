@@ -5,7 +5,7 @@ Use this when a behavior needs route-level browser coverage.
 ## Steps
 
 1. Add the spec under `e2e/`.
-2. Navigate explicitly to `/v2`.
+2. Navigate to `/`. Keep `/api/v2/parse-truck` mocks when testing parsing.
 3. Mock external truck-site and `/api/v2/parse-truck` responses unless
    the test is explicitly about real-network behavior.
 4. Clear local storage when testing first-visit onboarding.
