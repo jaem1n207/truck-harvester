@@ -58,24 +58,16 @@ bun dev
 ### 테스트
 
 - `bun run test` - Vitest 테스트 실행
-- `bun run test:ui` - Vitest UI 모드
 - `bun run test:coverage` - 테스트 커버리지
 
-### 전체 코드 점검 스크립트
+### 전체 코드 점검
 
 ```bash
-./scripts/code-check.sh
+bun run code:audit
 ```
 
-이 스크립트는 다음 항목들을 순차적으로 검사합니다:
-
-- ✅ TypeScript 타입 체크
-- ✅ ESLint 검사 (자동 수정 포함)
-- ✅ Prettier 포맷 검사 (자동 포맷팅 포함)
-- ✅ 테스트 실행
-- ✅ 보안 취약점 검사
-- ✅ 의존성 버전 확인
-- ✅ 프로덕션 빌드 테스트
+이 명령은 타입 체크, 린트, 포맷 검사, 테스트, 보안 감사, 의존성 버전
+확인을 순차적으로 실행합니다.
 
 ## 🔧 Git Hooks
 
@@ -132,16 +124,15 @@ docs: README 설치 가이드 업데이트
 refactor: 컴포넌트 구조 개선
 ```
 
-### Commitizen 사용 (권장)
+### 커밋 작성
 
-대화형 커밋 메시지 작성을 위해 Commitizen을 사용할 수 있습니다:
+Conventional Commits 형식으로 직접 작성합니다:
 
 ```bash
-# 일반 커밋 대신
-npx cz
-# 또는
-npx git-cz
+git commit -m "fix: 저장 폴더 권한 확인 보정"
 ```
+
+`commit-msg` 훅이 commitlint로 메시지 형식을 검증합니다.
 
 ## 🔍 코드 품질 도구
 
@@ -180,12 +171,12 @@ npx git-cz
 
 3. **커밋 전**
    - Git hooks가 자동으로 검사 실행
-   - 커밋 메시지는 `bunx cz` 사용 권장
+   - 커밋 메시지는 Conventional Commits 형식으로 직접 작성
 
 4. **정기적 점검**
 
    ```bash
-   ./scripts/code-check.sh
+   bun run code:audit
    ```
 
 ## 📦 기술 스택
@@ -196,7 +187,7 @@ npx git-cz
 - **Runtime UI**: React 19.2
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS 4 with design tokens
-- **UI Components**: Radix UI primitives + shadcn/ui
+- **UI Components**: Radix UI primitives + local shadcn-style UI primitives
 - **Animations**: Motion (formerly Framer Motion)
 - **Theme**: Static root tokens in `src/app/theme.css` with Tailwind CSS utilities
 

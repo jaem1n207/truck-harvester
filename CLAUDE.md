@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Truck Harvester is a Next.js 15 application that extracts truck listing information from Korean used truck websites. It parses URLs, scrapes truck data including images and specifications, and downloads everything as organized files or ZIP archives.
+Truck Harvester is a Next.js 16 root app that extracts truck listing information from Korean used truck websites. It parses URLs, scrapes truck data including images and specifications, and downloads everything as organized files or ZIP archives.
 
 ## Development Commands
 
@@ -14,7 +14,6 @@ Truck Harvester is a Next.js 15 application that extracts truck listing informat
 - `bun run build` - Production build with Turbopack
 - `bun test` - Run Vitest tests
 - `bun run test:coverage` - Run tests with coverage report
-- `bun run test:ui` - Run tests with Vitest UI
 
 ### Code Quality Commands
 
@@ -29,8 +28,7 @@ Truck Harvester is a Next.js 15 application that extracts truck listing informat
 
 ### Comprehensive Code Check
 
-- `./scripts/code-check.sh` - Complete health check script with detailed output
-- Runs sequential checks: TypeScript → ESLint → Prettier → Tests → Security → Build
+- `bun run code:audit` - Runs sequential checks: TypeScript → ESLint → Prettier → Tests → Security → outdated dependencies
 
 ## Architecture
 
@@ -110,8 +108,8 @@ src/
 
 ### Form Validation & UI Components
 
-- **Form Validation**: Zod schemas with TanStack Form for robust form handling
-- **UI Library**: shadcn/ui as base, customize using Awesome shadcn/ui
+- **Validation**: Zod schemas and domain contracts for URL and truck data validation
+- **UI Library**: Radix UI primitives with local shadcn-style components
 - **Design System**: Orange theme preferred for consistent branding
 - **Animations**: Motion/React for smooth transitions, reference MagicUI for advanced animated components
 - **Styling**: Tailwind CSS for utility-first responsive design
@@ -137,12 +135,12 @@ src/
 
 ### Frontend
 
-- **Framework**: Next.js 15 with App Router and Turbopack
-- **State Management**: Zustand with persistence middleware
-- **UI Components**: Radix UI primitives with shadcn/ui styling
+- **Framework**: Next.js 16.2.4 with App Router and Turbopack
+- **State Management**: Vanilla Zustand stores without persistence middleware
+- **UI Components**: Radix UI primitives with local shadcn-style styling
 - **Styling**: Tailwind CSS 4 with custom design tokens
-- **Animations**: Framer Motion for transitions and micro-interactions
-- **Forms**: TanStack Form with Zod validation
+- **Animations**: Motion for transitions and micro-interactions
+- **Validation**: Zod schemas for URL extraction and truck data contracts
 - **Theme**: Static `src/app/theme.css` tokens consumed through Tailwind CSS utilities
 
 ### Backend & APIs
@@ -183,7 +181,6 @@ src/
 
 1. **Pre-commit Hook**: Automatically runs lint-staged (ESLint fix + Prettier)
 2. **Commit Message**: Follows Conventional Commits format, validated by commitlint
-3. **Commitizen**: Use `npx cz` for interactive commit message generation
 
 ### Commit Types
 
@@ -326,7 +323,7 @@ All components and features must be fully accessible to users with disabilities,
 #### Component Development Standards
 
 - **Radix UI Primitives**: Leverage Radix UI's built-in accessibility features
-- **shadcn/ui Components**: Extend base components while preserving accessibility
+- **Local UI Components**: Extend base components while preserving accessibility
 - **Custom Components**: Follow ARIA Authoring Practices Guide patterns
 - **Focus Management**: Implement proper focus management in dynamic content
 - **Keyboard Event Handling**: Support standard keyboard interaction patterns
