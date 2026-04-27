@@ -9,7 +9,7 @@ shared-folder dependencies and image-stamping code.
 - `lib/`: pure utilities such as HTML parsing, retry, concurrency, and
   small helpers.
 - `model/`: cross-feature Zustand vanilla stores and selectors.
-- `ui/`: low-level UI primitives styled with `/v2` tokens.
+- `ui/`: low-level UI primitives styled with root app tokens from `src/app/theme.css`.
 
 ## State Rules
 

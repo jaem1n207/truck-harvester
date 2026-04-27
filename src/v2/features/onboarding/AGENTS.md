@@ -1,7 +1,8 @@
 # src/v2/features/onboarding AGENTS.md
 
-The onboarding feature introduces first-time staff to the `/v2` flow and
-lets them restart the guide from the help control.
+The onboarding feature introduces first-time staff to the root app flow and
+lets them restart the guide from the help control. Its code lives under the
+internal `src/v2` namespace.
 
 ## Rules
 

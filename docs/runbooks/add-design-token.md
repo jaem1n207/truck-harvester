@@ -1,7 +1,7 @@
-# Runbook: Add a v2 Design Token
+# Runbook: Add a Root App Design Token
 
-Use this when a `/v2` component needs a new color, spacing, radius, or
-motion token.
+Use this when a root app component, including components in the internal
+`src/v2` namespace, needs a new color, spacing, radius, or motion token.
 
 ## Steps
 

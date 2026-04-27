@@ -6,21 +6,22 @@ Accepted.
 
 ## Context
 
-First-time staff should understand the `/v2` flow without external
-training. Third-party tour libraries would add style drift and extra
-weight.
+First-time staff should understand the root `/` app flow without external
+training. The old `/v2` URL is only a compatibility redirect, while
+`src/v2/*` remains the internal implementation namespace. Third-party tour
+libraries would add style drift and extra weight.
 
 ## Decision
 
-Build a custom onboarding tour using the existing `/v2` UI primitives and
-Motion presets. Each step uses a stable anchor and a safe fallback when the
-anchor is missing.
+Build a custom onboarding tour using the existing root app UI primitives and
+Motion presets from the internal `src/v2` namespace. Each step uses a stable
+anchor and a safe fallback when the anchor is missing.
 
 The tour uses a spotlight overlay: the active `data-tour` anchor stays
 visible, unrelated page regions are dimmed, and the explanation card is
 placed near the active element. The tour supports previous/next controls and
 keeps animation limited to opacity, transform, and position changes through
-`/v2` Motion presets with reduced-motion fallbacks.
+the shared Motion presets with reduced-motion fallbacks.
 
 Each step may render compact example cards that show the user action and
 the expected result without mutating real page state. The address step shows
