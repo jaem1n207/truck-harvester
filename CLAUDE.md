@@ -36,40 +36,46 @@ Truck Harvester is a Next.js 15 application that extracts truck listing informat
 
 ### Core Application Flow
 
-1. **URL Input** (`src/widgets/url-input`) - Validates and collects truck listing URLs
-2. **API Processing** (`src/app/api/parse-truck`) - Server-side web scraping with Cheerio
-3. **File Management** (`src/shared/lib/file-system`) - Handles File System Access API and ZIP downloads
-4. **State Management** (`src/shared/model/store`) - Zustand store with persistence
+1. **Root App** (`src/app/truck-harvester-app.tsx`) - Composes the rebuilt UI served from `/`
+2. **URL Preparation** (`src/v2/features/listing-preparation`) - Extracts and validates truck listing URLs
+3. **API Processing** (`/api/v2/parse-truck`) - Server-side web scraping with Cheerio
+4. **File Management** (`src/v2/features/file-management`) - Handles File System Access API and ZIP downloads
+5. **State Management** (`src/v2/shared/model`) - Zustand vanilla stores for prepared listings and onboarding
+
+The old `/v2` URL redirects to `/` for compatibility. The current runtime has
+no external error-monitoring SDK, no image-stamping pipeline, and no remaining
+legacy shared/widget runtime folders.
 
 ### Project Structure
 
 ```
 src/
 ├── app/                    # Next.js App Router
-│   ├── api/parse-truck/   # Server-side parsing API
-│   └── truck-harvester-app.tsx  # Main app component
-├── shared/                # Shared business logic
-│   ├── lib/               # Core utilities and hooks
-│   ├── model/             # Data models and state management
-│   └── ui/                # Shadcn/UI components
-└── widgets/               # Feature-specific UI components
-    ├── directory-selector/
-    ├── processing-status/
-    └── url-input/
+│   ├── api/v2/parse-truck/ # Current server-side parsing API
+│   ├── page.tsx           # Root route
+│   ├── truck-harvester-app.tsx
+│   └── v2/page.tsx        # Compatibility redirect to /
+└── v2/                    # Internal implementation namespace
+    ├── design-system/
+    ├── entities/
+    ├── features/
+    ├── shared/
+    └── widgets/
 ```
 
 ### Key Architecture Patterns
 
-#### Current Widget-Based Architecture (Transitioning to Feature-Sliced Design)
+#### Current Feature-Sliced Architecture
 
-- **Widgets** (`src/widgets/`) - Self-contained feature components (directory-selector, url-input, processing-status)
-- **Shared UI** (`src/shared/ui/`) - Reusable UI components based on Radix UI and shadcn/ui
-- **Business Logic** (`src/shared/lib/`) - Core utilities (url-validator, file-system, use-truck-processor)
-- **FSD Migration**: Current structure serves as foundation for Feature-Sliced Design implementation
+- **Widgets** (`src/v2/widgets/`) - Composed user-facing blocks for the root app
+- **Features** (`src/v2/features/`) - Business workflows such as listing preparation, parsing, saving, and onboarding
+- **Entities** (`src/v2/entities/`) - Pure schemas and domain contracts
+- **Shared** (`src/v2/shared/`) - Reusable primitives, stores, selectors, and low-level UI
+- **Design System** (`src/v2/design-system/`) - Token and motion guidance used by the root app
 
 #### State Management Pattern
 
-- **Zustand Store** (`src/shared/model/store.ts`) - Global state with persistence for config and URLs only
+- **Zustand Stores** (`src/v2/shared/model`) - Prepared-listing and onboarding state
 - **Step-based UI** - Multi-step process: input → parsing → downloading → completed
 - **AbortController** - Proper cancellation handling for async operations
 
@@ -81,7 +87,7 @@ src/
 
 ### Core Data Models
 
-#### TruckData Schema (`src/shared/model/truck.ts`)
+#### TruckData Schema (`src/v2/entities/truck`)
 
 - **Vehicle Info**: vname (차명), vnumber (차량번호), year, mileage
 - **Pricing**: Structured price object with raw/won/label/compactLabel
@@ -141,7 +147,7 @@ src/
 
 ### Backend & APIs
 
-- **API Routes**: Next.js server-side API with /api/parse-truck endpoint
+- **API Routes**: Next.js server-side API with `/api/v2/parse-truck` endpoint
 - **Web Scraping**: Cheerio for HTML parsing and data extraction
 - **File Operations**: File System Access API for browser-native file management
 - **Archive**: JSZip for creating downloadable ZIP files
@@ -190,7 +196,7 @@ src/
 
 ## API Architecture
 
-### Parse API (`/api/parse-truck`)
+### Parse API (`/api/v2/parse-truck`)
 
 - **Input**: Array of truck listing URLs with rate limiting and timeout configuration
 - **Processing**: Sequential URL fetching with Cheerio parsing
