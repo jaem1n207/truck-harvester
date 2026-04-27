@@ -252,7 +252,7 @@ test('uses the folder picked during start only in the current page session', asy
     })
   })
 
-  await page.goto('/v2')
+  await page.goto('/')
   await pasteTextInto(
     page.getByRole('textbox', { name: '매물 주소' }),
     mixedChatText
