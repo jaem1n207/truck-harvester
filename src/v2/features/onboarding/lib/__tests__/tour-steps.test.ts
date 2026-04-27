@@ -15,9 +15,18 @@ describe('tour steps', () => {
     }
   })
 
-  it('explains pasted addresses in plain staff language', () => {
+  it('pairs each step with a compact example card kind', () => {
+    expect(tourSteps.map((step) => step.exampleKind)).toEqual([
+      'url-example',
+      'folder-example',
+      'progress-example',
+    ])
+  })
+
+  it('explains full address-bar copying in plain staff language', () => {
+    expect(tourSteps[0].title).toBe('매물 주소를 넣어요')
     expect(tourSteps[0].description).toBe(
-      '복사한 매물 주소를 이 칸에 붙여넣으면, 매물 이름을 자동으로 찾아 보여줍니다.'
+      '주소창에 있는 매물 주소를 처음부터 끝까지 복사해 붙여넣으세요. 복사한 내용 안에 매물 주소가 들어 있으면 자동으로 찾아요.'
     )
   })
 
