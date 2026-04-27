@@ -13,10 +13,8 @@ import {
 import {
   downloadTruckZip,
   isFileSystemAccessAvailable,
-  loadPersistedDirectoryHandle,
   pickWritableDirectory,
   requestWritableDirectoryPermission,
-  savePersistedDirectoryHandle,
   saveTruckToDirectory,
   type WritableDirectoryHandle,
 } from '@/v2/features/file-management'
@@ -41,17 +39,13 @@ const saveFailureMessage =
   '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
 const saveFolderPickerId = 'truck-harvester-v2-save-folder'
 
-type DirectoryPermissionState = 'denied' | 'needs-permission' | 'ready'
+type DirectoryPermissionState = 'denied' | 'ready'
 type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
 
 const pickSaveDirectory = pickWritableDirectory as (options: {
   id: string
   startIn: DirectoryPickerStartIn
 }) => Promise<WritableDirectoryHandle | undefined>
-
-const rememberDirectoryHandle = (directory: WritableDirectoryHandle) => {
-  void savePersistedDirectoryHandle(directory)
-}
 
 export function TruckHarvesterV2App() {
   const [preparedStore] = useState(() => createPreparedListingStore())
@@ -101,7 +95,6 @@ export function TruckHarvesterV2App() {
   }, [onboardingStore])
 
   useEffect(() => {
-    let isActive = true
     const timer = window.setTimeout(() => {
       const supported = isFileSystemAccessAvailable()
       setFileSystemSupported(supported)
@@ -111,29 +104,10 @@ export function TruckHarvesterV2App() {
         return
       }
 
-      void loadPersistedDirectoryHandle()
-        .then((restoredDirectory) => {
-          if (!isActive || !isMountedRef.current) {
-            return
-          }
-
-          if (!restoredDirectory) {
-            setDirectoryPermissionState('ready')
-            return
-          }
-
-          setDirectory(restoredDirectory)
-          setDirectoryPermissionState('needs-permission')
-        })
-        .catch(() => {
-          if (isActive && isMountedRef.current) {
-            setDirectoryPermissionState('ready')
-          }
-        })
+      setDirectoryPermissionState('ready')
     }, 0)
 
     return () => {
-      isActive = false
       window.clearTimeout(timer)
     }
   }, [])
@@ -174,8 +148,6 @@ export function TruckHarvesterV2App() {
           setDirectoryPermissionState('ready')
         }
 
-        rememberDirectoryHandle(nextDirectory)
-
         return nextDirectory
       }
 
@@ -194,8 +166,6 @@ export function TruckHarvesterV2App() {
         setDirectoryPermissionState('ready')
       }
 
-      rememberDirectoryHandle(activeDirectory)
-
       return activeDirectory
     }
 
@@ -213,8 +183,6 @@ export function TruckHarvesterV2App() {
       setDirectoryPermissionState('ready')
     }
 
-    rememberDirectoryHandle(nextDirectory)
-
     return nextDirectory
   }
 
@@ -223,8 +191,6 @@ export function TruckHarvesterV2App() {
       setDirectory(nextDirectory)
       setDirectoryPermissionState('ready')
     }
-
-    rememberDirectoryHandle(nextDirectory)
   }
 
   const handlePasteText = (text: string) => {
