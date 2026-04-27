@@ -11,11 +11,6 @@ export const v2Copy = {
       invalid: '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.',
     },
   },
-  urlList: {
-    title: '가져올 매물',
-    empty: '아직 추가된 매물 주소가 없습니다.',
-    remove: '목록에서 빼기',
-  },
   directorySelector: {
     title: '저장 폴더 선택',
     explainer:
@@ -24,23 +19,5 @@ export const v2Copy = {
     unsupportedTitle: '압축 파일로 저장됩니다',
     unsupportedDescription:
       '이 브라우저에서는 폴더를 직접 고를 수 없어, 모든 파일을 압축 파일로 내려받습니다.',
-  },
-  processingStatus: {
-    title: '진행 상황',
-    pending: '기다리는 중',
-    parsing: '정보 확인 중',
-    parsed: '정보 확인 완료',
-    downloading: '사진 저장 중',
-    downloaded: '저장 완료',
-    failed: '확인이 필요합니다',
-    skipped: '건너뜀',
-    inProgress: '진행 중',
-    done: '완료',
-  },
-  attentionPanel: {
-    title: '주목 필요',
-    description: '바로 처리되지 않은 매물만 모았습니다.',
-    retry: '다시 시도',
-    skip: '건너뛰기',
   },
 } as const
