@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 
 import { useV2MotionPreset } from '@/v2/shared/lib/use-reduced-motion'
 
@@ -288,10 +288,6 @@ export function TourOverlay({
     width: `min(calc(100vw - 32px), ${popoverSize.width}px)`,
   }
 
-  if (!isOpen) {
-    return null
-  }
-
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -355,95 +351,109 @@ export function TourOverlay({
   }
 
   return (
-    <div
-      aria-describedby={stepDescriptionId}
-      aria-labelledby={stepTitleId}
-      aria-modal="true"
-      className="fixed inset-0 z-50"
-      data-tour-modal-root="true"
-      onKeyDown={handleDialogKeyDown}
-      ref={dialogRef}
-      role="dialog"
-    >
-      <div
-        className="bg-background/70 fixed backdrop-blur-sm"
-        data-tour-dim="top"
-        style={dimStyles.top}
-      />
-      <div
-        className="bg-background/70 fixed backdrop-blur-sm"
-        data-tour-dim="left"
-        style={dimStyles.left}
-      />
-      <div
-        className="bg-background/70 fixed backdrop-blur-sm"
-        data-tour-dim="right"
-        style={dimStyles.right}
-      />
-      <div
-        className="bg-background/70 fixed backdrop-blur-sm"
-        data-tour-dim="bottom"
-        style={dimStyles.bottom}
-      />
-      <motion.div
-        aria-hidden="true"
-        className="border-primary shadow-primary/25 fixed rounded-2xl border-2 shadow-lg"
-        data-motion="tour-highlight"
-        data-tour-highlight="true"
-        key={step.id}
-        style={highlightStyle}
-        {...tourHighlightMotion}
-      />
-      <motion.div
-        className="border-border bg-card text-card-foreground fixed max-h-[calc(100dvh-32px)] overflow-y-auto rounded-xl border p-5 shadow-lg"
-        data-motion="tour-card"
-        data-tour-card="true"
-        key={`${step.id}-card`}
-        style={popoverStyle}
-        {...tourCardMotion}
-      >
-        <div className="grid gap-2">
-          <p className="text-muted-foreground text-xs font-medium">
-            {currentStep + 1} / {steps.length}
-          </p>
-          <h2 className="text-lg font-semibold" id={stepTitleId}>
-            {step.title}
-          </h2>
-          <p className="text-muted-foreground text-sm" id={stepDescriptionId}>
-            {step.description}
-          </p>
-        </div>
+    <AnimatePresence initial={false}>
+      {isOpen ? (
+        <motion.div
+          aria-describedby={stepDescriptionId}
+          aria-labelledby={stepTitleId}
+          aria-modal="true"
+          className="fixed inset-0 z-50"
+          data-tour-modal-root="true"
+          exit={{ opacity: 0 }}
+          onKeyDown={handleDialogKeyDown}
+          ref={dialogRef}
+          role="dialog"
+          transition={tourCardMotion.transition}
+        >
+          <div
+            className="bg-background/70 fixed backdrop-blur-sm"
+            data-tour-dim="top"
+            style={dimStyles.top}
+          />
+          <div
+            className="bg-background/70 fixed backdrop-blur-sm"
+            data-tour-dim="left"
+            style={dimStyles.left}
+          />
+          <div
+            className="bg-background/70 fixed backdrop-blur-sm"
+            data-tour-dim="right"
+            style={dimStyles.right}
+          />
+          <div
+            className="bg-background/70 fixed backdrop-blur-sm"
+            data-tour-dim="bottom"
+            style={dimStyles.bottom}
+          />
+          <motion.div
+            aria-hidden="true"
+            className="border-primary shadow-primary/25 fixed rounded-2xl border-2 shadow-lg"
+            data-motion="tour-highlight"
+            data-tour-highlight="true"
+            exit={{ opacity: 0, scale: 0.98 }}
+            key={step.id}
+            style={highlightStyle}
+            {...tourHighlightMotion}
+          />
+          <motion.div
+            className="border-border bg-card text-card-foreground fixed max-h-[calc(100dvh-32px)] overflow-y-auto rounded-xl border p-5 shadow-lg"
+            data-motion="tour-card"
+            data-tour-card="true"
+            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            key={`${step.id}-card`}
+            style={popoverStyle}
+            {...tourCardMotion}
+          >
+            <div className="grid gap-2">
+              <p className="text-muted-foreground text-xs font-medium tabular-nums">
+                {currentStep + 1} / {steps.length}
+              </p>
+              <h2
+                className="text-lg font-semibold text-balance"
+                id={stepTitleId}
+              >
+                {step.title}
+              </h2>
+              <p
+                className="text-muted-foreground text-sm text-pretty"
+                id={stepDescriptionId}
+              >
+                {step.description}
+              </p>
+            </div>
 
-        <TourExampleCard kind={step.exampleKind} />
+            <TourExampleCard kind={step.exampleKind} />
 
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
-          <button
-            className="text-muted-foreground hover:bg-muted rounded-lg px-3 py-2 text-sm"
-            data-tour-control="close"
-            onClick={onClose}
-            type="button"
-          >
-            그만 보기
-          </button>
-          <button
-            className="text-muted-foreground hover:bg-muted disabled:text-muted-foreground/50 rounded-lg px-3 py-2 text-sm disabled:hover:bg-transparent"
-            data-tour-control="previous"
-            disabled={isFirstStep}
-            onClick={onPrevious}
-            type="button"
-          >
-            이전
-          </button>
-          <button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-3 py-2 text-sm font-medium"
-            data-tour-control="next"
-            onClick={onNext}
-            type="button"
-          >
-            {isLastStep ? '마치기' : '다음'}
-          </button>
-        </div>
-      </motion.div>
-    </div>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                className="text-muted-foreground hover:bg-muted min-h-10 rounded-lg px-3 py-2 text-sm transition-[background-color,color,scale,transform] active:scale-[0.96]"
+                data-tour-control="close"
+                onClick={onClose}
+                type="button"
+              >
+                그만 보기
+              </button>
+              <button
+                className="text-muted-foreground hover:bg-muted disabled:text-muted-foreground/50 min-h-10 rounded-lg px-3 py-2 text-sm transition-[background-color,color,opacity,scale,transform] active:scale-[0.96] disabled:hover:bg-transparent disabled:active:scale-100"
+                data-tour-control="previous"
+                disabled={isFirstStep}
+                onClick={onPrevious}
+                type="button"
+              >
+                이전
+              </button>
+              <button
+                className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-10 rounded-lg px-3 py-2 text-sm font-medium transition-[background-color,color,scale,transform] active:scale-[0.96]"
+                data-tour-control="next"
+                onClick={onNext}
+                type="button"
+              >
+                {isLastStep ? '마치기' : '다음'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   )
 }

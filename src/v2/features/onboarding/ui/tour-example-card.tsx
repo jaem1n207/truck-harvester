@@ -23,7 +23,7 @@ interface ExampleShellProps {
 const ExampleShell = ({ label, icon: Icon, children }: ExampleShellProps) => (
   <div
     aria-label={label}
-    className="bg-muted/40 border-border mt-4 rounded-lg border p-3"
+    className="bg-muted/40 border-border mt-4 rounded-xl border p-3"
     data-tour-example={label}
   >
     <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
@@ -44,10 +44,12 @@ const UrlExample = () => (
         </p>
       </div>
       <div className="border-border bg-background rounded-md border px-3 py-2">
-        <p className="text-foreground font-medium">덤프 메가트럭 4.5톤</p>
+        <p className="text-foreground font-medium text-pretty">
+          덤프 메가트럭 4.5톤
+        </p>
         <p className="text-xs font-medium text-emerald-700">확인 완료</p>
       </div>
-      <p className="text-muted-foreground text-xs">
+      <p className="text-muted-foreground text-xs text-pretty">
         DetailView.asp?...처럼 앞부분이 빠진 주소는 찾지 못할 수 있어요.
       </p>
     </div>
@@ -61,10 +63,10 @@ const FolderExample = () => (
         <FolderOpen aria-hidden="true" className="text-primary size-4" />
         <div>
           <p className="text-muted-foreground text-xs">저장 폴더 고르기</p>
-          <p className="text-foreground font-medium">truck-test</p>
+          <p className="text-foreground font-medium text-pretty">truck-test</p>
         </div>
       </div>
-      <pre className="text-muted-foreground overflow-x-auto rounded-md text-xs leading-relaxed">
+      <pre className="text-muted-foreground overflow-x-auto rounded-md text-xs leading-relaxed tabular-nums">
         {`truck-test
 └─ 서울80바1234
    ├─ 사진 1
@@ -79,16 +81,20 @@ const ProgressExample = () => (
   <ExampleShell icon={LoaderCircle} label="진행 예시">
     <div className="grid gap-2 text-sm">
       <div className="border-border bg-background flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-        <span className="text-foreground font-medium">덤프 메가트럭 4.5톤</span>
+        <span className="text-foreground font-medium text-pretty">
+          덤프 메가트럭 4.5톤
+        </span>
         <span className="text-muted-foreground text-xs font-medium">
           저장 중
         </span>
       </div>
       <div className="border-border bg-background flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-        <span className="text-foreground font-medium">카고 마이티</span>
+        <span className="text-foreground font-medium text-pretty">
+          카고 마이티
+        </span>
         <span className="text-xs font-medium text-emerald-700">저장 완료</span>
       </div>
-      <p className="text-muted-foreground flex items-center gap-2 text-xs">
+      <p className="text-muted-foreground flex items-center gap-2 text-xs text-pretty">
         <Bell aria-hidden="true" className="size-4" />
         완료 알림도 원하면 켤 수 있어요.
       </p>
