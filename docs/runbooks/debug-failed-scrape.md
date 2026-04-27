@@ -1,6 +1,6 @@
 # Runbook: Debug a Failed Scrape
 
-Use this when `/v2` cannot parse a truck listing or returns incomplete
+Use this when the root app cannot parse a truck listing or returns incomplete
 data.
 
 ## Steps
