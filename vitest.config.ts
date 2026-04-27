@@ -10,8 +10,10 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: 'v8',
-      include: ['src/v2/**/*.{ts,tsx}'],
+      include: ['src/app/**/*.{ts,tsx}', 'src/v2/**/*.{ts,tsx}'],
       exclude: [
+        'src/app/**/__tests__/**',
+        'src/app/**/*.test.{ts,tsx}',
         'src/v2/**/__tests__/**',
         'src/v2/**/*.test.{ts,tsx}',
         'src/v2/**/AGENTS.md',

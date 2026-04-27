@@ -17,18 +17,28 @@ describe('v2 testing scaffold', () => {
     )
   })
 
-  it('configures v2 unit coverage thresholds', () => {
+  it('keeps Vitest coverage focused on root app and v2 internals', () => {
     const config = readText('vitest.config.ts')
 
-    expect(config).toContain("include: ['src/v2/**/*.{ts,tsx}']")
+    expect(config).toContain(
+      "include: ['src/app/**/*.{ts,tsx}', 'src/v2/**/*.{ts,tsx}']"
+    )
+    expect(config).not.toContain('src/shared/lib/test-setup')
     expect(config).toContain('lines: 80')
   })
 
-  it('defines the v2 Playwright project and first happy-path spec', () => {
+  it('runs Playwright against the root route', () => {
+    const config = readText('playwright.config.ts')
+
+    expect(config).toContain("baseURL: 'http://localhost:3000'")
+    expect(config).toContain("url: 'http://localhost:3000'")
+    expect(config).not.toContain('localhost:3000/v2')
+  })
+
+  it('defines the Playwright project and first happy-path spec', () => {
     const config = readText('playwright.config.ts')
     const spec = readText('e2e/happy-path-batch.spec.ts')
 
-    expect(config).toContain("baseURL: 'http://localhost:3000/v2'")
     expect(config).toContain("name: 'chromium'")
     expect(spec).toContain('completes a 10-address batch')
   })

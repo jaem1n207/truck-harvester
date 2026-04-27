@@ -59,6 +59,7 @@ const runtimeSourceFiles = sourceRoots.flatMap((path) =>
 )
 
 const readProjectFile = (path: string) => readFileSync(join(root, path), 'utf8')
+const sentryNextPackageName = ['@sentry', 'nextjs'].join('/')
 
 describe('legacy cleanup boundary', () => {
   it('removes legacy runtime files and watermark assets', () => {
@@ -74,7 +75,7 @@ describe('legacy cleanup boundary', () => {
 
       expect(source, runtimePath).not.toContain('@/shared')
       expect(source, runtimePath).not.toContain('@/widgets')
-      expect(source, runtimePath).not.toContain('@sentry/nextjs')
+      expect(source, runtimePath).not.toContain(sentryNextPackageName)
       expect(source, runtimePath).not.toMatch(/Sentry|sentry/)
       expect(source, runtimePath).not.toMatch(/watermark|Watermark/)
     }
