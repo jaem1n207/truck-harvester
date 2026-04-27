@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell } from 'lucide-react'
+import { BellOff, CheckCircle2 } from 'lucide-react'
 
 import { Button } from '@/v2/shared/ui/button'
 
@@ -21,8 +21,8 @@ export function CompletionNotificationToggle({
 
   if (permission === 'granted') {
     return (
-      <span className="text-foreground inline-flex items-center gap-1.5 text-sm font-medium">
-        <Bell aria-hidden="true" className="size-4" />
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+        <CheckCircle2 aria-hidden="true" className="size-4" />
         완료 알림 켜짐
       </span>
     )
@@ -30,7 +30,8 @@ export function CompletionNotificationToggle({
 
   if (permission === 'denied') {
     return (
-      <span className="text-muted-foreground text-sm">
+      <span className="text-muted-foreground inline-flex items-center gap-1.5 text-sm text-pretty">
+        <BellOff aria-hidden="true" className="size-4 shrink-0" />
         브라우저 알림이 꺼져 있습니다
       </span>
     )

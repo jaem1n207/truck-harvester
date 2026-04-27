@@ -42,10 +42,10 @@ export function DirectorySelector({
   if (!isSupported) {
     return (
       <section className="border-border bg-card text-card-foreground grid gap-2 rounded-xl border p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-semibold text-balance">
           {v2Copy.directorySelector.unsupportedTitle}
         </h2>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-sm text-pretty">
           {v2Copy.directorySelector.unsupportedDescription}
         </p>
       </section>
@@ -58,10 +58,10 @@ export function DirectorySelector({
       data-tour="directory-selector"
     >
       <div className="grid gap-1.5">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-semibold text-balance">
           {v2Copy.directorySelector.title}
         </h2>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-sm text-pretty">
           {v2Copy.directorySelector.explainer}
         </p>
       </div>
@@ -84,7 +84,7 @@ export function DirectorySelector({
         </Button>
       </div>
       {selectedDirectoryName ? (
-        <div className="border-border bg-muted/40 text-foreground flex items-start gap-2 rounded-lg border px-3 py-2">
+        <div className="bg-muted/50 text-foreground flex items-start gap-2 rounded-lg px-3 py-2 shadow-[inset_0_0_0_1px_var(--border),0_1px_2px_rgba(0,0,0,0.04)]">
           <FolderCheck
             aria-hidden="true"
             className="text-primary mt-0.5 size-4 shrink-0"
