@@ -7,10 +7,12 @@ const root = process.cwd()
 
 const deletedPaths = [
   'src/app/api/parse-truck/route.ts',
+  'src/app/api/parse-truck/__tests__/route.test.ts',
   'src/app/api/network-test/route.ts',
   'src/app/api/sentry-error-handler.ts',
   'src/app/api/sentry-example-api/route.ts',
   'src/app/sentry-example-page/page.tsx',
+  'src/app/v2/AGENTS.md',
   'src/instrumentation.ts',
   'src/instrumentation-client.ts',
   'sentry.server.config.ts',
