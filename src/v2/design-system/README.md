@@ -1,6 +1,6 @@
 # v2 Design System
 
-`src/app/v2/theme.css` is the single source of truth for `/v2` color,
+`src/app/theme.css` is the single source of truth for root app color,
 radius, and motion tokens. Components should use Tailwind token utilities
 such as `bg-background`, `text-foreground`, `border-border`, and
 `rounded-lg` instead of raw color or spacing values.
@@ -13,7 +13,7 @@ such as `bg-background`, `text-foreground`, `border-border`, and
 - `muted`: helper text, captions, quiet surfaces, and inactive progress.
 - `accent`: soft attention without blocking the user's current work.
 - `destructive`: irreversible or forceful actions only.
-- `success` / `warning`: `/v2` semantic tokens for progress and attention
+- `success` / `warning`: root app semantic tokens for progress and attention
   states. Use through `v2ColorTokens` when Tailwind utility names are not
   enough.
 

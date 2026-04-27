@@ -5,7 +5,7 @@ motion token.
 
 ## Steps
 
-1. Confirm an existing token in `src/app/v2/theme.css` or
+1. Confirm an existing token in `src/app/theme.css` or
    `src/v2/design-system/motion.ts` cannot express the need.
 2. Add the CSS custom property or motion preset at the design-system
    source.
