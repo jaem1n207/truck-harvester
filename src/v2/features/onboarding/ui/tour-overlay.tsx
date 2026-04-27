@@ -115,6 +115,9 @@ const isEditableKeyTarget = (target: EventTarget | null) => {
   )
 }
 
+const isTourShortcutKey = (key: string) =>
+  key === 'Escape' || key === 'ArrowLeft' || key === 'ArrowRight'
+
 export function TourOverlay({
   isOpen,
   currentStep,
@@ -188,6 +191,56 @@ export function TourOverlay({
       previousActiveElementRef.current = null
     }
   }, [isOpen, step.id])
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      return
+    }
+
+    const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (!isTourShortcutKey(event.key)) {
+        return
+      }
+
+      const dialog = dialogRef.current
+
+      if (
+        typeof window !== 'undefined' &&
+        event.target instanceof window.Node &&
+        dialog?.contains(event.target)
+      ) {
+        return
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+
+      if (isEditableKeyTarget(event.target)) {
+        return
+      }
+
+      if (event.key === 'ArrowLeft') {
+        if (!isFirstStep) {
+          event.preventDefault()
+          onPrevious()
+        }
+
+        return
+      }
+
+      event.preventDefault()
+      onNext()
+    }
+
+    document.addEventListener('keydown', handleDocumentKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleDocumentKeyDown)
+    }
+  }, [isFirstStep, isOpen, onClose, onNext, onPrevious])
 
   const dimStyles = useMemo(() => {
     const { spotlight, viewport } = geometry

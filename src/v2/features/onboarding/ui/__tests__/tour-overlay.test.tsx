@@ -238,6 +238,60 @@ describe('TourOverlay', () => {
     expect(onNext).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps Escape and arrow shortcuts working after focus leaves the dialog', async () => {
+    const onClose = vi.fn()
+    const onNext = vi.fn()
+    const onPrevious = vi.fn()
+
+    installDom()
+    const backgroundButton = document.createElement('button')
+    backgroundButton.textContent = '다른 화면 요소'
+    document.body.append(backgroundButton)
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <TourOverlay
+          currentStep={1}
+          isOpen
+          onClose={onClose}
+          onNext={onNext}
+          onPrevious={onPrevious}
+          steps={tourSteps}
+        />
+      )
+    })
+
+    backgroundButton.focus()
+
+    await act(async () => {
+      backgroundButton.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          key: 'ArrowLeft',
+        })
+      )
+      backgroundButton.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          key: 'ArrowRight',
+        })
+      )
+      backgroundButton.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          bubbles: true,
+          key: 'Escape',
+        })
+      )
+    })
+
+    expect(onPrevious).toHaveBeenCalledTimes(1)
+    expect(onNext).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('does not move before the first step when ArrowLeft is pressed', async () => {
     const onPrevious = vi.fn()
 
