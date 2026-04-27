@@ -45,7 +45,6 @@ export default async function Image() {
             justifyContent: 'center',
             flexDirection: 'column',
             textAlign: 'center',
-            zIndex: 1,
           }}
         >
           {/* Icon */}
