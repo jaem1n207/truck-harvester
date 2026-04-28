@@ -23,6 +23,11 @@ placed near the active element. The tour supports previous/next controls and
 keeps animation limited to opacity, transform, and position changes through
 the shared Motion presets with reduced-motion fallbacks.
 
+The tour opens only after browser-only capability controls finish their first
+client-side layout pass. After opening, it keeps measuring the active anchor
+during initial layout stabilization and tab restore so first-visit highlights
+do not hold stale positions from a pre-settled page.
+
 Each step may render compact example cards that show the user action and
 the expected result without mutating real page state. The address step shows
 an address-bar copy example and confirmed listing chip, the save-folder step

@@ -85,6 +85,24 @@ const getElementRect = (element: Element): TargetRect => {
 }
 
 const toFixedPx = (value: number) => `${Math.max(value, 0)}px`
+const initialLayoutStabilityFrames = 8
+
+const requestLayoutFrame = (callback: FrameRequestCallback) => {
+  if (typeof window.requestAnimationFrame === 'function') {
+    return window.requestAnimationFrame(callback)
+  }
+
+  return window.setTimeout(() => callback(Date.now()), 16)
+}
+
+const cancelLayoutFrame = (handle: number) => {
+  if (typeof window.cancelAnimationFrame === 'function') {
+    window.cancelAnimationFrame(handle)
+    return
+  }
+
+  window.clearTimeout(handle)
+}
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -146,6 +164,10 @@ export function TourOverlay({
       return
     }
 
+    let isCancelled = false
+    let updateFrame: number | null = null
+    let stabilityFrame: number | null = null
+
     const updateGeometry = () => {
       const viewport = getViewportRect()
       const anchor = findTourAnchor(step, document)
@@ -159,13 +181,90 @@ export function TourOverlay({
       })
     }
 
+    const scheduleGeometryUpdate = () => {
+      if (updateFrame !== null) {
+        cancelLayoutFrame(updateFrame)
+      }
+
+      updateFrame = requestLayoutFrame(() => {
+        updateFrame = null
+
+        if (!isCancelled) {
+          updateGeometry()
+        }
+      })
+    }
+
+    const scheduleInitialStabilityUpdates = (remainingFrames: number) => {
+      if (remainingFrames <= 0 || isCancelled) {
+        return
+      }
+
+      stabilityFrame = requestLayoutFrame(() => {
+        if (!isCancelled) {
+          updateGeometry()
+          scheduleInitialStabilityUpdates(remainingFrames - 1)
+        }
+      })
+    }
+
     updateGeometry()
-    window.addEventListener('resize', updateGeometry)
-    window.addEventListener('scroll', updateGeometry, true)
+    scheduleInitialStabilityUpdates(initialLayoutStabilityFrames)
+
+    const mutationObserver =
+      typeof MutationObserver === 'function'
+        ? new MutationObserver(scheduleGeometryUpdate)
+        : null
+    mutationObserver?.observe(document.body, { childList: true, subtree: true })
+
+    const activeAnchor = findTourAnchor(step, document)
+    const resizeObserver =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(scheduleGeometryUpdate)
+        : null
+
+    if (activeAnchor) {
+      resizeObserver?.observe(activeAnchor)
+    }
+
+    const documentWithFonts = document as Document & {
+      fonts?: { ready?: Promise<unknown> }
+    }
+    void documentWithFonts.fonts?.ready?.then(() => {
+      if (!isCancelled) {
+        scheduleGeometryUpdate()
+      }
+    })
+
+    window.addEventListener('resize', scheduleGeometryUpdate)
+    window.addEventListener('scroll', scheduleGeometryUpdate, true)
+    window.addEventListener('pageshow', scheduleGeometryUpdate)
+    window.visualViewport?.addEventListener('resize', scheduleGeometryUpdate)
+    window.visualViewport?.addEventListener('scroll', scheduleGeometryUpdate)
 
     return () => {
-      window.removeEventListener('resize', updateGeometry)
-      window.removeEventListener('scroll', updateGeometry, true)
+      isCancelled = true
+      mutationObserver?.disconnect()
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', scheduleGeometryUpdate)
+      window.removeEventListener('scroll', scheduleGeometryUpdate, true)
+      window.removeEventListener('pageshow', scheduleGeometryUpdate)
+      window.visualViewport?.removeEventListener(
+        'resize',
+        scheduleGeometryUpdate
+      )
+      window.visualViewport?.removeEventListener(
+        'scroll',
+        scheduleGeometryUpdate
+      )
+
+      if (updateFrame !== null) {
+        cancelLayoutFrame(updateFrame)
+      }
+
+      if (stabilityFrame !== null) {
+        cancelLayoutFrame(stabilityFrame)
+      }
     }
   }, [isOpen, step])
 

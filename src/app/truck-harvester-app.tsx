@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { useStore } from 'zustand'
 
@@ -38,6 +38,8 @@ import { ListingChipInput, parseUrlInputText } from '@/v2/widgets/url-input'
 const saveFailureMessage =
   '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
 const saveFolderPickerId = 'truck-harvester-v2-save-folder'
+const useBrowserLayoutEffect =
+  typeof window === 'undefined' ? useEffect : useLayoutEffect
 
 type DirectoryPermissionState = 'denied' | 'ready'
 type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
@@ -46,6 +48,23 @@ const pickSaveDirectory = pickWritableDirectory as (options: {
   id: string
   startIn: DirectoryPickerStartIn
 }) => Promise<WritableDirectoryHandle | undefined>
+
+const requestNextFrame = (callback: () => void) => {
+  if (typeof window.requestAnimationFrame === 'function') {
+    return window.requestAnimationFrame(callback)
+  }
+
+  return window.setTimeout(callback, 16)
+}
+
+const cancelNextFrame = (handle: number) => {
+  if (typeof window.cancelAnimationFrame === 'function') {
+    window.cancelAnimationFrame(handle)
+    return
+  }
+
+  window.clearTimeout(handle)
+}
 
 export function TruckHarvesterApp() {
   const [preparedStore] = useState(() => createPreparedListingStore())
@@ -77,6 +96,25 @@ export function TruckHarvesterApp() {
     (item) => item.status !== 'saved'
   )
 
+  useBrowserLayoutEffect(() => {
+    const supported = isFileSystemAccessAvailable()
+    setFileSystemSupported(supported)
+    setDirectoryPermissionState('ready')
+
+    if (isCompletionNotificationAvailable()) {
+      setNotificationAvailable(true)
+      setNotificationPermission(window.Notification.permission)
+    }
+
+    const frame = requestNextFrame(() => {
+      onboardingStore.getState().initializeTour()
+    })
+
+    return () => {
+      cancelNextFrame(frame)
+    }
+  }, [onboardingStore])
+
   useEffect(() => {
     isMountedRef.current = true
     const previewControllers = previewControllersRef.current
@@ -88,41 +126,6 @@ export function TruckHarvesterApp() {
       saveControllerRef.current?.abort()
       saveControllerRef.current = null
     }
-  }, [])
-
-  useEffect(() => {
-    onboardingStore.getState().initializeTour()
-  }, [onboardingStore])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const supported = isFileSystemAccessAvailable()
-      setFileSystemSupported(supported)
-
-      if (!supported) {
-        setDirectoryPermissionState('ready')
-        return
-      }
-
-      setDirectoryPermissionState('ready')
-    }, 0)
-
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isCompletionNotificationAvailable()) {
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      setNotificationAvailable(true)
-      setNotificationPermission(window.Notification.permission)
-    }, 0)
-
-    return () => window.clearTimeout(timer)
   }, [])
 
   const resolveSaveDirectoryForRun = async () => {
