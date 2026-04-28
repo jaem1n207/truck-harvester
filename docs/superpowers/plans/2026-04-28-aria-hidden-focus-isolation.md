@@ -4,7 +4,7 @@
 
 **Goal:** Prevent onboarding from leaving focusable page controls exposed behind the modal tour without using `aria-hidden` on those controls.
 
-**Architecture:** Keep the existing custom tour overlay and isolate only the background app surface while the tour dialog is open. Use the native `inert` attribute on the background section, not `aria-hidden`, so textareas and buttons are removed from sequential focus and assistive interaction without triggering `aria-hidden-focus`.
+**Architecture:** Keep the existing custom tour overlay and isolate only the background app surface while the tour dialog is open. Use the native `inert` attribute on the background section, not `aria-hidden`, and explicitly disable background buttons and the address textarea so accessibility scanners do not see focusable descendants inside the hidden app surface.
 
 **Tech Stack:** Next.js App Router, React 19, TypeScript strict mode, Vitest with JSDOM, Playwright with axe-core.
 
@@ -12,9 +12,12 @@
 
 ## File Structure
 
-- Modify `src/app/truck-harvester-app.tsx`: mark the root app content section as inert while `onboardingState.isTourOpen` is true and add a stable test selector.
-- Modify `src/app/__tests__/truck-harvester-app.test.tsx`: prove the background section becomes inert while the tour dialog is open and does not receive `aria-hidden`.
-- Modify `e2e/a11y.spec.ts`: assert the live browser page has no `aria-hidden-focus` axe violation and that background isolation uses `inert`.
+- Modify `src/app/truck-harvester-app.tsx`: mark the root app content section as inert while `onboardingState.isTourOpen` is true, add a stable test selector, and pass disabled state to background controls.
+- Modify `src/v2/features/onboarding/ui/help-menu-button.tsx`: accept a disabled prop for the header help control.
+- Modify `src/v2/widgets/directory-selector/ui/directory-selector.tsx`: accept a disabled prop for the save-folder control.
+- Modify `src/v2/features/completion-notification/ui/completion-notification-toggle.tsx`: accept a disabled prop for the optional notification control.
+- Modify `src/app/__tests__/truck-harvester-app.test.tsx`: prove the background section becomes inert, avoids `aria-hidden`, and disables the four focusable background controls while the tour dialog is open.
+- Modify `e2e/a11y.spec.ts`: assert the live browser page has no `aria-hidden-focus` axe violation and that background isolation uses `inert` plus disabled controls.
 
 ### Task 1: Isolate Background Content With Inert
 
@@ -30,7 +33,7 @@ Replace the root content section opening tag with:
 <section
   className="mx-auto grid min-h-dvh w-full max-w-6xl gap-6 px-6 py-8 md:px-10"
   data-tour-background="true"
-  inert={onboardingState.isTourOpen ? true : undefined}
+  inert={isTourOpen ? true : undefined}
 >
 ```
 
@@ -51,10 +54,17 @@ Expected: PASS with no TypeScript errors.
 Add this test inside `describe('TruckHarvesterApp persistence', () => { ... })`:
 
 ```tsx
-it('isolates the background surface with inert while onboarding is open', async () => {
+it('disables the four background controls while onboarding is open', async () => {
   const restoredDirectory = createTestDirectoryHandle()
 
   installDom(restoredDirectory)
+  Object.defineProperty(window, 'Notification', {
+    configurable: true,
+    value: {
+      permission: 'default',
+      requestPermission: vi.fn().mockResolvedValue('default'),
+    },
+  })
   const { TruckHarvesterApp } = await import('../truck-harvester-app')
 
   container = document.createElement('div')
@@ -81,6 +91,19 @@ it('isolates the background surface with inert while onboarding is open', async 
   expect(dialog).toBeInstanceOf(HTMLElement)
   expect(background?.hasAttribute('inert')).toBe(true)
   expect(background?.getAttribute('aria-hidden')).toBeNull()
+
+  const textarea = container.querySelector<HTMLTextAreaElement>('#listing-chip-input-textarea')
+  const directoryButton = Array.from(container.querySelectorAll('button')).find(
+    (button) => button.textContent === '저장 폴더 고르기'
+  )
+  const notificationButton = Array.from(container.querySelectorAll('button')).find(
+    (button) => button.textContent === '완료 알림 켜기'
+  )
+
+  expect(helpButton?.disabled).toBe(true)
+  expect(textarea?.disabled).toBe(true)
+  expect(directoryButton?.disabled).toBe(true)
+  expect(notificationButton?.disabled).toBe(true)
 })
 ```
 
@@ -126,6 +149,11 @@ expect(backgroundState).toEqual({
   ariaHidden: null,
   inert: true,
 })
+
+await expect(page.getByRole('button', { name: /도움말/ })).toBeDisabled()
+await expect(page.locator('#listing-chip-input-textarea')).toBeDisabled()
+await expect(page.getByRole('button', { name: '저장 폴더 고르기' })).toBeDisabled()
+await expect(page.getByRole('button', { name: '완료 알림 켜기' })).toBeDisabled()
 ```
 
 After collecting axe results, add:
