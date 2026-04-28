@@ -5,12 +5,14 @@ import { BellOff, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/v2/shared/ui/button'
 
 interface CompletionNotificationToggleProps {
+  disabled?: boolean
   isAvailable: boolean
   permission: NotificationPermission | 'unsupported'
   onEnable: () => void
 }
 
 export function CompletionNotificationToggle({
+  disabled = false,
   isAvailable,
   permission,
   onEnable,
@@ -39,7 +41,13 @@ export function CompletionNotificationToggle({
 
   return (
     <div className="inline-flex items-center gap-2">
-      <Button onClick={onEnable} size="sm" type="button" variant="outline">
+      <Button
+        disabled={disabled}
+        onClick={onEnable}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
         완료 알림 켜기
       </Button>
       <span className="text-muted-foreground text-xs">선택 사항</span>

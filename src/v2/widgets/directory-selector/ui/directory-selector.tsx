@@ -18,6 +18,7 @@ type DirectoryPermissionState =
 type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
 
 interface DirectorySelectorProps {
+  disabled?: boolean
   isSupported?: boolean
   onSelectDirectory: (
     directory: WritableDirectoryHandle
@@ -33,6 +34,7 @@ const pickSaveDirectory = pickWritableDirectory as (options: {
 }) => Promise<WritableDirectoryHandle | undefined>
 
 export function DirectorySelector({
+  disabled = false,
   isSupported = isFileSystemAccessAvailable(),
   onSelectDirectory,
   permissionState = 'ready',
@@ -67,6 +69,7 @@ export function DirectorySelector({
       </div>
       <div>
         <Button
+          disabled={disabled}
           onClick={async () => {
             const directory = await pickSaveDirectory({
               id: 'truck-harvester-v2-save-folder',
