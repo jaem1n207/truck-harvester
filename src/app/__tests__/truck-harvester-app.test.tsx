@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { type WritableDirectoryHandle } from '@/v2/features/file-management'
+import { onboardingStorageKey } from '@/v2/shared/model'
 
 vi.mock('@/v2/features/listing-preparation', async () => {
   const prepare = await vi.importActual<
@@ -78,6 +79,10 @@ const createRequest = <T,>(result: T): FakeIdbRequest<T> => ({
   onsuccess: null,
   result,
 })
+
+const markOnboardingComplete = () => {
+  window.localStorage.setItem(onboardingStorageKey, 'completed')
+}
 
 const installDom = (storedDirectory: WritableDirectoryHandle) => {
   const currentDom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -200,10 +205,17 @@ afterEach(() => {
 })
 
 describe('TruckHarvesterApp persistence', () => {
-  it('isolates the background surface with inert while onboarding is open', async () => {
+  it('disables the four background controls while onboarding is open', async () => {
     const restoredDirectory = createTestDirectoryHandle()
 
     installDom(restoredDirectory)
+    Object.defineProperty(window, 'Notification', {
+      configurable: true,
+      value: {
+        permission: 'default',
+        requestPermission: vi.fn().mockResolvedValue('default'),
+      },
+    })
     const { TruckHarvesterApp } = await import('../truck-harvester-app')
 
     container = document.createElement('div')
@@ -236,6 +248,21 @@ describe('TruckHarvesterApp persistence', () => {
     expect(dialog).toBeInstanceOf(HTMLElement)
     expect(background?.hasAttribute('inert')).toBe(true)
     expect(background?.getAttribute('aria-hidden')).toBeNull()
+
+    const textarea = container.querySelector<HTMLTextAreaElement>(
+      '#listing-chip-input-textarea'
+    )
+    const directoryButton = Array.from(
+      container.querySelectorAll('button')
+    ).find((button) => button.textContent === '저장 폴더 고르기')
+    const notificationButton = Array.from(
+      container.querySelectorAll('button')
+    ).find((button) => button.textContent === '완료 알림 켜기')
+
+    expect(helpButton?.disabled).toBe(true)
+    expect(textarea?.disabled).toBe(true)
+    expect(directoryButton?.disabled).toBe(true)
+    expect(notificationButton?.disabled).toBe(true)
   })
 
   it('does not restore a persisted writable folder after client mount', async () => {
@@ -254,6 +281,7 @@ describe('TruckHarvesterApp persistence', () => {
     }
 
     installDom(restoredDirectory)
+    markOnboardingComplete()
     const { TruckHarvesterApp } = await import('../truck-harvester-app')
 
     container = document.createElement('div')
@@ -302,6 +330,7 @@ describe('TruckHarvesterApp persistence', () => {
     }
 
     installDom(restoredDirectory)
+    markOnboardingComplete()
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi.fn().mockResolvedValue(
