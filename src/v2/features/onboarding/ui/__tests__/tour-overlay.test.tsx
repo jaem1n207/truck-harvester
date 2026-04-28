@@ -47,12 +47,24 @@ const installDom = () => {
       configurable: true,
       value: dom.window.KeyboardEvent,
     },
+    MutationObserver: {
+      configurable: true,
+      value: dom.window.MutationObserver,
+    },
     window: {
       configurable: true,
       value: dom.window,
     },
   })
 }
+
+const createAnchorRect = (top: number) =>
+  ({
+    left: 120,
+    top,
+    width: 320,
+    height: 140,
+  }) as DOMRect
 
 afterEach(() => {
   if (root) {
@@ -153,6 +165,48 @@ describe('TourOverlay', () => {
     })
 
     expect(onPrevious).not.toHaveBeenCalled()
+  })
+
+  it('remeasures the spotlight when restored layout moves the active anchor', async () => {
+    installDom()
+    const anchor = document.createElement('div')
+    let anchorTop = 240
+    anchor.dataset.tour = 'url-input'
+    anchor.getBoundingClientRect = vi.fn(() => createAnchorRect(anchorTop))
+    document.body.append(anchor)
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <TourOverlay
+          currentStep={0}
+          isOpen
+          onClose={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          steps={tourSteps}
+        />
+      )
+    })
+
+    const highlight = container.querySelector<HTMLElement>(
+      '[data-tour-highlight="true"]'
+    )
+
+    expect(highlight?.style.top).toBe('230px')
+
+    anchorTop = 180
+    document.body.append(document.createElement('span'))
+    window.dispatchEvent(new dom!.window.Event('pageshow'))
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 20))
+    })
+
+    expect(highlight?.style.top).toBe('170px')
   })
 
   it('calls the previous and next handlers after the first step', async () => {
