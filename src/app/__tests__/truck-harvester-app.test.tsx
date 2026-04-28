@@ -60,6 +60,18 @@ let container: HTMLDivElement | null = null
 let dom: JsdomInstance | null = null
 const originalFetch = globalThis.fetch
 
+const createTestDirectoryHandle = (): WritableDirectoryHandle => ({
+  getDirectoryHandle: async () => {
+    throw new Error('테스트에서는 폴더에 쓰지 않습니다.')
+  },
+  getFileHandle: async () => {
+    throw new Error('테스트에서는 파일에 쓰지 않습니다.')
+  },
+  name: 'truck-test',
+  queryPermission: vi.fn().mockResolvedValue('granted'),
+  requestPermission: vi.fn().mockResolvedValue('granted'),
+})
+
 const createRequest = <T,>(result: T): FakeIdbRequest<T> => ({
   error: null,
   onerror: null,
@@ -188,6 +200,44 @@ afterEach(() => {
 })
 
 describe('TruckHarvesterApp persistence', () => {
+  it('isolates the background surface with inert while onboarding is open', async () => {
+    const restoredDirectory = createTestDirectoryHandle()
+
+    installDom(restoredDirectory)
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+    })
+
+    const helpButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('도움말')
+    )
+
+    expect(helpButton).toBeInstanceOf(HTMLButtonElement)
+
+    await act(async () => {
+      helpButton?.dispatchEvent(
+        new dom!.window.MouseEvent('click', { bubbles: true })
+      )
+    })
+
+    const background = container.querySelector<HTMLElement>(
+      '[data-tour-background="true"]'
+    )
+    const dialog = container.querySelector<HTMLElement>(
+      '[data-tour-modal-root="true"]'
+    )
+
+    expect(dialog).toBeInstanceOf(HTMLElement)
+    expect(background?.hasAttribute('inert')).toBe(true)
+    expect(background?.getAttribute('aria-hidden')).toBeNull()
+  })
+
   it('does not restore a persisted writable folder after client mount', async () => {
     const queryPermission = vi.fn().mockResolvedValue('granted')
     const requestPermission = vi.fn().mockResolvedValue('granted')

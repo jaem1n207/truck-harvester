@@ -385,7 +385,11 @@ export function TruckHarvesterApp() {
       className="bg-background text-foreground min-h-dvh"
       data-tour="v2-page"
     >
-      <section className="mx-auto grid min-h-dvh w-full max-w-6xl gap-6 px-6 py-8 md:px-10">
+      <section
+        className="mx-auto grid min-h-dvh w-full max-w-6xl gap-6 px-6 py-8 md:px-10"
+        data-tour-background="true"
+        inert={onboardingState.isTourOpen ? true : undefined}
+      >
         <header className="flex items-center justify-between gap-4">
           <div>
             <p className="text-muted-foreground text-sm font-medium">
