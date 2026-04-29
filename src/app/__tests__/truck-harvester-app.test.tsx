@@ -12,9 +12,6 @@ const analyticsMocks = vi.hoisted(() => ({
   trackBatchStarted: vi.fn(),
   trackListingFailed: vi.fn(),
   trackPreviewCompleted: vi.fn(),
-  trackSaveCompleted: vi.fn(),
-  trackSaveFailed: vi.fn(),
-  trackSaveStarted: vi.fn(),
 }))
 
 vi.mock('@/v2/shared/lib/analytics', () => analyticsMocks)
@@ -71,6 +68,17 @@ let root: Root | null = null
 let container: HTMLDivElement | null = null
 let dom: JsdomInstance | null = null
 const originalFetch = globalThis.fetch
+
+const createDeferred = <T,>() => {
+  let resolve: (value: T) => void = () => {}
+  let reject: (error: unknown) => void = () => {}
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+
+  return { promise, reject, resolve }
+}
 
 const createRequest = <T,>(result: T): FakeIdbRequest<T> => ({
   error: null,
@@ -193,11 +201,18 @@ afterEach(() => {
   dom?.window.close()
   dom = null
   vi.clearAllMocks()
+  analyticsMocks.createAnalyticsBatchId.mockImplementation(() => 'batch-1')
   Object.defineProperty(globalThis, 'fetch', {
     configurable: true,
     value: originalFetch,
   })
 })
+
+const expectNoVehicleIdentity = (payload: object | undefined) => {
+  expect(payload).toBeDefined()
+  expect(payload).not.toHaveProperty('vehicleNumber')
+  expect(payload).not.toHaveProperty('vehicleName')
+}
 
 describe('TruckHarvesterApp persistence', () => {
   it('does not restore a persisted writable folder after client mount', async () => {
@@ -580,12 +595,188 @@ describe('TruckHarvesterApp persistence', () => {
         listingUrl: truckUrl,
       })
     )
-    expect(analyticsMocks.trackListingFailed).not.toHaveBeenCalledWith(
+
+    const previewFailurePayload =
+      analyticsMocks.trackListingFailed.mock.calls.find(
+        ([payload]) =>
+          payload.failureStage === 'preview' && payload.listingUrl === truckUrl
+      )?.[0]
+
+    expectNoVehicleIdentity(previewFailurePayload)
+  })
+
+  it('tracks superseded preview runs without overwriting latest duplicate helper text', async () => {
+    const olderTruckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=7'
+    const newerTruckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=8'
+    const olderPreview = createDeferred<Response>()
+
+    analyticsMocks.createAnalyticsBatchId
+      .mockReturnValueOnce('batch-old')
+      .mockReturnValueOnce('batch-latest')
+
+    installDom({} as WritableDirectoryHandle)
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi.fn((_: RequestInfo | URL, init?: RequestInit) => {
+        const requestBody = JSON.parse(String(init?.body)) as { url: string }
+
+        if (requestBody.url === olderTruckUrl) {
+          return olderPreview.promise
+        }
+
+        if (requestBody.url === newerTruckUrl) {
+          return Promise.resolve(
+            Response.json({
+              success: true,
+              data: {
+                url: newerTruckUrl,
+                vname: '현대 메가트럭',
+                vehicleName: '현대 메가트럭',
+                vnumber: '서울12가3456',
+                price: {
+                  raw: 3200,
+                  rawWon: 32000000,
+                  label: '3,200만원',
+                  compactLabel: '3,200만원',
+                },
+                year: '2020',
+                mileage: '120,000km',
+                options: '윙바디',
+                images: [],
+              },
+            })
+          )
+        }
+
+        return Promise.reject(new Error('예상하지 못한 테스트 주소입니다.'))
+      }),
+    })
+
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+
+    const olderPasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperty(olderPasteEvent, 'clipboardData', {
+      value: { getData: () => olderTruckUrl },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(olderPasteEvent)
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    const newerPasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperty(newerPasteEvent, 'clipboardData', {
+      value: { getData: () => `${olderTruckUrl}\n${newerTruckUrl}` },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(newerPasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(container.textContent).toContain('이미 넣은 매물이에요.')
+
+    olderPreview.resolve(
+      Response.json(
+        {
+          success: false,
+          reason: 'site-timeout',
+          message: '사이트 응답이 늦습니다.',
+        },
+        { status: 504 }
+      )
+    )
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(container.textContent).toContain('이미 넣은 매물이에요.')
+    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
       expect.objectContaining({
-        vehicleNumber: expect.any(String),
-        vehicleName: expect.any(String),
+        batchId: 'batch-old',
+        urlCount: 1,
+        uniqueUrlCount: 1,
       })
     )
+    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-latest',
+        urlCount: 2,
+        uniqueUrlCount: 2,
+      })
+    )
+    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-latest',
+        urlCount: 2,
+        uniqueUrlCount: 1,
+        readyCount: 1,
+        previewFailedCount: 0,
+      })
+    )
+    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-old',
+        urlCount: 1,
+        uniqueUrlCount: 1,
+        readyCount: 0,
+        previewFailedCount: 1,
+      })
+    )
+
+    const olderFailurePayload =
+      analyticsMocks.trackListingFailed.mock.calls.find(
+        ([payload]) =>
+          payload.failureStage === 'preview' &&
+          payload.listingUrl === olderTruckUrl
+      )?.[0]
+
+    expect(olderFailurePayload).toEqual(
+      expect.objectContaining({
+        batchId: 'batch-old',
+        failureStage: 'preview',
+        listingUrl: olderTruckUrl,
+      })
+    )
+    expectNoVehicleIdentity(olderFailurePayload)
   })
 
   it('tracks invalid listing identity as an invalid_url failure', async () => {
@@ -663,5 +854,14 @@ describe('TruckHarvesterApp persistence', () => {
         listingUrl: truckUrl,
       })
     )
+
+    const invalidFailurePayload =
+      analyticsMocks.trackListingFailed.mock.calls.find(
+        ([payload]) =>
+          payload.failureStage === 'invalid_url' &&
+          payload.listingUrl === truckUrl
+      )?.[0]
+
+    expectNoVehicleIdentity(invalidFailurePayload)
   })
 })

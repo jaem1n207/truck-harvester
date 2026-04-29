@@ -35,7 +35,6 @@ import {
   trackBatchStarted,
   trackListingFailed,
   trackPreviewCompleted,
-  type SaveMethod,
 } from '@/v2/shared/lib/analytics'
 import { createOnboardingStore } from '@/v2/shared/model'
 import { DirectorySelector } from '@/v2/widgets/directory-selector'
@@ -55,7 +54,6 @@ interface AnalyticsBatchState {
   id: string
   startedAt: number
   urlCount: number
-  started: boolean
 }
 
 const pickSaveDirectory = pickWritableDirectory as (options: {
@@ -111,10 +109,8 @@ export function TruckHarvesterApp() {
   const pasteSequenceRef = useRef(0)
   const previewControllersRef = useRef<Set<AbortController>>(new Set())
   const saveControllerRef = useRef<AbortController | null>(null)
-  const analyticsBatchRef = useRef<AnalyticsBatchState | null>(null)
   const listingBatchIdsRef = useRef<Map<string, string>>(new Map())
   const previewFailureIdsRef = useRef<Set<string>>(new Set())
-  const saveFailureIdsRef = useRef<Set<string>>(new Set())
 
   const preparedState = useStore(preparedStore, (state) => state)
   const onboardingState = useStore(onboardingStore, (state) => state)
@@ -224,21 +220,11 @@ export function TruckHarvesterApp() {
     }
   }
 
-  const hasOpenPreparedItems = () =>
-    preparedStore.getState().items.some((item) => item.status !== 'saved')
-
-  const getActiveAnalyticsBatch = () => {
-    if (!analyticsBatchRef.current || !hasOpenPreparedItems()) {
-      analyticsBatchRef.current = {
-        id: createAnalyticsBatchId(),
-        startedAt: getAnalyticsNow(),
-        urlCount: 0,
-        started: false,
-      }
-    }
-
-    return analyticsBatchRef.current
-  }
+  const createAnalyticsBatch = (urlCount: number): AnalyticsBatchState => ({
+    id: createAnalyticsBatchId(),
+    startedAt: getAnalyticsNow(),
+    urlCount,
+  })
 
   const getAnalyticsItemsForBatch = (batchId: string) =>
     preparedStore
@@ -247,10 +233,7 @@ export function TruckHarvesterApp() {
         (item) => listingBatchIdsRef.current.get(item.id) === batchId
       )
 
-  const getBatchAnalyticsInput = (
-    batch: AnalyticsBatchState,
-    saveMethod?: SaveMethod
-  ) => {
+  const getBatchAnalyticsInput = (batch: AnalyticsBatchState) => {
     const items = getAnalyticsItemsForBatch(batch.id)
 
     return {
@@ -262,12 +245,9 @@ export function TruckHarvesterApp() {
       previewFailedCount: items.filter((item) =>
         previewFailureIdsRef.current.has(item.id)
       ).length,
-      savedCount: items.filter((item) => item.status === 'saved').length,
-      saveFailedCount: items.filter((item) =>
-        saveFailureIdsRef.current.has(item.id)
-      ).length,
+      savedCount: 0,
+      saveFailedCount: 0,
       durationMs: getAnalyticsDuration(batch.startedAt),
-      saveMethod,
       filesystemSupported: fileSystemSupported,
       notificationEnabled: isNotificationEnabled(notificationPermission),
     }
@@ -285,16 +265,11 @@ export function TruckHarvesterApp() {
       return
     }
 
-    const analyticsBatch = getActiveAnalyticsBatch()
-    analyticsBatch.urlCount += result.urls.length
-
-    if (!analyticsBatch.started) {
-      analyticsBatch.started = true
-      trackBatchStarted({
-        ...getBatchAnalyticsInput(analyticsBatch),
-        uniqueUrlCount: result.urls.length,
-      })
-    }
+    const analyticsBatch = createAnalyticsBatch(result.urls.length)
+    trackBatchStarted({
+      ...getBatchAnalyticsInput(analyticsBatch),
+      uniqueUrlCount: result.urls.length,
+    })
 
     const previewController = new AbortController()
     previewControllersRef.current.add(previewController)
@@ -305,11 +280,7 @@ export function TruckHarvesterApp() {
       signal: previewController.signal,
     })
       .then((prepareResult) => {
-        if (
-          !isMountedRef.current ||
-          previewController.signal.aborted ||
-          pasteSequenceRef.current !== pasteSequence
-        ) {
+        if (!isMountedRef.current || previewController.signal.aborted) {
           return
         }
 
@@ -343,9 +314,11 @@ export function TruckHarvesterApp() {
           })
         })
 
-        setDuplicateMessage(
-          prepareResult.duplicates.length > 0 ? '이미 넣은 매물이에요.' : null
-        )
+        if (pasteSequenceRef.current === pasteSequence) {
+          setDuplicateMessage(
+            prepareResult.duplicates.length > 0 ? '이미 넣은 매물이에요.' : null
+          )
+        }
       })
       .catch(() => {
         // Preview cancellation is expected when leaving the route.
