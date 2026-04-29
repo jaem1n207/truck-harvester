@@ -7,6 +7,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { type WritableDirectoryHandle } from '@/v2/features/file-management'
 
+const analyticsMocks = vi.hoisted(() => ({
+  createAnalyticsBatchId: vi.fn(() => 'batch-1'),
+  trackBatchStarted: vi.fn(),
+  trackListingFailed: vi.fn(),
+  trackPreviewCompleted: vi.fn(),
+  trackSaveCompleted: vi.fn(),
+  trackSaveFailed: vi.fn(),
+  trackSaveStarted: vi.fn(),
+}))
+
+vi.mock('@/v2/shared/lib/analytics', () => analyticsMocks)
+
 vi.mock('@/v2/features/listing-preparation', async () => {
   const prepare = await vi.importActual<
     typeof import('@/v2/features/listing-preparation/model/prepare-listings')
@@ -388,5 +400,268 @@ describe('TruckHarvesterApp persistence', () => {
     expect(statusRegion?.textContent).toContain('현대 메가트럭')
     expect(statusRegion?.textContent).toContain('저장 완료')
     expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
+  })
+
+  it('tracks batch and preview completion without success listing identifiers', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3'
+
+    installDom({
+      getDirectoryHandle: async () => {
+        throw new Error('테스트에서는 폴더에 쓰지 않습니다.')
+      },
+      getFileHandle: async () => {
+        throw new Error('테스트에서는 파일에 쓰지 않습니다.')
+      },
+      name: 'truck-test',
+    } as WritableDirectoryHandle)
+
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              url: truckUrl,
+              vname: '현대 메가트럭',
+              vehicleName: '현대 메가트럭',
+              vnumber: '서울12가3456',
+              price: {
+                raw: 3200,
+                rawWon: 32000000,
+                label: '3,200만원',
+                compactLabel: '3,200만원',
+              },
+              year: '2020',
+              mileage: '120,000km',
+              options: '윙바디',
+              images: [],
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' } }
+        )
+      ),
+    })
+
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+
+    const pasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: {
+        getData: () => truckUrl,
+      },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(pasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        urlCount: 1,
+        uniqueUrlCount: 1,
+        readyCount: 0,
+        invalidCount: 0,
+        previewFailedCount: 0,
+        savedCount: 0,
+        saveFailedCount: 0,
+      })
+    )
+    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        urlCount: 1,
+        uniqueUrlCount: 1,
+        readyCount: 1,
+        invalidCount: 0,
+        previewFailedCount: 0,
+      })
+    )
+    expect(analyticsMocks.trackListingFailed).not.toHaveBeenCalled()
+  })
+
+  it('tracks preview failures with listing url but without vehicle identifiers', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=5'
+
+    installDom({} as WritableDirectoryHandle)
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            success: false,
+            reason: 'site-timeout',
+            message: '사이트 응답이 늦습니다.',
+          },
+          { status: 504 }
+        )
+      ),
+    })
+
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+
+    const pasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: { getData: () => truckUrl },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(pasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        previewFailedCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        failureStage: 'preview',
+        listingUrl: truckUrl,
+      })
+    )
+    expect(analyticsMocks.trackListingFailed).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        vehicleNumber: expect.any(String),
+        vehicleName: expect.any(String),
+      })
+    )
+  })
+
+  it('tracks invalid listing identity as an invalid_url failure', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=6'
+
+    installDom({} as WritableDirectoryHandle)
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(
+        Response.json({
+          success: true,
+          data: {
+            url: truckUrl,
+            vname: '차명 정보 없음',
+            vehicleName: '차명 정보 없음',
+            vnumber: '서울12가3456',
+            price: {
+              raw: 0,
+              rawWon: 0,
+              label: '가격 정보 없음',
+              compactLabel: '가격 정보 없음',
+            },
+            year: '2020',
+            mileage: '120,000km',
+            options: '윙바디',
+            images: [],
+          },
+        })
+      ),
+    })
+
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+
+    const pasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: { getData: () => truckUrl },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(pasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        failureStage: 'invalid_url',
+        listingUrl: truckUrl,
+      })
+    )
   })
 })

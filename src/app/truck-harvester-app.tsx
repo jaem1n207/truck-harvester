@@ -30,6 +30,13 @@ import {
   TourOverlay,
   tourSteps,
 } from '@/v2/features/onboarding'
+import {
+  createAnalyticsBatchId,
+  trackBatchStarted,
+  trackListingFailed,
+  trackPreviewCompleted,
+  type SaveMethod,
+} from '@/v2/shared/lib/analytics'
 import { createOnboardingStore } from '@/v2/shared/model'
 import { DirectorySelector } from '@/v2/widgets/directory-selector'
 import { PreparedListingStatusPanel } from '@/v2/widgets/processing-status'
@@ -43,6 +50,13 @@ const useBrowserLayoutEffect =
 
 type DirectoryPermissionState = 'denied' | 'ready'
 type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
+
+interface AnalyticsBatchState {
+  id: string
+  startedAt: number
+  urlCount: number
+  started: boolean
+}
 
 const pickSaveDirectory = pickWritableDirectory as (options: {
   id: string
@@ -66,6 +80,16 @@ const cancelNextFrame = (handle: number) => {
   window.clearTimeout(handle)
 }
 
+const getAnalyticsNow = () =>
+  typeof performance !== 'undefined' ? performance.now() : Date.now()
+
+const getAnalyticsDuration = (startedAt: number) =>
+  Math.max(0, Math.round(getAnalyticsNow() - startedAt))
+
+const isNotificationEnabled = (
+  permission: NotificationPermission | 'unsupported'
+) => permission === 'granted'
+
 export function TruckHarvesterApp() {
   const [preparedStore] = useState(() => createPreparedListingStore())
   const [onboardingStore] = useState(() =>
@@ -87,6 +111,10 @@ export function TruckHarvesterApp() {
   const pasteSequenceRef = useRef(0)
   const previewControllersRef = useRef<Set<AbortController>>(new Set())
   const saveControllerRef = useRef<AbortController | null>(null)
+  const analyticsBatchRef = useRef<AnalyticsBatchState | null>(null)
+  const listingBatchIdsRef = useRef<Map<string, string>>(new Map())
+  const previewFailureIdsRef = useRef<Set<string>>(new Set())
+  const saveFailureIdsRef = useRef<Set<string>>(new Set())
 
   const preparedState = useStore(preparedStore, (state) => state)
   const onboardingState = useStore(onboardingStore, (state) => state)
@@ -196,6 +224,55 @@ export function TruckHarvesterApp() {
     }
   }
 
+  const hasOpenPreparedItems = () =>
+    preparedStore.getState().items.some((item) => item.status !== 'saved')
+
+  const getActiveAnalyticsBatch = () => {
+    if (!analyticsBatchRef.current || !hasOpenPreparedItems()) {
+      analyticsBatchRef.current = {
+        id: createAnalyticsBatchId(),
+        startedAt: getAnalyticsNow(),
+        urlCount: 0,
+        started: false,
+      }
+    }
+
+    return analyticsBatchRef.current
+  }
+
+  const getAnalyticsItemsForBatch = (batchId: string) =>
+    preparedStore
+      .getState()
+      .items.filter(
+        (item) => listingBatchIdsRef.current.get(item.id) === batchId
+      )
+
+  const getBatchAnalyticsInput = (
+    batch: AnalyticsBatchState,
+    saveMethod?: SaveMethod
+  ) => {
+    const items = getAnalyticsItemsForBatch(batch.id)
+
+    return {
+      batchId: batch.id,
+      urlCount: batch.urlCount,
+      uniqueUrlCount: items.length,
+      readyCount: items.filter((item) => item.status === 'ready').length,
+      invalidCount: items.filter((item) => item.status === 'invalid').length,
+      previewFailedCount: items.filter((item) =>
+        previewFailureIdsRef.current.has(item.id)
+      ).length,
+      savedCount: items.filter((item) => item.status === 'saved').length,
+      saveFailedCount: items.filter((item) =>
+        saveFailureIdsRef.current.has(item.id)
+      ).length,
+      durationMs: getAnalyticsDuration(batch.startedAt),
+      saveMethod,
+      filesystemSupported: fileSystemSupported,
+      notificationEnabled: isNotificationEnabled(notificationPermission),
+    }
+  }
+
   const handlePasteText = (text: string) => {
     const pasteSequence = pasteSequenceRef.current + 1
     pasteSequenceRef.current = pasteSequence
@@ -206,6 +283,17 @@ export function TruckHarvesterApp() {
         setDuplicateMessage(result.message)
       }
       return
+    }
+
+    const analyticsBatch = getActiveAnalyticsBatch()
+    analyticsBatch.urlCount += result.urls.length
+
+    if (!analyticsBatch.started) {
+      analyticsBatch.started = true
+      trackBatchStarted({
+        ...getBatchAnalyticsInput(analyticsBatch),
+        uniqueUrlCount: result.urls.length,
+      })
     }
 
     const previewController = new AbortController()
@@ -224,6 +312,36 @@ export function TruckHarvesterApp() {
         ) {
           return
         }
+
+        const batchItems = preparedStore
+          .getState()
+          .items.filter((item) => prepareResult.added.includes(item.url))
+
+        batchItems.forEach((item) => {
+          listingBatchIdsRef.current.set(item.id, analyticsBatch.id)
+        })
+
+        batchItems.forEach((item) => {
+          if (item.status === 'failed') {
+            previewFailureIdsRef.current.add(item.id)
+          }
+        })
+
+        trackPreviewCompleted(getBatchAnalyticsInput(analyticsBatch))
+
+        batchItems.forEach((item) => {
+          if (item.status !== 'invalid' && item.status !== 'failed') {
+            return
+          }
+
+          trackListingFailed({
+            batchId: analyticsBatch.id,
+            failureStage: item.status === 'invalid' ? 'invalid_url' : 'preview',
+            failureReason: item.message,
+            listingUrl: item.url,
+            elapsedMs: getAnalyticsDuration(analyticsBatch.startedAt),
+          })
+        })
 
         setDuplicateMessage(
           prepareResult.duplicates.length > 0 ? '이미 넣은 매물이에요.' : null
