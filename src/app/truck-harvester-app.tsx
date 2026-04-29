@@ -39,6 +39,7 @@ import {
   trackSaveCompleted,
   trackSaveFailed,
   trackSaveStarted,
+  trackUnsupportedInputFailure,
   type SaveMethod,
 } from '@/v2/shared/lib/analytics'
 import { createOnboardingStore } from '@/v2/shared/model'
@@ -427,11 +428,20 @@ export function TruckHarvesterApp() {
   }
 
   const handlePasteText = (text: string) => {
+    const pasteStartedAt = getAnalyticsNow()
     const pasteSequence = pasteSequenceRef.current + 1
     pasteSequenceRef.current = pasteSequence
     const result = parseUrlInputText(text)
 
     if (!result.success) {
+      if (text.trim().length > 0) {
+        trackUnsupportedInputFailure({
+          batchId: createAnalyticsBatchId(),
+          rawInput: text,
+          elapsedMs: getAnalyticsDuration(pasteStartedAt),
+        })
+      }
+
       if (isMountedRef.current && pasteSequenceRef.current === pasteSequence) {
         setDuplicateMessage(result.message)
       }

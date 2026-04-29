@@ -18,6 +18,7 @@ const analyticsMocks = vi.hoisted(() => ({
   trackSaveCompleted: vi.fn(),
   trackSaveFailed: vi.fn(),
   trackSaveStarted: vi.fn(),
+  trackUnsupportedInputFailure: vi.fn(),
 }))
 
 const listingPreparationMocks = vi.hoisted(() => ({
@@ -813,6 +814,68 @@ describe('TruckHarvesterApp persistence', () => {
       })
     )
     expect(analyticsMocks.trackListingFailed).not.toHaveBeenCalled()
+  })
+
+  it('tracks unsupported non-empty pasted input once without starting preview', async () => {
+    const unsupportedInput =
+      '  DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300055501\nabc...  '
+
+    installDom({} as WritableDirectoryHandle)
+    await renderTruckHarvesterApp()
+
+    await pasteListingText(unsupportedInput)
+    await flushAsyncUi(2)
+
+    expect(analyticsMocks.createAnalyticsBatchId).toHaveBeenCalledTimes(1)
+    expect(analyticsMocks.trackUnsupportedInputFailure).toHaveBeenCalledTimes(1)
+    expect(analyticsMocks.trackUnsupportedInputFailure).toHaveBeenCalledWith({
+      batchId: 'batch-1',
+      rawInput: unsupportedInput,
+      elapsedMs: expect.any(Number),
+    })
+    expect(listingPreparationMocks.prepareListingUrls).not.toHaveBeenCalled()
+    expect(analyticsMocks.trackBatchStarted).not.toHaveBeenCalled()
+    expect(analyticsMocks.trackPreviewCompleted).not.toHaveBeenCalled()
+    expect(container?.textContent).toContain(
+      '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.'
+    )
+  })
+
+  it('does not track empty pasted input as an unsupported input failure', async () => {
+    installDom({} as WritableDirectoryHandle)
+    await renderTruckHarvesterApp()
+
+    await pasteListingText(' \n\t ')
+    await flushAsyncUi(2)
+
+    expect(analyticsMocks.createAnalyticsBatchId).not.toHaveBeenCalled()
+    expect(analyticsMocks.trackUnsupportedInputFailure).not.toHaveBeenCalled()
+    expect(listingPreparationMocks.prepareListingUrls).not.toHaveBeenCalled()
+    expect(container?.textContent).toContain(
+      '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.'
+    )
+  })
+
+  it('does not track surrounding prose as unsupported input when a valid listing url is present', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=21'
+
+    installDom({} as WritableDirectoryHandle)
+    mockParseResponses([createTruckListing(truckUrl)])
+    await renderTruckHarvesterApp()
+
+    await pasteListingText(`확인 부탁드립니다\n${truckUrl}\nabc...`)
+    await flushAsyncUi(4)
+
+    expect(analyticsMocks.trackUnsupportedInputFailure).not.toHaveBeenCalled()
+    expect(listingPreparationMocks.prepareListingUrls).toHaveBeenCalledTimes(1)
+    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        urlCount: 1,
+        uniqueUrlCount: 1,
+      })
+    )
   })
 
   it('tracks preview failures with listing url but without vehicle identifiers', async () => {
