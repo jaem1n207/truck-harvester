@@ -43,9 +43,34 @@ const validTruckUrl =
 const secondTruckUrl =
   'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=4'
 
+interface MockPrepareResult {
+  added: string[]
+  duplicates: string[]
+  addedItems: Array<{ id: string; url: string }>
+  settledItems: Array<{
+    id: string
+    url: string
+    status: 'failed' | 'invalid' | 'ready'
+    message?: string
+  }>
+}
+
 let root: Root | null = null
 let container: HTMLDivElement | null = null
 let dom: { window: Window & typeof globalThis } | null = null
+
+const createMockPrepareResult = ({
+  added,
+  duplicates,
+}: {
+  added: string[]
+  duplicates: string[]
+}): MockPrepareResult => ({
+  added,
+  duplicates,
+  addedItems: [],
+  settledItems: [],
+})
 
 const installDom = () => {
   const currentDom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -188,18 +213,11 @@ describe('HomePage', () => {
   })
 
   it('keeps the latest duplicate warning when an older preview resolves later', async () => {
-    const previewResolvers: Array<
-      (result: { added: string[]; duplicates: string[] }) => void
-    > = []
-    const previewPromises: Array<
-      Promise<{ added: string[]; duplicates: string[] }>
-    > = []
+    const previewResolvers: Array<(result: MockPrepareResult) => void> = []
+    const previewPromises: Array<Promise<MockPrepareResult>> = []
 
     listingPreparationMocks.prepareListingUrls.mockImplementation(() => {
-      const previewPromise = new Promise<{
-        added: string[]
-        duplicates: string[]
-      }>((resolve) => {
+      const previewPromise = new Promise<MockPrepareResult>((resolve) => {
         previewResolvers.push(resolve)
       })
 
@@ -247,7 +265,12 @@ describe('HomePage', () => {
     expect(listingPreparationMocks.prepareListingUrls).toHaveBeenCalledTimes(2)
 
     await act(async () => {
-      previewResolvers[1]?.({ added: [], duplicates: [secondTruckUrl] })
+      previewResolvers[1]?.(
+        createMockPrepareResult({
+          added: [],
+          duplicates: [secondTruckUrl],
+        })
+      )
       await previewPromises[1]
       await Promise.resolve()
     })
@@ -255,7 +278,12 @@ describe('HomePage', () => {
     expect(container.textContent).toContain('이미 넣은 매물이에요.')
 
     await act(async () => {
-      previewResolvers[0]?.({ added: [validTruckUrl], duplicates: [] })
+      previewResolvers[0]?.(
+        createMockPrepareResult({
+          added: [validTruckUrl],
+          duplicates: [],
+        })
+      )
       await previewPromises[0]
       await Promise.resolve()
     })
