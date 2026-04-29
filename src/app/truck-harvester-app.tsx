@@ -24,6 +24,7 @@ import {
   selectCheckingPreparedListings,
   selectReadyPreparedListings,
   type PreparedListing,
+  type ReadyPreparedListing,
 } from '@/v2/features/listing-preparation'
 import {
   HelpMenuButton,
@@ -35,6 +36,10 @@ import {
   trackBatchStarted,
   trackListingFailed,
   trackPreviewCompleted,
+  trackSaveCompleted,
+  trackSaveFailed,
+  trackSaveStarted,
+  type SaveMethod,
 } from '@/v2/shared/lib/analytics'
 import { createOnboardingStore } from '@/v2/shared/model'
 import { DirectorySelector } from '@/v2/widgets/directory-selector'
@@ -56,9 +61,20 @@ interface AnalyticsBatchState {
   urlCount: number
 }
 
+interface AnalyticsSaveBatchGroup {
+  batch: AnalyticsBatchState
+  items: ReadyPreparedListing[]
+}
+
 type AnalyticsPreviewItem =
   | { id: string; url: string; status: 'ready' }
   | { id: string; url: string; status: 'failed' | 'invalid'; message: string }
+
+interface BatchAnalyticsSaveOptions {
+  savedCount?: number
+  saveFailedCount?: number
+  saveMethod?: SaveMethod
+}
 
 const pickSaveDirectory = pickWritableDirectory as (options: {
   id: string
@@ -113,6 +129,10 @@ export function TruckHarvesterApp() {
   const pasteSequenceRef = useRef(0)
   const previewControllersRef = useRef<Set<AbortController>>(new Set())
   const saveControllerRef = useRef<AbortController | null>(null)
+  const analyticsBatchByListingIdRef = useRef<Map<string, AnalyticsBatchState>>(
+    new Map()
+  )
+  const saveFailureIdsRef = useRef<Set<string>>(new Set())
 
   const preparedState = useStore(preparedStore, (state) => state)
   const onboardingState = useStore(onboardingStore, (state) => state)
@@ -230,7 +250,8 @@ export function TruckHarvesterApp() {
 
   const getBatchAnalyticsInput = (
     batch: AnalyticsBatchState,
-    items: readonly AnalyticsPreviewItem[] = []
+    items: readonly AnalyticsPreviewItem[] = [],
+    saveOptions: BatchAnalyticsSaveOptions = {}
   ) => {
     return {
       batchId: batch.id,
@@ -240,9 +261,10 @@ export function TruckHarvesterApp() {
       invalidCount: items.filter((item) => item.status === 'invalid').length,
       previewFailedCount: items.filter((item) => item.status === 'failed')
         .length,
-      savedCount: 0,
-      saveFailedCount: 0,
+      savedCount: saveOptions.savedCount ?? 0,
+      saveFailedCount: saveOptions.saveFailedCount ?? 0,
       durationMs: getAnalyticsDuration(batch.startedAt),
+      saveMethod: saveOptions.saveMethod,
       filesystemSupported: fileSystemSupported,
       notificationEnabled: isNotificationEnabled(notificationPermission),
     }
@@ -293,6 +315,83 @@ export function TruckHarvesterApp() {
     })
   }
 
+  const getReadyAnalyticsItems = (
+    items: readonly ReadyPreparedListing[]
+  ): AnalyticsPreviewItem[] =>
+    items.map((item) => ({
+      id: item.id,
+      url: item.url,
+      status: 'ready',
+    }))
+
+  const getSaveBatchGroups = (
+    items: readonly ReadyPreparedListing[]
+  ): AnalyticsSaveBatchGroup[] => {
+    const groups: AnalyticsSaveBatchGroup[] = []
+    const groupsByBatchId = new Map<string, AnalyticsSaveBatchGroup>()
+
+    items.forEach((item) => {
+      const batch = analyticsBatchByListingIdRef.current.get(item.id)
+
+      if (!batch) {
+        return
+      }
+
+      const currentGroup = groupsByBatchId.get(batch.id)
+
+      if (currentGroup) {
+        currentGroup.items.push(item)
+        return
+      }
+
+      const nextGroup = { batch, items: [item] }
+
+      groupsByBatchId.set(batch.id, nextGroup)
+      groups.push(nextGroup)
+    })
+
+    return groups
+  }
+
+  const getSaveBatchCounts = (
+    group: AnalyticsSaveBatchGroup,
+    savedItemIds: ReadonlySet<string>
+  ) => ({
+    savedCount: group.items.filter((item) => savedItemIds.has(item.id)).length,
+    saveFailedCount: group.items.filter((item) =>
+      saveFailureIdsRef.current.has(item.id)
+    ).length,
+  })
+
+  const getSaveBatchAnalyticsInput = (
+    group: AnalyticsSaveBatchGroup,
+    saveMethod: SaveMethod,
+    savedItemIds: ReadonlySet<string>
+  ) =>
+    getBatchAnalyticsInput(group.batch, getReadyAnalyticsItems(group.items), {
+      ...getSaveBatchCounts(group, savedItemIds),
+      saveMethod,
+    })
+
+  const trackSaveListingFailure = (item: ReadyPreparedListing) => {
+    const batch = analyticsBatchByListingIdRef.current.get(item.id)
+
+    if (!batch) {
+      return
+    }
+
+    trackListingFailed({
+      batchId: batch.id,
+      failureStage: 'save',
+      failureReason: saveFailureMessage,
+      listingUrl: item.url,
+      vehicleNumber: item.listing.vnumber,
+      vehicleName: item.listing.vname || item.listing.vehicleName,
+      imageCount: item.listing.images.length,
+      elapsedMs: getAnalyticsDuration(batch.startedAt),
+    })
+  }
+
   const handlePasteText = (text: string) => {
     const pasteSequence = pasteSequenceRef.current + 1
     pasteSequenceRef.current = pasteSequence
@@ -323,6 +422,10 @@ export function TruckHarvesterApp() {
         if (!isMountedRef.current || previewController.signal.aborted) {
           return
         }
+
+        prepareResult.addedItems.forEach((item) => {
+          analyticsBatchByListingIdRef.current.set(item.id, analyticsBatch)
+        })
 
         const batchItems = getAnalyticsPreviewItems(prepareResult)
 
@@ -391,6 +494,20 @@ export function TruckHarvesterApp() {
       const itemsToSave = readyListings
       setIsSaving(true)
 
+      const saveMethod: SaveMethod = runDirectory ? 'directory' : 'zip'
+      const savedItemIds = new Set<string>()
+      const saveBatchGroups = getSaveBatchGroups(itemsToSave)
+
+      itemsToSave.forEach((item) => {
+        saveFailureIdsRef.current.delete(item.id)
+      })
+
+      saveBatchGroups.forEach((group) => {
+        trackSaveStarted(
+          getSaveBatchAnalyticsInput(group, saveMethod, savedItemIds)
+        )
+      })
+
       let savedCount = 0
 
       if (runDirectory) {
@@ -426,12 +543,15 @@ export function TruckHarvesterApp() {
             }
 
             preparedStore.getState().markSaved(item.id)
+            savedItemIds.add(item.id)
             savedCount += 1
           } catch {
             if (!canContinueSave()) {
               return
             }
 
+            saveFailureIdsRef.current.add(item.id)
+            trackSaveListingFailure(item)
             preparedStore.getState().markFailed(item.url, saveFailureMessage)
           }
         }
@@ -471,6 +591,7 @@ export function TruckHarvesterApp() {
 
           itemsToSave.forEach((item) => {
             preparedStore.getState().markSaved(item.id)
+            savedItemIds.add(item.id)
           })
           savedCount = itemsToSave.length
         } catch {
@@ -479,10 +600,34 @@ export function TruckHarvesterApp() {
           }
 
           itemsToSave.forEach((item) => {
+            saveFailureIdsRef.current.add(item.id)
+          })
+
+          itemsToSave.forEach((item) => {
+            trackSaveListingFailure(item)
+          })
+
+          itemsToSave.forEach((item) => {
             preparedStore.getState().markFailed(item.url, saveFailureMessage)
           })
         }
       }
+
+      saveBatchGroups.forEach((group) => {
+        const saveCounts = getSaveBatchCounts(group, savedItemIds)
+        const saveAnalyticsInput = getSaveBatchAnalyticsInput(
+          group,
+          saveMethod,
+          savedItemIds
+        )
+
+        if (saveCounts.savedCount === group.items.length) {
+          trackSaveCompleted(saveAnalyticsInput)
+          return
+        }
+
+        trackSaveFailed(saveAnalyticsInput)
+      })
 
       if (savedCount > 0 && canContinueSave()) {
         notifyCompletion(savedCount)
@@ -528,7 +673,11 @@ export function TruckHarvesterApp() {
                 duplicateMessage={duplicateMessage}
                 items={inputListings}
                 onPasteText={handlePasteText}
-                onRemove={(id) => preparedStore.getState().remove(id)}
+                onRemove={(id) => {
+                  analyticsBatchByListingIdRef.current.delete(id)
+                  saveFailureIdsRef.current.delete(id)
+                  preparedStore.getState().remove(id)
+                }}
                 onStart={() => void startSavingReadyListings()}
               />
             </div>

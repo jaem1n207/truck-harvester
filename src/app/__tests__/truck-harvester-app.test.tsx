@@ -12,6 +12,9 @@ const analyticsMocks = vi.hoisted(() => ({
   trackBatchStarted: vi.fn(),
   trackListingFailed: vi.fn(),
   trackPreviewCompleted: vi.fn(),
+  trackSaveCompleted: vi.fn(),
+  trackSaveFailed: vi.fn(),
+  trackSaveStarted: vi.fn(),
 }))
 
 vi.mock('@/v2/shared/lib/analytics', () => analyticsMocks)
@@ -415,6 +418,22 @@ describe('TruckHarvesterApp persistence', () => {
     expect(statusRegion?.textContent).toContain('현대 메가트럭')
     expect(statusRegion?.textContent).toContain('저장 완료')
     expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
+    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        saveMethod: 'directory',
+        readyCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        saveMethod: 'directory',
+        savedCount: 1,
+        saveFailedCount: 0,
+      })
+    )
+    expect(analyticsMocks.trackSaveFailed).not.toHaveBeenCalled()
   })
 
   it('tracks batch and preview completion without success listing identifiers', async () => {
@@ -1021,5 +1040,132 @@ describe('TruckHarvesterApp persistence', () => {
       )?.[0]
 
     expectNoVehicleIdentity(invalidFailurePayload)
+  })
+
+  it('tracks save failures with vehicle identifiers for parsed listings', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=7'
+    const requestPermission = vi.fn().mockResolvedValue('granted')
+    const restoredDirectory: WritableDirectoryHandle = {
+      getDirectoryHandle: vi.fn().mockRejectedValue(new Error('disk full')),
+      getFileHandle: async () => {
+        throw new Error('테스트에서는 파일에 쓰지 않습니다.')
+      },
+      name: 'truck-test',
+      requestPermission,
+    }
+
+    installDom(restoredDirectory)
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(
+        Response.json({
+          success: true,
+          data: {
+            url: truckUrl,
+            vname: '현대 메가트럭',
+            vehicleName: '현대 메가트럭',
+            vnumber: '서울12가3456',
+            price: {
+              raw: 3200,
+              rawWon: 32000000,
+              label: '3,200만원',
+              compactLabel: '3,200만원',
+            },
+            year: '2020',
+            mileage: '120,000km',
+            options: '윙바디',
+            images: [],
+          },
+        })
+      ),
+    })
+
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    Object.defineProperty(window, 'showDirectoryPicker', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(restoredDirectory),
+    })
+
+    const folderButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '저장 폴더 고르기'
+    )
+    await act(async () => {
+      folderButton?.dispatchEvent(
+        new dom!.window.MouseEvent('click', { bubbles: true })
+      )
+    })
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+
+    const pasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: { getData: () => truckUrl },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(pasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    const startButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '확인된 1대 저장 시작'
+    )
+
+    await act(async () => {
+      startButton?.dispatchEvent(
+        new dom!.window.MouseEvent('click', { bubbles: true })
+      )
+    })
+
+    for (let index = 0; index < 6; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(analyticsMocks.trackSaveFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        saveMethod: 'directory',
+        saveFailedCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-1',
+        failureStage: 'save',
+        listingUrl: truckUrl,
+        vehicleNumber: '서울12가3456',
+        vehicleName: '현대 메가트럭',
+        imageCount: 0,
+      })
+    )
   })
 })
