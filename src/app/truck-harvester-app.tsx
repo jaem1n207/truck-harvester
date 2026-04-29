@@ -56,6 +56,10 @@ interface AnalyticsBatchState {
   urlCount: number
 }
 
+type AnalyticsPreviewItem =
+  | { id: string; url: string; status: 'ready' }
+  | { id: string; url: string; status: 'failed' | 'invalid'; message: string }
+
 const pickSaveDirectory = pickWritableDirectory as (options: {
   id: string
   startIn: DirectoryPickerStartIn
@@ -109,8 +113,6 @@ export function TruckHarvesterApp() {
   const pasteSequenceRef = useRef(0)
   const previewControllersRef = useRef<Set<AbortController>>(new Set())
   const saveControllerRef = useRef<AbortController | null>(null)
-  const listingBatchIdsRef = useRef<Map<string, string>>(new Map())
-  const previewFailureIdsRef = useRef<Set<string>>(new Set())
 
   const preparedState = useStore(preparedStore, (state) => state)
   const onboardingState = useStore(onboardingStore, (state) => state)
@@ -226,31 +228,69 @@ export function TruckHarvesterApp() {
     urlCount,
   })
 
-  const getAnalyticsItemsForBatch = (batchId: string) =>
-    preparedStore
-      .getState()
-      .items.filter(
-        (item) => listingBatchIdsRef.current.get(item.id) === batchId
-      )
-
-  const getBatchAnalyticsInput = (batch: AnalyticsBatchState) => {
-    const items = getAnalyticsItemsForBatch(batch.id)
-
+  const getBatchAnalyticsInput = (
+    batch: AnalyticsBatchState,
+    items: readonly AnalyticsPreviewItem[] = []
+  ) => {
     return {
       batchId: batch.id,
       urlCount: batch.urlCount,
       uniqueUrlCount: items.length,
       readyCount: items.filter((item) => item.status === 'ready').length,
       invalidCount: items.filter((item) => item.status === 'invalid').length,
-      previewFailedCount: items.filter((item) =>
-        previewFailureIdsRef.current.has(item.id)
-      ).length,
+      previewFailedCount: items.filter((item) => item.status === 'failed')
+        .length,
       savedCount: 0,
       saveFailedCount: 0,
       durationMs: getAnalyticsDuration(batch.startedAt),
       filesystemSupported: fileSystemSupported,
       notificationEnabled: isNotificationEnabled(notificationPermission),
     }
+  }
+
+  const getAnalyticsPreviewItems = (
+    prepareResult: Awaited<ReturnType<typeof prepareListingUrls>>
+  ) => {
+    const currentItemsById = new Map(
+      preparedStore.getState().items.map((item) => [item.id, item])
+    )
+    const settledItemsById = new Map(
+      prepareResult.settledItems.map((item) => [item.id, item])
+    )
+
+    return prepareResult.addedItems.flatMap<AnalyticsPreviewItem>((runItem) => {
+      const currentItem = currentItemsById.get(runItem.id)
+
+      if (currentItem) {
+        if (currentItem.status === 'ready') {
+          return [
+            {
+              id: currentItem.id,
+              url: currentItem.url,
+              status: 'ready',
+            },
+          ]
+        }
+
+        if (
+          currentItem.status === 'invalid' ||
+          currentItem.status === 'failed'
+        ) {
+          return [
+            {
+              id: currentItem.id,
+              url: currentItem.url,
+              status: currentItem.status,
+              message: currentItem.message,
+            },
+          ]
+        }
+      }
+
+      const settledItem = settledItemsById.get(runItem.id)
+
+      return settledItem ? [settledItem] : []
+    })
   }
 
   const handlePasteText = (text: string) => {
@@ -284,24 +324,11 @@ export function TruckHarvesterApp() {
           return
         }
 
-        const runItemIds = new Set(
-          prepareResult.addedItems.map((item) => item.id)
+        const batchItems = getAnalyticsPreviewItems(prepareResult)
+
+        trackPreviewCompleted(
+          getBatchAnalyticsInput(analyticsBatch, batchItems)
         )
-        const batchItems = preparedStore
-          .getState()
-          .items.filter((item) => runItemIds.has(item.id))
-
-        batchItems.forEach((item) => {
-          listingBatchIdsRef.current.set(item.id, analyticsBatch.id)
-        })
-
-        batchItems.forEach((item) => {
-          if (item.status === 'failed') {
-            previewFailureIdsRef.current.add(item.id)
-          }
-        })
-
-        trackPreviewCompleted(getBatchAnalyticsInput(analyticsBatch))
 
         batchItems.forEach((item) => {
           if (item.status !== 'invalid' && item.status !== 'failed') {

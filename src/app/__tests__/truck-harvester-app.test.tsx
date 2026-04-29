@@ -916,9 +916,9 @@ describe('TruckHarvesterApp persistence', () => {
     expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
       expect.objectContaining({
         batchId: 'batch-old',
-        uniqueUrlCount: 0,
+        uniqueUrlCount: 1,
         readyCount: 0,
-        previewFailedCount: 0,
+        previewFailedCount: 1,
       })
     )
     expect(analyticsMocks.trackPreviewCompleted).not.toHaveBeenCalledWith(
@@ -928,9 +928,10 @@ describe('TruckHarvesterApp persistence', () => {
         readyCount: 1,
       })
     )
-    expect(analyticsMocks.trackListingFailed).not.toHaveBeenCalledWith(
+    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
       expect.objectContaining({
         batchId: 'batch-old',
+        failureStage: 'preview',
         listingUrl: truckUrl,
       })
     )
