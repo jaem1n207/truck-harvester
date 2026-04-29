@@ -346,8 +346,10 @@ export * from './truck-harvester-workflow'
 Create `src/v2/application/truck-harvester-workflow/index.ts`:
 
 ```ts
-export * from './use-truck-harvester-workflow'
+export {}
 ```
+
+This is a temporary empty module until Task 6 creates the workflow hook.
 
 - [ ] **Step 5: Run the knowledge-base test to verify it passes**
 
@@ -1567,7 +1569,7 @@ git commit -m "refactor: 저장 workflow use case 분리"
 - Create: `src/v2/application/truck-harvester-workflow/use-truck-harvester-workflow.ts`
 - Modify: `src/v2/application/truck-harvester-workflow/index.ts`
 
-- [ ] **Step 1: Write the hook export before implementation**
+- [ ] **Step 1: Replace the temporary barrel with the hook export**
 
 Replace `src/v2/application/truck-harvester-workflow/index.ts`:
 
@@ -1966,7 +1968,7 @@ export function TruckHarvesterApp() {
   const workflow = useTruckHarvesterWorkflow()
 
   return (
-    <main className="bg-background text-foreground min-h-dvh" data-tour="v2-page">
+    <main className="min-h-dvh bg-background text-foreground" data-tour="v2-page">
       <section
         className="mx-auto grid min-h-dvh w-full max-w-6xl gap-6 px-6 py-8 md:px-10"
         data-tour-background="true"
@@ -1974,8 +1976,8 @@ export function TruckHarvesterApp() {
       >
         <header className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-muted-foreground text-sm font-medium">새 작업 화면</p>
-            <h1 className="text-foreground text-2xl font-semibold tracking-normal">
+            <p className="text-sm font-medium text-muted-foreground">새 작업 화면</p>
+            <h1 className="text-2xl font-semibold tracking-normal text-foreground">
               트럭 매물 수집기
             </h1>
           </div>
