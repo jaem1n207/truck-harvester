@@ -49,6 +49,7 @@ import { ListingChipInput, parseUrlInputText } from '@/v2/widgets/url-input'
 const saveFailureMessage =
   '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
 const saveFolderPickerId = 'truck-harvester-v2-save-folder'
+const missingListingIdentityPlaceholder = '차명 정보 없음'
 const useBrowserLayoutEffect =
   typeof window === 'undefined' ? useEffect : useLayoutEffect
 
@@ -107,6 +108,20 @@ const getAnalyticsDuration = (startedAt: number) =>
 const isNotificationEnabled = (
   permission: NotificationPermission | 'unsupported'
 ) => permission === 'granted'
+
+const isUsableListingIdentity = (value: string) => {
+  const trimmedValue = value.trim()
+
+  return (
+    trimmedValue.length > 0 &&
+    trimmedValue !== missingListingIdentityPlaceholder
+  )
+}
+
+const getSaveFailureVehicleName = (listing: ReadyPreparedListing['listing']) =>
+  [listing.vname, listing.vehicleName].find(isUsableListingIdentity) ||
+  listing.vname ||
+  listing.vehicleName
 
 export function TruckHarvesterApp() {
   const [preparedStore] = useState(() => createPreparedListingStore())
@@ -404,7 +419,7 @@ export function TruckHarvesterApp() {
       failureReason: saveFailureMessage,
       listingUrl: item.url,
       vehicleNumber: item.listing.vnumber,
-      vehicleName: item.listing.vname || item.listing.vehicleName,
+      vehicleName: getSaveFailureVehicleName(item.listing),
       imageCount: item.listing.images.length,
       elapsedMs: getAnalyticsDuration(batch.startedAt),
     })

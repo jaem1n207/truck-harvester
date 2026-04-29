@@ -1496,7 +1496,7 @@ describe('TruckHarvesterApp persistence', () => {
           success: true,
           data: {
             url: truckUrl,
-            vname: '현대 메가트럭',
+            vname: '차명 정보 없음',
             vehicleName: '현대 메가트럭',
             vnumber: '서울12가3456',
             price: {
