@@ -1,37 +1,24 @@
-const defaultUmamiCloudScriptSrc = 'https://cloud.umami.is/script.js'
+const umamiCloudScriptSrc = 'https://cloud.umami.is/script.js'
+const truckHarvesterWebsiteId = '2f38de85-b68d-4309-a1e1-a0877abf4685'
 
 interface UmamiScriptEnv extends Record<string, string | undefined> {
-  NEXT_PUBLIC_UMAMI_WEBSITE_ID?: string
-  NEXT_PUBLIC_UMAMI_SCRIPT_SRC?: string
-  NEXT_PUBLIC_UMAMI_DOMAINS?: string
+  NODE_ENV?: string
 }
 
 export interface UmamiScriptConfig {
   websiteId: string
   src: string
-  domains?: string
-}
-
-const cleanOptionalEnv = (value: string | undefined) => {
-  const trimmedValue = value?.trim()
-
-  return trimmedValue && trimmedValue.length > 0 ? trimmedValue : undefined
 }
 
 export function getUmamiScriptConfig(
   env: UmamiScriptEnv = process.env
 ): UmamiScriptConfig | null {
-  const websiteId = cleanOptionalEnv(env.NEXT_PUBLIC_UMAMI_WEBSITE_ID)
-
-  if (!websiteId) {
+  if (env.NODE_ENV !== 'production') {
     return null
   }
 
   return {
-    websiteId,
-    src:
-      cleanOptionalEnv(env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC) ??
-      defaultUmamiCloudScriptSrc,
-    domains: cleanOptionalEnv(env.NEXT_PUBLIC_UMAMI_DOMAINS),
+    websiteId: truckHarvesterWebsiteId,
+    src: umamiCloudScriptSrc,
   }
 }

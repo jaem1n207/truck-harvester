@@ -4,7 +4,7 @@
 
 **Goal:** Add Umami Cloud analytics that measures the Truck Harvester work funnel from paste through save completion, while collecting listing identifiers only for failed listings.
 
-**Architecture:** Load the optional Umami tracker from the root layout only when a public website id is configured. Keep all product analytics calls behind a safe `src/v2/shared/lib/analytics.ts` wrapper, and let `TruckHarvesterApp` own batch lifetime because it already coordinates paste, preview, save, and notification state. Batch events carry aggregate counts; only `listing_failed` events carry `listing_url`, `vehicle_number`, and `vehicle_name`.
+**Architecture:** Load the Umami Cloud tracker from the root layout only in production with the fixed Truck Harvester website id. Keep all product analytics calls behind a safe `src/v2/shared/lib/analytics.ts` wrapper, and let `TruckHarvesterApp` own batch lifetime because it already coordinates paste, preview, save, and notification state. Batch events carry aggregate counts; only `listing_failed` events carry `listing_url`, `vehicle_number`, and `vehicle_name`.
 
 **Tech Stack:** Next.js App Router, `next/script`, React 19, TypeScript strict mode, Vitest, Umami Cloud tracker.
 
@@ -16,10 +16,9 @@ This plan covers one subsystem: product analytics for the current root Truck Har
 
 ## File Structure
 
-- Create `src/app/umami-script-config.ts`: Parse public env vars into an optional script config for `RootLayout`.
-- Create `src/app/__tests__/umami-script-config.test.ts`: Prove tracker script config is disabled by default and enabled from env.
+- Create `src/app/umami-script-config.ts`: Return the fixed Umami Cloud script config only for production.
+- Create `src/app/__tests__/umami-script-config.test.ts`: Prove tracker script config is production-only.
 - Modify `src/app/layout.tsx`: Render the Umami tracker with `next/script` when config exists.
-- Modify `.env.example`: Document Umami Cloud env variables without enabling them by default.
 - Create `src/v2/shared/lib/analytics.ts`: Define event names, payload types, payload builders, safe tracking helpers, and batch id generation.
 - Create `src/v2/shared/lib/__tests__/analytics.test.ts`: Cover payload shaping, identifier boundaries, missing tracker behavior, and thrown tracker behavior.
 - Modify `src/app/truck-harvester-app.tsx`: Track batch start, preview completion, save start, save completion, save failure, and failed listing details.
@@ -71,7 +70,6 @@ Failure payload keys:
 - Create: `src/app/umami-script-config.ts`
 - Create: `src/app/__tests__/umami-script-config.test.ts`
 - Modify: `src/app/layout.tsx`
-- Modify: `.env.example`
 
 - [ ] **Step 1: Write the failing script config tests**
 
@@ -83,35 +81,15 @@ import { describe, expect, it } from 'vitest'
 import { getUmamiScriptConfig } from '../umami-script-config'
 
 describe('getUmamiScriptConfig', () => {
-  it('disables the tracker when no Umami website id is configured', () => {
-    expect(getUmamiScriptConfig({})).toBeNull()
-    expect(getUmamiScriptConfig({ NEXT_PUBLIC_UMAMI_WEBSITE_ID: '   ' })).toBeNull()
-  })
-
-  it('uses the Umami Cloud script by default when a website id is configured', () => {
-    expect(
-      getUmamiScriptConfig({
-        NEXT_PUBLIC_UMAMI_WEBSITE_ID: 'website-123',
-      })
-    ).toEqual({
-      websiteId: 'website-123',
+  it('uses the fixed Umami Cloud tracker in production', () => {
+    expect(getUmamiScriptConfig({ NODE_ENV: 'production' })).toEqual({
+      websiteId: '2f38de85-b68d-4309-a1e1-a0877abf4685',
       src: 'https://cloud.umami.is/script.js',
-      domains: undefined,
     })
   })
 
-  it('allows the script source and domain filter to come from env', () => {
-    expect(
-      getUmamiScriptConfig({
-        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ' website-123 ',
-        NEXT_PUBLIC_UMAMI_SCRIPT_SRC: ' https://analytics.example.com/script.js ',
-        NEXT_PUBLIC_UMAMI_DOMAINS: ' truck-harvester.vercel.app,www.example.com ',
-      })
-    ).toEqual({
-      websiteId: 'website-123',
-      src: 'https://analytics.example.com/script.js',
-      domains: 'truck-harvester.vercel.app,www.example.com',
-    })
+  it('disables the tracker outside production', () => {
+    expect(getUmamiScriptConfig({ NODE_ENV: 'development' })).toBeNull()
   })
 })
 ```
@@ -131,37 +109,26 @@ Expected: FAIL because `src/app/umami-script-config.ts` does not exist.
 Create `src/app/umami-script-config.ts`:
 
 ```ts
-const defaultUmamiCloudScriptSrc = 'https://cloud.umami.is/script.js'
+const umamiCloudScriptSrc = 'https://cloud.umami.is/script.js'
+const truckHarvesterWebsiteId = '2f38de85-b68d-4309-a1e1-a0877abf4685'
 
 interface UmamiScriptEnv {
-  NEXT_PUBLIC_UMAMI_WEBSITE_ID?: string
-  NEXT_PUBLIC_UMAMI_SCRIPT_SRC?: string
-  NEXT_PUBLIC_UMAMI_DOMAINS?: string
+  NODE_ENV?: string
 }
 
 export interface UmamiScriptConfig {
   websiteId: string
   src: string
-  domains?: string
-}
-
-const cleanOptionalEnv = (value: string | undefined) => {
-  const trimmedValue = value?.trim()
-
-  return trimmedValue && trimmedValue.length > 0 ? trimmedValue : undefined
 }
 
 export function getUmamiScriptConfig(env: UmamiScriptEnv = process.env): UmamiScriptConfig | null {
-  const websiteId = cleanOptionalEnv(env.NEXT_PUBLIC_UMAMI_WEBSITE_ID)
-
-  if (!websiteId) {
+  if (env.NODE_ENV !== 'production') {
     return null
   }
 
   return {
-    websiteId,
-    src: cleanOptionalEnv(env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC) ?? defaultUmamiCloudScriptSrc,
-    domains: cleanOptionalEnv(env.NEXT_PUBLIC_UMAMI_DOMAINS),
+    websiteId: truckHarvesterWebsiteId,
+    src: umamiCloudScriptSrc,
   }
 }
 ```
@@ -201,7 +168,6 @@ Render the script inside `<body>` before the app wrapper:
 <body className="antialiased">
   {umamiScriptConfig ? (
     <Script
-      data-domains={umamiScriptConfig.domains}
       data-website-id={umamiScriptConfig.websiteId}
       src={umamiScriptConfig.src}
       strategy="afterInteractive"
@@ -211,16 +177,11 @@ Render the script inside `<body>` before the app wrapper:
 </body>
 ```
 
-- [ ] **Step 6: Document Umami env variables**
+- [ ] **Step 6: Confirm no Umami environment variables are needed**
 
-Modify `.env.example` by replacing the old commented analytics lines:
-
-```dotenv
-# Umami Cloud 분석 도구 (선택사항)
-# NEXT_PUBLIC_UMAMI_WEBSITE_ID=your-umami-website-id
-# NEXT_PUBLIC_UMAMI_SCRIPT_SRC=https://cloud.umami.is/script.js
-# NEXT_PUBLIC_UMAMI_DOMAINS=truck-harvester.vercel.app
-```
+The Umami Cloud website id is public and appears in the shipped script tag, so
+the root layout uses the fixed Truck Harvester script/id and loads it only in
+production.
 
 - [ ] **Step 7: Verify typecheck and commit**
 
@@ -1403,11 +1364,11 @@ flowchart LR
 Add a short paragraph after the diagram:
 
 ```md
-Umami Cloud analytics is optional and configured through public environment
-variables. The app records aggregate batch funnel events for paste, preview,
-and save milestones. Only failed listings send actual listing identifiers such
-as URL, vehicle number, and vehicle name; successful listings are represented by
-counts only.
+Umami Cloud analytics loads only in production with the fixed Truck Harvester
+website script from Umami Cloud. The app records aggregate batch funnel events
+for paste, preview, and save milestones. Only failed listings send actual
+listing identifiers such as URL, vehicle number, and vehicle name; successful
+listings are represented by counts only.
 ```
 
 - [ ] **Step 2: Update AGENTS stack guidance**

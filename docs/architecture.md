@@ -29,11 +29,11 @@ flowchart LR
   K -.-> M
 ```
 
-Umami Cloud analytics is optional and configured through public environment
-variables. The app records aggregate batch funnel events for paste, preview,
-and save milestones. Only failed listings send actual listing identifiers such
-as URL, vehicle number, and vehicle name; successful listings are represented by
-counts only.
+Umami Cloud analytics loads only in production with the fixed Truck Harvester
+website script from Umami Cloud. The app records aggregate batch funnel events
+for paste, preview, and save milestones. Only failed listings send actual
+listing identifiers such as URL, vehicle number, and vehicle name; successful
+listings are represented by counts only.
 
 The client owns preview scheduling with concurrency 5. The server endpoint
 accepts one address at a time so each request can stay inside the short

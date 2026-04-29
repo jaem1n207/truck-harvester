@@ -87,7 +87,6 @@ export default function RootLayout({
       <body className="antialiased">
         {umamiScriptConfig ? (
           <Script
-            data-domains={umamiScriptConfig.domains}
             data-website-id={umamiScriptConfig.websiteId}
             src={umamiScriptConfig.src}
             strategy="afterInteractive"
