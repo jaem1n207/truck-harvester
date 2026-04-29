@@ -20,6 +20,7 @@ feel fast, recoverable, and self-explanatory.
 - Zod for domain contracts and URL extraction.
 - Cheerio for server-side HTML parsing.
 - Client-side preview concurrency helpers with default concurrency 5.
+- Optional Umami Cloud analytics for aggregate work-funnel events and failed-listing diagnostics.
 - Vitest, Playwright, and axe for the three-layer test scaffold.
 
 ## Run And Test Commands
@@ -66,6 +67,7 @@ feel fast, recoverable, and self-explanatory.
 - The old legacy route and legacy shared/widget runtime folders were
   removed after root cutover.
 - Do not add an external error-monitoring SDK or image-stamping pipeline.
+- Umami analytics may collect failed-listing URL, vehicle number, and vehicle name only inside the approved failed-listing diagnostics event.
 - User-facing copy is Korean-only and non-technical.
 - Default preview/save concurrency is 5 unless a later ADR changes it.
 

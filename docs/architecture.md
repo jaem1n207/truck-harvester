@@ -24,7 +24,16 @@ flowchart LR
   I --> K["Prepared status panel shows saved labels and completion summary"]
   J --> K
   K --> L["Optional desktop notification"]
+  B -.-> M["Umami batch funnel events"]
+  G -.-> M
+  K -.-> M
 ```
+
+Umami Cloud analytics is optional and configured through public environment
+variables. The app records aggregate batch funnel events for paste, preview,
+and save milestones. Only failed listings send actual listing identifiers such
+as URL, vehicle number, and vehicle name; successful listings are represented by
+counts only.
 
 The client owns preview scheduling with concurrency 5. The server endpoint
 accepts one address at a time so each request can stay inside the short
