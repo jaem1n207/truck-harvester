@@ -5,6 +5,13 @@
 
 🌐 **라이브 사이트**: [https://truck-harvester.vercel.app/](https://truck-harvester.vercel.app/)
 
+## 🎬 제품 소개 영상
+
+[![트럭 매물 수집기 20초 제품 소개 영상](videos/truck-harvester-promo/renders/truck-harvester-promo.gif)](videos/truck-harvester-promo/renders/truck-harvester-promo.mp4)
+
+- **동영상 직접 열기**: [`videos/truck-harvester-promo/renders/truck-harvester-promo.mp4`](videos/truck-harvester-promo/renders/truck-harvester-promo.mp4)
+- **HyperFrames 소스**: [`videos/truck-harvester-promo/`](videos/truck-harvester-promo/)
+
 ## ✨ 주요 기능
 
 - 📋 **URL 기반 자동 수집**: 중고트럭 매물 URL 입력으로 정보 자동 추출

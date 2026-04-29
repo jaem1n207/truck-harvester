@@ -1,0 +1,95 @@
+uid=1_0 RootWebArea "트럭 매물 수집기" url="http://localhost:3000/"
+  uid=1_1 ignored
+    uid=1_2 ignored
+      uid=1_3 ignored
+        uid=1_4 main
+          uid=1_5 generic
+            uid=1_6 sectionheader
+              uid=1_7 ignored
+                uid=1_8 paragraph
+                  uid=1_9 StaticText "새 작업 화면"
+                    uid=1_10 InlineTextBox "새 작업 화면"
+                uid=1_11 heading "트럭 매물 수집기" level="1"
+                  uid=1_12 StaticText "트럭 매물 수집기"
+                    uid=1_10 InlineTextBox "트럭 매물 수집기"
+              uid=1_13 button "도움말 처음 안내 다시 보기"
+                uid=1_14 StaticText "도움말"
+                  uid=1_10 InlineTextBox "도움말"
+                uid=1_15 ignored
+                  uid=1_16 StaticText "처음 안내 다시 보기"
+                    uid=1_10 InlineTextBox "처음 안내 다시 보기"
+            uid=1_17 ignored
+              uid=1_18 ignored
+                uid=1_19 ignored
+                  uid=1_20 region "매물 주소 넣기"
+                    uid=1_21 ignored
+                      uid=1_22 heading "매물 주소 넣기" level="2"
+                        uid=1_23 StaticText "매물 주소 넣기"
+                          uid=1_10 InlineTextBox "매물 주소 넣기"
+                      uid=1_24 paragraph
+                        uid=1_25 StaticText "복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다."
+                          uid=1_10 InlineTextBox "복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다."
+                    uid=1_26 ignored
+                      uid=1_27 LabelText
+                        uid=1_28 StaticText "매물 주소"
+                          uid=1_10 InlineTextBox "매물 주소"
+                      uid=1_29 textbox "매물 주소" description="복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다." multiline
+                        uid=1_30 ignored
+                        uid=1_31 generic
+                      uid=1_32 generic live="polite" relevant="additions text"
+                        uid=1_33 paragraph
+                          uid=1_34 StaticText "복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다."
+                            uid=1_10 InlineTextBox "복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다."
+                    uid=1_35 ignored
+                      uid=1_36 button "매물 주소를 넣어주세요" disableable disabled
+                        uid=1_37 StaticText "매물 주소를 넣어주세요"
+                          uid=1_10 InlineTextBox "매물 주소를 넣어주세요"
+              uid=1_38 ignored
+                uid=1_39 generic
+                  uid=1_40 ignored
+                    uid=1_41 heading "저장 폴더 선택" level="2"
+                      uid=1_42 StaticText "저장 폴더 선택"
+                        uid=1_10 InlineTextBox "저장 폴더 선택"
+                    uid=1_43 paragraph
+                      uid=1_44 StaticText "사진과 차량 정보가 차량번호별 폴더로 정리됩니다. 저장할 위치를 먼저 골라주세요."
+                        uid=1_10 InlineTextBox "사진과 차량 정보가 차량번호별 폴더로 정리됩니다. 저장할 위치를 먼저 골라주세요."
+                  uid=1_45 generic
+                    uid=1_46 button "저장 폴더 고르기"
+                      uid=1_47 StaticText "저장 폴더 고르기"
+                        uid=1_10 InlineTextBox "저장 폴더 고르기"
+                uid=1_48 ignored
+                  uid=1_49 button "완료 알림 켜기"
+                    uid=1_50 StaticText "완료 알림 켜기"
+                      uid=1_10 InlineTextBox "완료 알림 켜기"
+                  uid=1_51 ignored
+                    uid=1_52 StaticText "선택 사항"
+                      uid=1_10 InlineTextBox "선택 사항"
+                uid=1_53 ignored
+                  uid=1_54 region "저장 진행 상황"
+                    uid=1_55 ignored
+                      uid=1_56 heading "저장 진행 상황" level="2"
+                        uid=1_57 StaticText "저장 진행 상황"
+                          uid=1_10 InlineTextBox "저장 진행 상황"
+                      uid=1_58 paragraph
+                        uid=1_59 StaticText "저장할 수 있는 매물이 없습니다."
+                          uid=1_10 InlineTextBox "저장할 수 있는 매물이 없습니다."
+                    uid=1_60 generic live="polite" relevant="additions text"
+                      uid=1_61 paragraph
+                        uid=1_62 StaticText "아직 준비된 매물이 없습니다."
+                          uid=1_10 InlineTextBox "아직 준비된 매물이 없습니다."
+      uid=1_63 generic
+        uid=1_64 generic
+          uid=1_65 generic
+            uid=1_66 ignored
+              uid=1_67 ignored
+                uid=1_68 generic
+                  uid=1_69 ignored
+                    uid=1_70 button "Open Next.js Dev Tools" expandable haspopup="menu"
+                      uid=1_71 image
+                        uid=1_72 ignored
+                        uid=1_73 ignored
+                        uid=1_74 ignored
+                        uid=1_75 ignored
+                        uid=1_76 ignored
+      uid=1_77 generic
+        uid=1_78 alert atomic live="assertive" relevant="additions text"

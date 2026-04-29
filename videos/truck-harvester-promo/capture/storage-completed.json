@@ -1,0 +1,14 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "truck-harvester:v2:onboarding",
+          "value": "completed"
+        }
+      ]
+    }
+  ]
+}

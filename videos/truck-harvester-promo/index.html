@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>트럭 매물 수집기 20초 프로모션</title>
+    <link rel="icon" href="data:," />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #fcfaf7;
+        --card: #ffffff;
+        --ink: #33251f;
+        --muted: #62564d;
+        --primary: #d94b00;
+        --primary-soft: #e9a37d;
+        --border: #ded2c5;
+        --success: #176c48;
+        --warning: #7c4400;
+        --shadow: rgba(51, 37, 31, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        min-height: 100%;
+        background: #17120f;
+        color: var(--ink);
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Apple SD Gothic Neo",
+          "Malgun Gothic",
+          sans-serif;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+      }
+
+      [data-composition-id="truck-harvester-promo"] {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+      }
+
+      @media (max-width: 1920px) {
+        [data-composition-id="truck-harvester-promo"] {
+          width: 100vw;
+          height: 56.25vw;
+        }
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(
+            circle at 78% 22%,
+            rgba(217, 75, 0, 0.12),
+            rgba(217, 75, 0, 0) 26%
+          ),
+          radial-gradient(
+            circle at 16% 86%,
+            rgba(36, 135, 90, 0.1),
+            rgba(36, 135, 90, 0) 22%
+          ),
+          var(--bg);
+      }
+
+      .scene-inner {
+        width: 100%;
+        height: 100%;
+        padding: 88px 110px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 28px;
+      }
+
+      #scene1 {
+        z-index: 1;
+      }
+
+      #scene2,
+      #scene3,
+      #scene4,
+      #scene5 {
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .brand-row {
+        position: absolute;
+        top: 74px;
+        left: 110px;
+        right: 110px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .brand-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .mark-dot {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: var(--primary);
+        box-shadow: 0 14px 40px rgba(217, 75, 0, 0.26);
+      }
+
+      .kicker {
+        color: var(--primary);
+        font-size: 26px;
+        font-weight: 800;
+      }
+
+      .headline {
+        max-width: 920px;
+        color: var(--ink);
+        font-size: 104px;
+        line-height: 1.02;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
+      .headline.wide {
+        max-width: 1120px;
+      }
+
+      .scene1-headline {
+        max-width: 920px;
+      }
+
+      .scene1-headline .headline-line {
+        display: block;
+      }
+
+      .scene1-headline .underlined-headline {
+        position: relative;
+        display: block;
+        width: max-content;
+        padding-bottom: 14px;
+        white-space: nowrap;
+      }
+
+      .subhead {
+        max-width: 720px;
+        color: var(--muted);
+        font-size: 34px;
+        line-height: 1.42;
+        font-weight: 500;
+      }
+
+      .product-frame {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 34px;
+        background: var(--card);
+        box-shadow: 0 36px 90px var(--shadow);
+      }
+
+      .product-frame img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .desktop-card {
+        position: absolute;
+        right: 92px;
+        bottom: 88px;
+        width: 870px;
+        height: 490px;
+      }
+
+      .tutorial-card {
+        position: absolute;
+        left: 112px;
+        bottom: 92px;
+        width: 780px;
+        height: 440px;
+      }
+
+      .portrait-card {
+        position: absolute;
+        right: 120px;
+        bottom: 86px;
+        width: 360px;
+        height: 640px;
+      }
+
+      .url-stream {
+        position: absolute;
+        top: 196px;
+        right: 164px;
+        width: 620px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .url-pill,
+      .chip,
+      .folder-pill,
+      .promise-pill {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: 0 18px 38px rgba(51, 37, 31, 0.08);
+      }
+
+      .url-pill {
+        padding: 18px 22px;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 18px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+
+      .route-line {
+        position: absolute;
+        left: 0;
+        bottom: 2px;
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--primary), var(--success));
+        transform-origin: left center;
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        max-width: 760px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        color: var(--ink);
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      .chip small {
+        color: var(--success);
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .chip.warn small {
+        color: var(--warning);
+      }
+
+      .dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+
+      .dot.orange {
+        background: var(--primary);
+      }
+
+      .paste-panel,
+      .status-board,
+      .folder-board,
+      .cta-board {
+        border: 1px solid var(--border);
+        border-radius: 34px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 34px 90px rgba(51, 37, 31, 0.12);
+      }
+
+      .paste-panel {
+        position: absolute;
+        right: 112px;
+        top: 260px;
+        width: 760px;
+        padding: 36px;
+      }
+
+      .panel-title {
+        margin: 0 0 14px;
+        font-size: 34px;
+        font-weight: 900;
+      }
+
+      .panel-copy {
+        margin: 0;
+        color: var(--muted);
+        font-size: 24px;
+        line-height: 1.45;
+      }
+
+      .textarea-mock {
+        margin-top: 28px;
+        min-height: 182px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: #fffdfb;
+        padding: 24px;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 21px;
+        line-height: 1.65;
+      }
+
+      .primary-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 210px;
+        min-height: 64px;
+        border-radius: 18px;
+        background: var(--primary);
+        color: #fffaf5;
+        font-size: 24px;
+        font-weight: 900;
+        box-shadow: 0 20px 44px rgba(217, 75, 0, 0.28);
+      }
+
+      .paste-panel .primary-button {
+        margin-top: 26px;
+        float: right;
+      }
+
+      .scan-list {
+        position: absolute;
+        left: 112px;
+        bottom: 106px;
+        width: 780px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 18px;
+      }
+
+      .scan-lane {
+        min-height: 278px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.84);
+      }
+
+      .lane-bar {
+        width: 100%;
+        height: 9px;
+        border-radius: 999px;
+        background: var(--primary);
+      }
+
+      .lane-title {
+        margin-top: 18px;
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .lane-copy {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.35;
+      }
+
+      .status-board {
+        position: absolute;
+        right: 112px;
+        top: 244px;
+        width: 620px;
+        padding: 34px;
+      }
+
+      .counter {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        color: var(--primary);
+        font-size: 112px;
+        line-height: 1;
+        font-weight: 900;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .counter span:last-child {
+        color: var(--muted);
+        font-size: 36px;
+      }
+
+      .mini-list {
+        margin-top: 26px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .mini-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        font-size: 21px;
+        font-weight: 800;
+      }
+
+      .mini-item strong {
+        color: var(--success);
+      }
+
+      .folder-board {
+        position: absolute;
+        left: 112px;
+        top: 232px;
+        width: 690px;
+        padding: 34px;
+      }
+
+      .folder-stack {
+        margin-top: 28px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .folder-pill {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 76px;
+        padding: 0 24px;
+        font-size: 23px;
+        font-weight: 900;
+      }
+
+      .folder-pill b {
+        color: var(--primary);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .image-tile-grid {
+        position: absolute;
+        right: 168px;
+        top: 216px;
+        display: grid;
+        grid-template-columns: repeat(3, 150px);
+        gap: 18px;
+      }
+
+      .image-tile {
+        height: 112px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(217, 75, 0, 0.16),
+            rgba(36, 135, 90, 0.12)
+          ),
+          #fffdfb;
+        box-shadow: 0 18px 40px rgba(51, 37, 31, 0.08);
+      }
+
+      .save-strip {
+        position: absolute;
+        right: 150px;
+        bottom: 174px;
+        width: 650px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        align-items: stretch;
+      }
+
+      .save-strip .chip {
+        width: 100%;
+        min-height: 64px;
+        margin-bottom: 0;
+        justify-content: center;
+      }
+
+      .save-strip .primary-button {
+        width: 100%;
+        min-height: 64px;
+      }
+
+      .cta-board {
+        position: absolute;
+        left: 110px;
+        right: 110px;
+        top: 218px;
+        min-height: 640px;
+        padding: 74px 80px;
+        display: grid;
+        grid-template-columns: 1fr 560px;
+        gap: 52px;
+        align-items: center;
+      }
+
+      .final-title {
+        margin: 0;
+        max-width: 980px;
+        color: var(--ink);
+        font-size: 112px;
+        line-height: 1.02;
+        font-weight: 900;
+      }
+
+      .promise-row {
+        margin-top: 38px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      .promise-pill {
+        padding: 18px 22px;
+        color: var(--ink);
+        font-size: 24px;
+        font-weight: 900;
+      }
+
+      .final-card {
+        width: 560px;
+        height: 360px;
+      }
+
+      .caption {
+        position: absolute;
+        left: 110px;
+        bottom: 64px;
+        color: var(--muted);
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .big-number-label {
+        color: var(--muted);
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      .fallback-note {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 20px;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="promo"
+      data-composition-id="truck-harvester-promo"
+      data-width="1920"
+      data-height="1080"
+      data-start="0"
+      data-duration="20"
+    >
+      <audio
+        id="underscore"
+        src="underscore.wav"
+        data-start="0"
+        data-duration="20"
+        data-track-index="0"
+        data-volume="0.18"
+      ></audio>
+
+      <section id="scene1" class="scene" aria-label="주소 정리">
+        <div class="brand-row">
+          <div class="brand-mark"><span class="mark-dot"></span>트럭 매물 수집기</div>
+          <div>20초 제품 소개</div>
+        </div>
+        <div class="scene-inner">
+          <div class="kicker">복사한 주소가 많아도</div>
+          <div class="headline scene1-headline">
+            <span class="headline-line">작업은</span>
+            <span class="underlined-headline">흩어지지 않습니다.<span class="route-line"></span></span>
+          </div>
+          <div class="chip-row">
+            <div class="chip"><span class="dot"></span>덤프 4.5톤 <small>확인 완료</small></div>
+            <div class="chip"><span class="dot"></span>카고 5톤 <small>확인 완료</small></div>
+            <div class="chip warn"><span class="dot orange"></span>윙바디 3.5톤 <small>확인 필요</small></div>
+          </div>
+        </div>
+        <div class="url-stream">
+          <div class="url-pill">https://truck-no1.co.kr/DetailView.asp?...</div>
+          <div class="url-pill">상담 메모 / 차량 사진 / 주소 / 반복 복사...</div>
+          <div class="url-pill">https://truck.example/listing/39281?from=chat</div>
+        </div>
+        <div class="product-frame desktop-card">
+          <img src="capture/screenshots/clean-1920.png" alt="트럭 매물 수집기 화면" />
+        </div>
+        <div class="caption">매물 주소만 골라 읽고, 준비 상태를 바로 보여줍니다.</div>
+      </section>
+
+      <section id="scene2" class="scene" aria-label="매물 주소 붙여넣기">
+        <div class="brand-row">
+          <div class="brand-mark"><span class="mark-dot"></span>주소 넣기</div>
+          <div>처음 보는 직원도 바로 이해</div>
+        </div>
+        <div class="product-frame tutorial-card">
+          <img src="capture/screenshots/scroll-000.png" alt="주소 입력 안내 화면" />
+        </div>
+        <div class="paste-panel">
+          <p class="panel-title">붙여넣기 한 번</p>
+          <p class="panel-copy">복사한 내용 안에서 매물 주소만 자동으로 찾습니다.</p>
+          <div class="textarea-mock">
+            주소창 전체 복사<br />
+            https://www.truck-no1.co.kr/model/DetailView.asp?...<br />
+            상담 메모, 사진 설명, 차량번호까지 함께 붙여넣기
+          </div>
+          <div class="primary-button">매물 주소 확인</div>
+        </div>
+        <div class="caption">도움말은 제품 안에서 조용히 필요한 순간만 나타납니다.</div>
+      </section>
+
+      <section id="scene3" class="scene" aria-label="일괄 확인">
+        <div class="brand-row">
+          <div class="brand-mark"><span class="mark-dot"></span>일괄 확인</div>
+          <div>기본 동시 확인 5개</div>
+        </div>
+        <div class="scene-inner">
+          <div class="kicker">10대 매물도 한 흐름으로</div>
+          <div class="headline wide">확인 중, 준비 완료, 주목 필요를 한눈에 봅니다.</div>
+        </div>
+        <div class="scan-list">
+          <div class="scan-lane">
+            <div class="lane-bar"></div>
+            <div class="lane-title">덤프 4.5톤</div>
+            <div class="lane-copy">확인 중</div>
+          </div>
+          <div class="scan-lane">
+            <div class="lane-bar"></div>
+            <div class="lane-title">카고 5톤</div>
+            <div class="lane-copy">확인 중</div>
+          </div>
+          <div class="scan-lane">
+            <div class="lane-bar"></div>
+            <div class="lane-title">냉동탑차</div>
+            <div class="lane-copy">확인 중</div>
+          </div>
+          <div class="scan-lane">
+            <div class="lane-bar"></div>
+            <div class="lane-title">윙바디</div>
+            <div class="lane-copy">확인 중</div>
+          </div>
+          <div class="scan-lane">
+            <div class="lane-bar"></div>
+            <div class="lane-title">트랙터</div>
+            <div class="lane-copy">확인 중</div>
+          </div>
+        </div>
+        <div class="status-board">
+          <p class="panel-title">저장 준비</p>
+          <div class="counter"><span id="ready-count">10</span><span>/ 10대</span></div>
+          <div class="mini-list">
+            <div class="mini-item"><span>확인 완료</span><strong>9대</strong></div>
+            <div class="mini-item"><span>주목 필요</span><strong style="color: var(--warning)">1대</strong></div>
+            <div class="mini-item"><span>계속 진행</span><strong>가능</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="scene4" class="scene" aria-label="저장 정리">
+        <div class="brand-row">
+          <div class="brand-mark"><span class="mark-dot"></span>차량별 저장</div>
+          <div>폴더 또는 ZIP으로 정리</div>
+        </div>
+        <div class="folder-board">
+          <p class="panel-title">사진과 정보를 차량별 폴더로</p>
+          <p class="panel-copy">준비된 매물은 바로 저장하고, 실패한 매물은 따로 남깁니다.</p>
+          <div class="folder-stack">
+            <div class="folder-pill"><span>서울82가1234</span><b>사진 18장</b></div>
+            <div class="folder-pill"><span>부산94나5678</span><b>사진 21장</b></div>
+            <div class="folder-pill"><span>대구73다9012</span><b>사진 16장</b></div>
+          </div>
+          <p class="fallback-note">폴더 저장이 어려운 환경에서는 ZIP 파일로 이어집니다.</p>
+        </div>
+        <div class="image-tile-grid">
+          <div class="image-tile"></div>
+          <div class="image-tile"></div>
+          <div class="image-tile"></div>
+          <div class="image-tile"></div>
+          <div class="image-tile"></div>
+          <div class="image-tile"></div>
+        </div>
+        <div class="save-strip">
+          <div class="chip"><span class="dot"></span>서울82가1234 <small>저장 완료</small></div>
+          <div class="chip"><span class="dot"></span>부산94나5678 <small>저장 완료</small></div>
+          <div class="chip warn"><span class="dot orange"></span>확인 실패 1대 <small>다시 시도</small></div>
+          <div class="primary-button">확인된 9대 저장 시작</div>
+        </div>
+        <div class="caption">끝난 일과 살펴볼 일을 분리해서 저장 흐름을 멈추지 않습니다.</div>
+      </section>
+
+      <section id="scene5" class="scene" aria-label="마무리">
+        <div class="brand-row">
+          <div class="brand-mark"><span class="mark-dot"></span>트럭 매물 수집기</div>
+          <div>반복 업무를 짧게</div>
+        </div>
+        <div class="cta-board">
+          <div>
+            <p class="kicker">중고 트럭 매물 수집</p>
+            <h1 class="final-title">조용히, 빠르게 끝내세요.</h1>
+            <div class="promise-row">
+              <div class="promise-pill">주소 자동 찾기</div>
+              <div class="promise-pill">차량별 폴더 저장</div>
+              <div class="promise-pill">실패 매물 분리</div>
+            </div>
+            <div style="margin-top: 42px" class="primary-button">새 작업 시작</div>
+          </div>
+          <div class="product-frame final-card">
+            <img src="capture/screenshots/clean-full-page.png" alt="트럭 매물 수집기 전체 화면" />
+          </div>
+        </div>
+        <div class="product-frame portrait-card">
+          <img src="capture/screenshots/portrait.png" alt="모바일 비율 제품 화면" />
+        </div>
+      </section>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      function buildTimeline() {
+        if (!window.gsap) {
+          document.querySelectorAll("#scene2,#scene3,#scene4,#scene5").forEach(function (scene) {
+            scene.style.opacity = "1";
+          });
+          return null;
+        }
+
+        var tl = gsap.timeline({ paused: true, defaults: { ease: "power2.out" } });
+        var scenes = ["#scene1", "#scene2", "#scene3", "#scene4", "#scene5"];
+
+        gsap.set("#scene1", { opacity: 1, visibility: "visible", zIndex: 1 });
+        gsap.set("#scene2,#scene3,#scene4,#scene5", { opacity: 0, visibility: "hidden", zIndex: 0 });
+        gsap.set(".desktop-card", { rotation: -2.5, scale: 0.96 });
+        gsap.set(".tutorial-card", { rotation: -1.2, scale: 0.96 });
+        gsap.set(".portrait-card", { rotation: 2.2, scale: 0.92 });
+        gsap.set(".route-line", { scaleX: 0 });
+        gsap.set(".url-pill", { x: 120, opacity: 0 });
+        gsap.set(".chip", { y: 18, opacity: 0 });
+        gsap.set(".scan-lane", { y: 44, opacity: 0 });
+        gsap.set(".image-tile", { scale: 0.82, opacity: 0 });
+        gsap.set(".folder-pill", { x: -28, opacity: 0 });
+        gsap.set(".promise-pill", { y: 24, opacity: 0 });
+
+        function showScene(id, at) {
+          scenes.forEach(function (scene) {
+            if (scene !== id) {
+              tl.to(scene, { opacity: 0, filter: "blur(18px)", duration: 0.48 }, at);
+              tl.set(scene, { visibility: "hidden" }, at + 0.48);
+            }
+          });
+          tl.set(id, { visibility: "visible", zIndex: 5, filter: "blur(18px)" }, at);
+          tl.fromTo(
+            id,
+            { opacity: 0, y: 36 },
+            { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.62, ease: "power2.inOut" },
+            at + 0.04,
+          );
+        }
+
+        tl.fromTo("#scene1 .brand-row", { y: -22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 0.15);
+        tl.fromTo("#scene1 .kicker", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42 }, 0.35);
+        tl.fromTo("#scene1 .headline", { y: 48, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "expo.out" }, 0.58);
+        tl.to(".url-pill", { x: 0, opacity: 1, duration: 0.54, stagger: 0.12 }, 0.7);
+        tl.to(".route-line", { scaleX: 1, duration: 0.72, ease: "power3.out" }, 1.35);
+        tl.to("#scene1 .chip", { y: 0, opacity: 1, duration: 0.45, stagger: 0.14 }, 1.75);
+        tl.fromTo(".desktop-card", { y: 80, opacity: 0, scale: 0.92 }, { y: 0, opacity: 1, scale: 0.96, duration: 0.86, ease: "power3.out" }, 1.0);
+        tl.to(".desktop-card", { y: -10, duration: 2.1, ease: "sine.inOut" }, 1.9);
+        tl.fromTo("#scene1 .caption", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45 }, 2.35);
+
+        showScene("#scene2", 3.72);
+        tl.fromTo("#scene2 .brand-row", { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.44 }, 4.15);
+        tl.fromTo(".tutorial-card", { x: -100, opacity: 0, scale: 0.92 }, { x: 0, opacity: 1, scale: 0.96, duration: 0.7, ease: "power3.out" }, 4.28);
+        tl.fromTo(".paste-panel", { x: 90, opacity: 0 }, { x: 0, opacity: 1, duration: 0.64, ease: "expo.out" }, 4.45);
+        tl.fromTo(".textarea-mock", { backgroundColor: "#ffffff" }, { backgroundColor: "#fff7ef", duration: 0.34, repeat: 3, yoyo: true }, 5.12);
+        tl.fromTo("#scene2 .primary-button", { scale: 0.92, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.44, ease: "back.out(1.8)" }, 5.72);
+        tl.fromTo("#scene2 .caption", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42 }, 6.52);
+
+        showScene("#scene3", 7.72);
+        tl.fromTo("#scene3 .brand-row", { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42 }, 8.12);
+        tl.fromTo("#scene3 .kicker", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42 }, 8.28);
+        tl.fromTo("#scene3 .headline", { y: 46, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "expo.out" }, 8.48);
+        tl.to(".scan-lane", { y: 0, opacity: 1, duration: 0.45, stagger: 0.09 }, 8.75);
+        tl.fromTo(".lane-bar", { scaleX: 0.22 }, { scaleX: 1, duration: 0.62, repeat: 3, yoyo: true, ease: "sine.inOut" }, 9.05);
+        tl.fromTo(".status-board", { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.58, ease: "power3.out" }, 9.28);
+        tl.fromTo(".counter", { scale: 0.84, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.48, ease: "back.out(1.8)" }, 9.65);
+        tl.fromTo(".mini-item", { x: 24, opacity: 0 }, { x: 0, opacity: 1, duration: 0.36, stagger: 0.11 }, 10.12);
+
+        showScene("#scene4", 11.72);
+        tl.fromTo("#scene4 .brand-row", { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42 }, 12.12);
+        tl.fromTo(".folder-board", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.62, ease: "power3.out" }, 12.25);
+        tl.to(".folder-pill", { x: 0, opacity: 1, duration: 0.42, stagger: 0.13 }, 12.72);
+        tl.to(".image-tile", { scale: 1, opacity: 1, duration: 0.34, stagger: 0.06, ease: "back.out(1.6)" }, 12.9);
+        tl.fromTo(".save-strip .chip", { x: 70, opacity: 0 }, { x: 0, opacity: 1, duration: 0.38, stagger: 0.11 }, 13.35);
+        tl.fromTo("#scene4 .primary-button", { scale: 0.88, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.42, ease: "back.out(1.9)" }, 14.18);
+        tl.fromTo("#scene4 .caption", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42 }, 14.8);
+
+        showScene("#scene5", 15.72);
+        tl.fromTo("#scene5 .brand-row", { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42 }, 16.12);
+        tl.fromTo(".cta-board", { y: 46, opacity: 0 }, { y: 0, opacity: 1, duration: 0.72, ease: "expo.out" }, 16.28);
+        tl.fromTo(".final-title", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.74, ease: "expo.out" }, 16.55);
+        tl.to(".promise-pill", { y: 0, opacity: 1, duration: 0.38, stagger: 0.1 }, 17.25);
+        tl.fromTo("#scene5 .primary-button", { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.42, ease: "back.out(1.7)" }, 17.85);
+        tl.fromTo(".final-card", { x: 54, opacity: 0, scale: 0.94 }, { x: 0, opacity: 1, scale: 1, duration: 0.64, ease: "power3.out" }, 16.75);
+        tl.fromTo(".portrait-card", { y: 70, opacity: 0, scale: 0.88 }, { y: 0, opacity: 1, scale: 0.92, duration: 0.64, ease: "power3.out" }, 17.1);
+        tl.to("#scene5", { opacity: 0.92, duration: 0.25 }, 19.75);
+        tl.set("#scene5", { visibility: "hidden" }, 20.0);
+
+        window.__timelines["truck-harvester-promo"] = tl;
+        return tl;
+      }
+
+      var timeline = buildTimeline();
+
+      function previewPlay() {
+        if (timeline && timeline.paused()) {
+          timeline.play(0);
+        }
+      }
+
+      window.addEventListener("load", function () {
+        previewPlay();
+      });
+
+      document.getElementById("promo").addEventListener("click", function () {
+        previewPlay();
+      });
+    </script>
+  </body>
+</html>
