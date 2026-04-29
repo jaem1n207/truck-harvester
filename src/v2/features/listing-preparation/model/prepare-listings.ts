@@ -76,6 +76,10 @@ export interface PreparedListingRunItem {
   url: string
 }
 
+export type PreparedListingSettledItem =
+  | (PreparedListingRunItem & { status: 'ready' })
+  | (PreparedListingRunItem & { status: 'failed' | 'invalid'; message: string })
+
 export async function prepareListingUrls({
   urls,
   store,
@@ -97,7 +101,7 @@ export async function prepareListingUrls({
     items: result.added,
     limit: concurrency,
     signal,
-    task: async (url) => {
+    task: async (url): Promise<PreparedListingSettledItem | undefined> => {
       const itemId = addedItemIdsByUrl.get(url)
 
       if (!itemId) {
@@ -110,16 +114,28 @@ export async function prepareListingUrls({
           store
             .getState()
             .markInvalidById(itemId, missingListingIdentityMessage)
-          return
+          return {
+            id: itemId,
+            url,
+            status: 'invalid',
+            message: missingListingIdentityMessage,
+          }
         }
 
         store.getState().markReadyById(itemId, listing)
+        return { id: itemId, url, status: 'ready' }
       } catch (error) {
         if (isAbortError(error)) {
           throw error
         }
 
         store.getState().markFailedById(itemId, previewFailureMessage)
+        return {
+          id: itemId,
+          url,
+          status: 'failed',
+          message: previewFailureMessage,
+        }
       }
     },
   })
@@ -133,5 +149,11 @@ export async function prepareListingUrls({
     removeCheckingItemIds(store, addedItemIds)
   }
 
-  return { ...result, addedItems }
+  const settledItems = previewResults.flatMap((previewResult) =>
+    previewResult.status === 'fulfilled' && previewResult.value
+      ? [previewResult.value]
+      : []
+  )
+
+  return { ...result, addedItems, settledItems }
 }
