@@ -67,7 +67,9 @@ feel fast, recoverable, and self-explanatory.
 - The old legacy route and legacy shared/widget runtime folders were
   removed after root cutover.
 - Do not add an external error-monitoring SDK or image-stamping pipeline.
-- Umami analytics may collect failed-listing URL, vehicle number, and vehicle name only inside the approved failed-listing diagnostics event.
+- Umami analytics may collect failed-listing URL, bounded unsupported input
+  sample, vehicle number, and vehicle name only inside the approved
+  failed-listing diagnostics event.
 - User-facing copy is Korean-only and non-technical.
 - Default preview/save concurrency is 5 unless a later ADR changes it.
 
