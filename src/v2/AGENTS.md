@@ -13,12 +13,14 @@ avoid unnecessary import churn after cutover.
 
 ## Layer Map
 
+- `application/`: root app business workflow orchestration, React hook
+  adapters, and workflow analytics boundaries.
 - `design-system/`: token docs and TypeScript helpers for CSS variables.
 - `shared/`: base utilities, UI primitives, stores, and cross-feature
   helpers that do not know about a specific widget.
 - `entities/`: pure domain schemas for truck listings, input addresses,
   downloads, and per-item states.
-- `features/`: business workflows such as parsing, retrying, saving, and
+- `features/`: capabilities such as parsing, retrying, saving, and
   onboarding.
 - `widgets/`: composed UI blocks for the root page.
 
