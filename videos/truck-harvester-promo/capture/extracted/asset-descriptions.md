@@ -1,0 +1,9 @@
+# Asset Descriptions
+
+| Asset                                     | Type          | Description                                                                                                                                               | Use                                             |
+| ----------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `capture/screenshots/clean-1920.png`      | Screenshot    | Clean desktop product screen with title, address input panel, folder selector, notification option, and save progress panel on warm off-white background. | Primary product UI asset for beats 1, 2, and 4. |
+| `capture/screenshots/clean-full-page.png` | Screenshot    | Full-page version of the clean desktop screen. Same layout as `clean-1920.png`; useful as a still fallback.                                               | Secondary background/reference asset.           |
+| `capture/screenshots/scroll-000.png`      | Screenshot    | Onboarding overlay focused on the address input panel, with orange highlight, tutorial card, sample URL, and confirmed listing example.                   | Beat 2 tutorial/detail asset.                   |
+| `capture/screenshots/portrait.png`        | Screenshot    | Tall mobile-style capture with address input highlight and tutorial card stacked lower on the screen.                                                     | Depth-layer product card in vertical mockups.   |
+| `capture/devtools-snapshot.txt`           | Text snapshot | Accessibility snapshot listing the live Korean UI copy and hierarchy.                                                                                     | Script and storyboard source.                   |
