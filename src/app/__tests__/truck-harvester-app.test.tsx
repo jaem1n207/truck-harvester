@@ -5,7 +5,9 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { type TruckListing } from '@/v2/entities/truck'
 import { type WritableDirectoryHandle } from '@/v2/features/file-management'
+import { type PrepareListingUrlsInput } from '@/v2/features/listing-preparation'
 
 const analyticsMocks = vi.hoisted(() => ({
   createAnalyticsBatchId: vi.fn(() => 'batch-1'),
@@ -15,6 +17,10 @@ const analyticsMocks = vi.hoisted(() => ({
   trackSaveCompleted: vi.fn(),
   trackSaveFailed: vi.fn(),
   trackSaveStarted: vi.fn(),
+}))
+
+const listingPreparationMocks = vi.hoisted(() => ({
+  prepareListingUrls: vi.fn(),
 }))
 
 vi.mock('@/v2/shared/lib/analytics', () => analyticsMocks)
@@ -27,9 +33,13 @@ vi.mock('@/v2/features/listing-preparation', async () => {
     typeof import('@/v2/features/listing-preparation/model/prepared-listing-store')
   >('@/v2/features/listing-preparation/model/prepared-listing-store')
 
+  listingPreparationMocks.prepareListingUrls.mockImplementation(
+    prepare.prepareListingUrls
+  )
+
   return {
     createPreparedListingStore: store.createPreparedListingStore,
-    prepareListingUrls: prepare.prepareListingUrls,
+    prepareListingUrls: listingPreparationMocks.prepareListingUrls,
     selectCheckingPreparedListings: store.selectCheckingPreparedListings,
     selectReadyPreparedListings: store.selectReadyPreparedListings,
   }
@@ -71,6 +81,8 @@ let root: Root | null = null
 let container: HTMLDivElement | null = null
 let dom: JsdomInstance | null = null
 const originalFetch = globalThis.fetch
+const originalCreateObjectUrl = URL.createObjectURL
+const originalRevokeObjectUrl = URL.revokeObjectURL
 
 const createDeferred = <T,>() => {
   let resolve: (value: T) => void = () => {}
@@ -204,10 +216,19 @@ afterEach(() => {
   dom?.window.close()
   dom = null
   vi.clearAllMocks()
+  analyticsMocks.createAnalyticsBatchId.mockReset()
   analyticsMocks.createAnalyticsBatchId.mockImplementation(() => 'batch-1')
   Object.defineProperty(globalThis, 'fetch', {
     configurable: true,
     value: originalFetch,
+  })
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: originalCreateObjectUrl,
+  })
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: originalRevokeObjectUrl,
   })
 })
 
@@ -216,6 +237,175 @@ const expectNoVehicleIdentity = (payload: object | undefined) => {
   expect(payload).not.toHaveProperty('vehicleNumber')
   expect(payload).not.toHaveProperty('vehicleName')
 }
+
+const createTruckListing = (
+  url: string,
+  overrides: Partial<TruckListing> = {}
+): TruckListing => ({
+  url,
+  vname: overrides.vname ?? '현대 메가트럭',
+  vehicleName: overrides.vehicleName ?? overrides.vname ?? '현대 메가트럭',
+  vnumber: overrides.vnumber ?? '서울12가3456',
+  price: overrides.price ?? {
+    raw: 3200,
+    rawWon: 32000000,
+    label: '3,200만원',
+    compactLabel: '3,200만원',
+  },
+  year: overrides.year ?? '2020',
+  mileage: overrides.mileage ?? '120,000km',
+  options: overrides.options ?? '윙바디',
+  images: overrides.images ?? [],
+})
+
+const mockParseResponses = (listings: readonly TruckListing[]) => {
+  const listingsByUrl = new Map(
+    listings.map((listing) => [listing.url, listing])
+  )
+
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    value: vi.fn((_: RequestInfo | URL, init?: RequestInit) => {
+      const requestBody = JSON.parse(String(init?.body)) as { url: string }
+      const listing = listingsByUrl.get(requestBody.url)
+
+      if (!listing) {
+        return Promise.reject(new Error('예상하지 못한 테스트 주소입니다.'))
+      }
+
+      return Promise.resolve(
+        Response.json({
+          success: true,
+          data: listing,
+        })
+      )
+    }),
+  })
+}
+
+const createWritableDirectory = (
+  failingFolderNames: ReadonlySet<string> = new Set()
+): WritableDirectoryHandle => {
+  const writable = {
+    close: vi.fn().mockResolvedValue(undefined),
+    write: vi.fn().mockResolvedValue(undefined),
+  }
+  const fileHandle = {
+    createWritable: vi.fn().mockResolvedValue(writable),
+  }
+  const vehicleDirectory: WritableDirectoryHandle = {
+    getDirectoryHandle: async () => vehicleDirectory,
+    getFileHandle: vi.fn().mockResolvedValue(fileHandle),
+    name: 'vehicle-directory',
+  }
+
+  return {
+    getDirectoryHandle: vi.fn((name: string) => {
+      if (failingFolderNames.has(name)) {
+        return Promise.reject(new Error('disk full'))
+      }
+
+      return Promise.resolve(vehicleDirectory)
+    }),
+    getFileHandle: vi.fn().mockResolvedValue(fileHandle),
+    name: 'truck-test',
+    requestPermission: vi.fn().mockResolvedValue('granted'),
+  }
+}
+
+const flushAsyncUi = async (iterations = 4) => {
+  for (let index = 0; index < iterations; index += 1) {
+    await act(async () => {
+      await Promise.resolve()
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+  }
+}
+
+const renderTruckHarvesterApp = async () => {
+  const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+
+  await act(async () => {
+    root?.render(<TruckHarvesterApp />)
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+  })
+}
+
+const getTextArea = () => {
+  const textarea = container?.querySelector(
+    'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+  )
+
+  if (!(textarea instanceof HTMLTextAreaElement)) {
+    throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+  }
+
+  return textarea
+}
+
+const pasteListingText = async (text: string) => {
+  const pasteEvent = new Event('paste', {
+    bubbles: true,
+    cancelable: true,
+  })
+  Object.defineProperty(pasteEvent, 'clipboardData', {
+    value: { getData: () => text },
+  })
+
+  await act(async () => {
+    getTextArea().dispatchEvent(pasteEvent)
+  })
+}
+
+const selectSaveDirectory = async (directory: WritableDirectoryHandle) => {
+  Object.defineProperty(window, 'showDirectoryPicker', {
+    configurable: true,
+    value: vi.fn().mockResolvedValue(directory),
+  })
+
+  const folderButton = Array.from(
+    container?.querySelectorAll('button') ?? []
+  ).find((button) => button.textContent === '저장 폴더 고르기')
+
+  expect(folderButton).toBeInstanceOf(HTMLButtonElement)
+
+  await act(async () => {
+    folderButton?.dispatchEvent(
+      new dom!.window.MouseEvent('click', { bubbles: true })
+    )
+  })
+
+  await flushAsyncUi(2)
+}
+
+const startSavingReadyListings = async () => {
+  const startButton = Array.from(
+    container?.querySelectorAll('button') ?? []
+  ).find((button) => button.textContent?.includes('저장 시작'))
+
+  expect(startButton).toBeInstanceOf(HTMLButtonElement)
+
+  await act(async () => {
+    startButton?.dispatchEvent(
+      new dom!.window.MouseEvent('click', { bubbles: true })
+    )
+  })
+}
+
+const disableFileSystemAccess = () => {
+  if (typeof window !== 'undefined') {
+    Reflect.deleteProperty(window, 'showDirectoryPicker')
+  }
+}
+
+const getSaveListingFailures = () =>
+  analyticsMocks.trackListingFailed.mock.calls
+    .map(([payload]) => payload)
+    .filter((payload) => payload.failureStage === 'save')
 
 describe('TruckHarvesterApp persistence', () => {
   it('does not restore a persisted writable folder after client mount', async () => {
@@ -1040,6 +1230,249 @@ describe('TruckHarvesterApp persistence', () => {
       )?.[0]
 
     expectNoVehicleIdentity(invalidFailurePayload)
+  })
+
+  it('tracks save summaries per paste batch when saving ready listings together', async () => {
+    const firstUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=11'
+    const secondUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=12'
+    const firstListing = createTruckListing(firstUrl, {
+      vname: '현대 메가트럭',
+      vnumber: '서울11가1111',
+    })
+    const secondListing = createTruckListing(secondUrl, {
+      vname: '기아 봉고',
+      vnumber: '부산22나2222',
+    })
+    const restoredDirectory = createWritableDirectory()
+
+    analyticsMocks.createAnalyticsBatchId
+      .mockReturnValueOnce('batch-first')
+      .mockReturnValueOnce('batch-second')
+
+    installDom(restoredDirectory)
+    mockParseResponses([firstListing, secondListing])
+    await renderTruckHarvesterApp()
+    await selectSaveDirectory(restoredDirectory)
+
+    await pasteListingText(firstUrl)
+    await flushAsyncUi()
+    await pasteListingText(secondUrl)
+    await flushAsyncUi()
+    await startSavingReadyListings()
+    await flushAsyncUi(6)
+
+    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-first',
+        saveMethod: 'directory',
+        readyCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-second',
+        saveMethod: 'directory',
+        readyCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-first',
+        savedCount: 1,
+        saveFailedCount: 0,
+      })
+    )
+    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-second',
+        savedCount: 1,
+        saveFailedCount: 0,
+      })
+    )
+    expect(analyticsMocks.trackSaveFailed).not.toHaveBeenCalled()
+  })
+
+  it('tracks partial directory save failures without failing saved listings', async () => {
+    const savedUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=13'
+    const failedUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=14'
+    const savedListing = createTruckListing(savedUrl, {
+      vname: '현대 메가트럭',
+      vnumber: '서울33다3333',
+    })
+    const failedListing = createTruckListing(failedUrl, {
+      vname: '대우 프리마',
+      vehicleName: '대우 프리마',
+      vnumber: '인천44라4444',
+    })
+    const restoredDirectory = createWritableDirectory(
+      new Set([failedListing.vnumber])
+    )
+
+    analyticsMocks.createAnalyticsBatchId.mockReturnValueOnce('batch-partial')
+
+    installDom(restoredDirectory)
+    mockParseResponses([savedListing, failedListing])
+    await renderTruckHarvesterApp()
+    await selectSaveDirectory(restoredDirectory)
+
+    await pasteListingText(`${savedUrl}\n${failedUrl}`)
+    await flushAsyncUi()
+    await startSavingReadyListings()
+    await flushAsyncUi(6)
+
+    expect(analyticsMocks.trackSaveFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-partial',
+        saveMethod: 'directory',
+        readyCount: 2,
+        savedCount: 1,
+        saveFailedCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackSaveCompleted).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-partial',
+      })
+    )
+
+    const saveFailures = getSaveListingFailures()
+
+    expect(saveFailures).toHaveLength(1)
+    expect(saveFailures[0]).toEqual(
+      expect.objectContaining({
+        batchId: 'batch-partial',
+        listingUrl: failedUrl,
+        vehicleNumber: '인천44라4444',
+        vehicleName: '대우 프리마',
+      })
+    )
+  })
+
+  it('tracks zip fallback failures as zip save failures', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=15'
+    const listing = createTruckListing(truckUrl, {
+      vname: '현대 엑시언트',
+      vehicleName: '현대 엑시언트',
+      vnumber: '대구55마5555',
+    })
+
+    analyticsMocks.createAnalyticsBatchId.mockReturnValueOnce('batch-zip')
+
+    installDom({} as WritableDirectoryHandle)
+    disableFileSystemAccess()
+    mockParseResponses([listing])
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => {
+        throw new Error('zip blocked')
+      }),
+    })
+    await renderTruckHarvesterApp()
+
+    await pasteListingText(truckUrl)
+    await flushAsyncUi()
+    await startSavingReadyListings()
+    await flushAsyncUi(6)
+
+    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-zip',
+        saveMethod: 'zip',
+      })
+    )
+    expect(analyticsMocks.trackSaveFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-zip',
+        saveMethod: 'zip',
+        saveFailedCount: 1,
+      })
+    )
+    expect(getSaveListingFailures()).toEqual([
+      expect.objectContaining({
+        batchId: 'batch-zip',
+        listingUrl: truckUrl,
+        vehicleNumber: '대구55마5555',
+        vehicleName: '현대 엑시언트',
+      }),
+    ])
+  })
+
+  it('uses a fallback save batch when a ready listing has no preview mapping', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=16'
+    const listing = createTruckListing(truckUrl, {
+      vname: '타타대우 노부스',
+      vehicleName: '타타대우 노부스',
+      vnumber: '광주66바6666',
+    })
+    const restoredDirectory = createWritableDirectory()
+
+    analyticsMocks.createAnalyticsBatchId
+      .mockReturnValueOnce('batch-preview')
+      .mockReturnValueOnce('batch-fallback')
+    listingPreparationMocks.prepareListingUrls.mockImplementationOnce(
+      async ({ urls, store }: PrepareListingUrlsInput) => {
+        const result = store.getState().addUrls([...urls])
+        const item = store
+          .getState()
+          .items.find(
+            (entry) => entry.url === truckUrl && entry.status === 'checking'
+          )
+
+        if (!item) {
+          throw new Error('테스트 매물을 준비하지 못했습니다.')
+        }
+
+        store.getState().markReadyById(item.id, listing)
+
+        return {
+          ...result,
+          addedItems: [],
+          settledItems: [
+            {
+              id: item.id,
+              url: truckUrl,
+              status: 'ready' as const,
+            },
+          ],
+        }
+      }
+    )
+
+    installDom(restoredDirectory)
+    await renderTruckHarvesterApp()
+    await selectSaveDirectory(restoredDirectory)
+
+    await pasteListingText(truckUrl)
+    await flushAsyncUi()
+    await startSavingReadyListings()
+    await flushAsyncUi(6)
+
+    expect(analyticsMocks.trackSaveStarted).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-preview',
+      })
+    )
+    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-fallback',
+        saveMethod: 'directory',
+        readyCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-fallback',
+        saveMethod: 'directory',
+        savedCount: 1,
+        saveFailedCount: 0,
+      })
+    )
   })
 
   it('tracks save failures with vehicle identifiers for parsed listings', async () => {

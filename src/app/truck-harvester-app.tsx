@@ -353,6 +353,24 @@ export function TruckHarvesterApp() {
     return groups
   }
 
+  const ensureFallbackSaveAnalyticsBatch = (
+    items: readonly ReadyPreparedListing[]
+  ) => {
+    const unmappedItems = items.filter(
+      (item) => !analyticsBatchByListingIdRef.current.has(item.id)
+    )
+
+    if (unmappedItems.length === 0) {
+      return
+    }
+
+    const fallbackBatch = createAnalyticsBatch(unmappedItems.length)
+
+    unmappedItems.forEach((item) => {
+      analyticsBatchByListingIdRef.current.set(item.id, fallbackBatch)
+    })
+  }
+
   const getSaveBatchCounts = (
     group: AnalyticsSaveBatchGroup,
     savedItemIds: ReadonlySet<string>
@@ -496,6 +514,7 @@ export function TruckHarvesterApp() {
 
       const saveMethod: SaveMethod = runDirectory ? 'directory' : 'zip'
       const savedItemIds = new Set<string>()
+      ensureFallbackSaveAnalyticsBatch(itemsToSave)
       const saveBatchGroups = getSaveBatchGroups(itemsToSave)
 
       itemsToSave.forEach((item) => {
