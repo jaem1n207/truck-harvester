@@ -779,6 +779,163 @@ describe('TruckHarvesterApp persistence', () => {
     expectNoVehicleIdentity(olderFailurePayload)
   })
 
+  it('does not attach an old same-url preview run to a newer pasted item', async () => {
+    const truckUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=9'
+    const oldPreview = createDeferred<Response>()
+
+    analyticsMocks.createAnalyticsBatchId
+      .mockReturnValueOnce('batch-old')
+      .mockReturnValueOnce('batch-new')
+
+    installDom({} as WritableDirectoryHandle)
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: vi
+        .fn()
+        .mockReturnValueOnce(oldPreview.promise)
+        .mockResolvedValueOnce(
+          Response.json({
+            success: true,
+            data: {
+              url: truckUrl,
+              vname: '현대 메가트럭',
+              vehicleName: '현대 메가트럭',
+              vnumber: '서울12가3456',
+              price: {
+                raw: 3200,
+                rawWon: 32000000,
+                label: '3,200만원',
+                compactLabel: '3,200만원',
+              },
+              year: '2020',
+              mileage: '120,000km',
+              options: '윙바디',
+              images: [],
+            },
+          })
+        ),
+    })
+
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    const textarea = container.querySelector(
+      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    )
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
+    }
+
+    const oldPasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperty(oldPasteEvent, 'clipboardData', {
+      value: { getData: () => truckUrl },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(oldPasteEvent)
+    })
+
+    for (let index = 0; index < 2; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    const removeButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.getAttribute('aria-label')?.startsWith('매물 지우기:')
+    )
+
+    expect(removeButton).toBeInstanceOf(HTMLButtonElement)
+
+    await act(async () => {
+      removeButton?.dispatchEvent(
+        new dom!.window.MouseEvent('click', { bubbles: true })
+      )
+    })
+
+    const newPasteEvent = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperty(newPasteEvent, 'clipboardData', {
+      value: { getData: () => truckUrl },
+    })
+
+    await act(async () => {
+      textarea.dispatchEvent(newPasteEvent)
+    })
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-new',
+        uniqueUrlCount: 1,
+        readyCount: 1,
+        previewFailedCount: 0,
+      })
+    )
+
+    oldPreview.resolve(
+      Response.json(
+        {
+          success: false,
+          reason: 'site-timeout',
+          message: '사이트 응답이 늦습니다.',
+        },
+        { status: 504 }
+      )
+    )
+
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => {
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+    }
+
+    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-old',
+        uniqueUrlCount: 0,
+        readyCount: 0,
+        previewFailedCount: 0,
+      })
+    )
+    expect(analyticsMocks.trackPreviewCompleted).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-old',
+        uniqueUrlCount: 1,
+        readyCount: 1,
+      })
+    )
+    expect(analyticsMocks.trackListingFailed).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-old',
+        listingUrl: truckUrl,
+      })
+    )
+  })
+
   it('tracks invalid listing identity as an invalid_url failure', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=6'

@@ -284,9 +284,12 @@ export function TruckHarvesterApp() {
           return
         }
 
+        const runItemIds = new Set(
+          prepareResult.addedItems.map((item) => item.id)
+        )
         const batchItems = preparedStore
           .getState()
-          .items.filter((item) => prepareResult.added.includes(item.url))
+          .items.filter((item) => runItemIds.has(item.id))
 
         batchItems.forEach((item) => {
           listingBatchIdsRef.current.set(item.id, analyticsBatch.id)
