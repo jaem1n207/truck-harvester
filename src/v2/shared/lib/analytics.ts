@@ -35,6 +35,13 @@ export interface ListingFailureAnalyticsInput {
   vehicleNumber?: string
   vehicleName?: string
   imageCount?: number
+  inputWasTruncated?: boolean
+  elapsedMs: number
+}
+
+export interface UnsupportedInputFailureAnalyticsInput {
+  batchId: string
+  rawInput: string
   elapsedMs: number
 }
 
@@ -42,6 +49,10 @@ type OptionalAnalyticsEventData = Record<
   string,
   AnalyticsEventDataValue | undefined
 >
+
+const unsupportedInputFailureReason = 'unsupported_input'
+const unsupportedInputSampleMaxLength = 160
+const whitespacePattern = /\s+/g
 
 const compactEventData = (data: OptionalAnalyticsEventData) =>
   Object.fromEntries(
@@ -92,8 +103,30 @@ export function toListingFailureEventData(input: ListingFailureAnalyticsInput) {
     vehicle_number: input.vehicleNumber,
     vehicle_name: input.vehicleName,
     image_count: input.imageCount,
+    input_was_truncated: input.inputWasTruncated,
     elapsed_ms: input.elapsedMs,
   })
+}
+
+export function toUnsupportedInputFailureInput({
+  batchId,
+  rawInput,
+  elapsedMs,
+}: UnsupportedInputFailureAnalyticsInput): ListingFailureAnalyticsInput | null {
+  const normalizedInput = rawInput.trim().replace(whitespacePattern, ' ')
+
+  if (normalizedInput.length === 0) {
+    return null
+  }
+
+  return {
+    batchId,
+    failureStage: 'invalid_url',
+    failureReason: unsupportedInputFailureReason,
+    listingUrl: normalizedInput.slice(0, unsupportedInputSampleMaxLength),
+    inputWasTruncated: normalizedInput.length > unsupportedInputSampleMaxLength,
+    elapsedMs,
+  }
 }
 
 export const trackBatchStarted = (input: BatchAnalyticsInput) => {
@@ -118,4 +151,16 @@ export const trackSaveFailed = (input: BatchAnalyticsInput) => {
 
 export const trackListingFailed = (input: ListingFailureAnalyticsInput) => {
   trackEvent('listing_failed', toListingFailureEventData(input))
+}
+
+export const trackUnsupportedInputFailure = (
+  input: UnsupportedInputFailureAnalyticsInput
+) => {
+  const failureInput = toUnsupportedInputFailureInput(input)
+
+  if (!failureInput) {
+    return
+  }
+
+  trackListingFailed(failureInput)
 }

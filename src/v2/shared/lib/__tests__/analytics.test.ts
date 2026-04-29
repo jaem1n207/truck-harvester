@@ -4,8 +4,10 @@ import {
   createAnalyticsBatchId,
   toBatchEventData,
   toListingFailureEventData,
+  toUnsupportedInputFailureInput,
   trackBatchStarted,
   trackListingFailed,
+  trackUnsupportedInputFailure,
 } from '../analytics'
 
 const originalWindow = globalThis.window
@@ -113,6 +115,54 @@ describe('analytics payload builders', () => {
       elapsed_ms: 1500,
     })
   })
+
+  it('builds a bounded unsupported input failure payload', () => {
+    const failure = toUnsupportedInputFailureInput({
+      batchId: 'batch-unsupported',
+      rawInput: '  DetailView.asp?ShopNo=30195108\n\tabc...  ',
+      elapsedMs: 12,
+    })
+
+    expect(failure).toEqual({
+      batchId: 'batch-unsupported',
+      failureStage: 'invalid_url',
+      failureReason: 'unsupported_input',
+      listingUrl: 'DetailView.asp?ShopNo=30195108 abc...',
+      inputWasTruncated: false,
+      elapsedMs: 12,
+    })
+    expect(toListingFailureEventData(failure!)).toEqual({
+      batch_id: 'batch-unsupported',
+      failure_stage: 'invalid_url',
+      failure_reason: 'unsupported_input',
+      listing_url: 'DetailView.asp?ShopNo=30195108 abc...',
+      input_was_truncated: false,
+      elapsed_ms: 12,
+    })
+  })
+
+  it('truncates unsupported input samples to 160 characters', () => {
+    const rawInput = `DetailView.asp?${'x'.repeat(200)}`
+    const failure = toUnsupportedInputFailureInput({
+      batchId: 'batch-long',
+      rawInput,
+      elapsedMs: 20,
+    })
+
+    expect(failure?.listingUrl).toBe(rawInput.slice(0, 160))
+    expect(failure?.listingUrl).toHaveLength(160)
+    expect(failure?.inputWasTruncated).toBe(true)
+  })
+
+  it('does not build unsupported input payloads for empty samples', () => {
+    expect(
+      toUnsupportedInputFailureInput({
+        batchId: 'batch-empty',
+        rawInput: ' \n\t ',
+        elapsedMs: 1,
+      })
+    ).toBeNull()
+  })
 })
 
 describe('analytics tracking', () => {
@@ -178,5 +228,38 @@ describe('analytics tracking', () => {
         elapsedMs: 1,
       })
     ).not.toThrow()
+  })
+
+  it('tracks unsupported input through the listing_failed event', () => {
+    const track = vi.fn()
+    stubWindow({ umami: { track } })
+
+    trackUnsupportedInputFailure({
+      batchId: 'batch-unsupported',
+      rawInput: '  DetailView.asp?ShopNo=1\nabc...  ',
+      elapsedMs: 7,
+    })
+
+    expect(track).toHaveBeenCalledWith('listing_failed', {
+      batch_id: 'batch-unsupported',
+      failure_stage: 'invalid_url',
+      failure_reason: 'unsupported_input',
+      listing_url: 'DetailView.asp?ShopNo=1 abc...',
+      input_was_truncated: false,
+      elapsed_ms: 7,
+    })
+  })
+
+  it('does not send unsupported input events for empty samples', () => {
+    const track = vi.fn()
+    stubWindow({ umami: { track } })
+
+    trackUnsupportedInputFailure({
+      batchId: 'batch-empty',
+      rawInput: ' \n\t ',
+      elapsedMs: 0,
+    })
+
+    expect(track).not.toHaveBeenCalled()
   })
 })

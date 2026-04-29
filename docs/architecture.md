@@ -31,9 +31,11 @@ flowchart LR
 
 Umami Cloud analytics loads only in production with the fixed Truck Harvester
 website script from Umami Cloud. The app records aggregate batch funnel events
-for paste, preview, and save milestones. Only failed listings send actual
-listing identifiers such as URL, vehicle number, and vehicle name; successful
-listings are represented by counts only.
+for paste, preview, and save milestones. Only failed listings and non-empty
+unsupported input failures send listing diagnostics such as listing URL,
+bounded input sample, vehicle number, and vehicle name; successful listings are
+represented by counts only. Unsupported input samples are whitespace-normalized,
+capped at 160 characters, and sent at most once per failed paste.
 
 The client owns preview scheduling with concurrency 5. The server endpoint
 accepts one address at a time so each request can stay inside the short
