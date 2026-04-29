@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type TruckListing } from '@/v2/entities/truck'
 import { type WritableDirectoryHandle } from '@/v2/features/file-management'
 import { type PrepareListingUrlsInput } from '@/v2/features/listing-preparation'
+import { onboardingStorageKey } from '@/v2/shared/model'
 
 const analyticsMocks = vi.hoisted(() => ({
   createAnalyticsBatchId: vi.fn(() => 'batch-1'),
@@ -95,12 +96,28 @@ const createDeferred = <T,>() => {
   return { promise, reject, resolve }
 }
 
+const createTestDirectoryHandle = (): WritableDirectoryHandle => ({
+  getDirectoryHandle: async () => {
+    throw new Error('테스트에서는 폴더에 쓰지 않습니다.')
+  },
+  getFileHandle: async () => {
+    throw new Error('테스트에서는 파일에 쓰지 않습니다.')
+  },
+  name: 'truck-test',
+  queryPermission: vi.fn().mockResolvedValue('granted'),
+  requestPermission: vi.fn().mockResolvedValue('granted'),
+})
+
 const createRequest = <T,>(result: T): FakeIdbRequest<T> => ({
   error: null,
   onerror: null,
   onsuccess: null,
   result,
 })
+
+const markOnboardingComplete = () => {
+  window.localStorage.setItem(onboardingStorageKey, 'completed')
+}
 
 const installDom = (storedDirectory: WritableDirectoryHandle) => {
   const currentDom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -323,6 +340,7 @@ const flushAsyncUi = async (iterations = 4) => {
 }
 
 const renderTruckHarvesterApp = async () => {
+  markOnboardingComplete()
   const { TruckHarvesterApp } = await import('../truck-harvester-app')
 
   container = document.createElement('div')
@@ -408,6 +426,66 @@ const getSaveListingFailures = () =>
     .filter((payload) => payload.failureStage === 'save')
 
 describe('TruckHarvesterApp persistence', () => {
+  it('disables the four background controls while onboarding is open', async () => {
+    const restoredDirectory = createTestDirectoryHandle()
+
+    installDom(restoredDirectory)
+    Object.defineProperty(window, 'Notification', {
+      configurable: true,
+      value: {
+        permission: 'default',
+        requestPermission: vi.fn().mockResolvedValue('default'),
+      },
+    })
+    const { TruckHarvesterApp } = await import('../truck-harvester-app')
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TruckHarvesterApp />)
+    })
+
+    const helpButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('도움말')
+    )
+
+    expect(helpButton).toBeInstanceOf(HTMLButtonElement)
+
+    await act(async () => {
+      helpButton?.dispatchEvent(
+        new dom!.window.MouseEvent('click', { bubbles: true })
+      )
+    })
+
+    const background = container.querySelector<HTMLElement>(
+      '[data-tour-background="true"]'
+    )
+    const dialog = container.querySelector<HTMLElement>(
+      '[data-tour-modal-root="true"]'
+    )
+
+    expect(dialog).toBeInstanceOf(HTMLElement)
+    expect(background?.hasAttribute('inert')).toBe(true)
+    expect(background?.getAttribute('aria-hidden')).toBeNull()
+
+    const textarea = container.querySelector<HTMLTextAreaElement>(
+      '#listing-chip-input-textarea'
+    )
+    const directoryButton = Array.from(
+      container.querySelectorAll('button')
+    ).find((button) => button.textContent === '저장 폴더 고르기')
+    const notificationButton = Array.from(
+      container.querySelectorAll('button')
+    ).find((button) => button.textContent === '완료 알림 켜기')
+
+    expect(helpButton?.disabled).toBe(true)
+    expect(textarea?.disabled).toBe(true)
+    expect(directoryButton?.disabled).toBe(true)
+    expect(notificationButton?.disabled).toBe(true)
+  })
+
   it('does not restore a persisted writable folder after client mount', async () => {
     const queryPermission = vi.fn().mockResolvedValue('granted')
     const requestPermission = vi.fn().mockResolvedValue('granted')
@@ -424,6 +502,7 @@ describe('TruckHarvesterApp persistence', () => {
     }
 
     installDom(restoredDirectory)
+    markOnboardingComplete()
     const { TruckHarvesterApp } = await import('../truck-harvester-app')
 
     container = document.createElement('div')
@@ -472,6 +551,7 @@ describe('TruckHarvesterApp persistence', () => {
     }
 
     installDom(restoredDirectory)
+    markOnboardingComplete()
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi.fn().mockResolvedValue(
@@ -639,6 +719,7 @@ describe('TruckHarvesterApp persistence', () => {
       },
       name: 'truck-test',
     } as WritableDirectoryHandle)
+    markOnboardingComplete()
 
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
@@ -739,6 +820,7 @@ describe('TruckHarvesterApp persistence', () => {
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=5'
 
     installDom({} as WritableDirectoryHandle)
+    markOnboardingComplete()
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi.fn().mockResolvedValue(
@@ -826,6 +908,7 @@ describe('TruckHarvesterApp persistence', () => {
       .mockReturnValueOnce('batch-latest')
 
     installDom({} as WritableDirectoryHandle)
+    markOnboardingComplete()
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi.fn((_: RequestInfo | URL, init?: RequestInit) => {
@@ -998,6 +1081,7 @@ describe('TruckHarvesterApp persistence', () => {
       .mockReturnValueOnce('batch-new')
 
     installDom({} as WritableDirectoryHandle)
+    markOnboardingComplete()
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi
@@ -1151,6 +1235,7 @@ describe('TruckHarvesterApp persistence', () => {
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=6'
 
     installDom({} as WritableDirectoryHandle)
+    markOnboardingComplete()
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi.fn().mockResolvedValue(
@@ -1489,6 +1574,7 @@ describe('TruckHarvesterApp persistence', () => {
     }
 
     installDom(restoredDirectory)
+    markOnboardingComplete()
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       value: vi.fn().mockResolvedValue(

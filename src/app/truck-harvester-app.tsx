@@ -156,6 +156,7 @@ export function TruckHarvesterApp() {
   const inputListings = preparedState.items.filter(
     (item) => item.status !== 'saved'
   )
+  const isTourOpen = onboardingState.isTourOpen
 
   useBrowserLayoutEffect(() => {
     const supported = isFileSystemAccessAvailable()
@@ -685,7 +686,11 @@ export function TruckHarvesterApp() {
       className="bg-background text-foreground min-h-dvh"
       data-tour="v2-page"
     >
-      <section className="mx-auto grid min-h-dvh w-full max-w-6xl gap-6 px-6 py-8 md:px-10">
+      <section
+        className="mx-auto grid min-h-dvh w-full max-w-6xl gap-6 px-6 py-8 md:px-10"
+        data-tour-background="true"
+        inert={isTourOpen ? true : undefined}
+      >
         <header className="flex items-center justify-between gap-4">
           <div>
             <p className="text-muted-foreground text-sm font-medium">
@@ -695,7 +700,10 @@ export function TruckHarvesterApp() {
               트럭 매물 수집기
             </h1>
           </div>
-          <HelpMenuButton onRestartTour={onboardingState.restartTour} />
+          <HelpMenuButton
+            disabled={isTourOpen}
+            onRestartTour={onboardingState.restartTour}
+          />
         </header>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
@@ -703,7 +711,7 @@ export function TruckHarvesterApp() {
             <div data-tour="url-input">
               <ListingChipInput
                 canRemoveItem={canRemovePreparedItem}
-                disabled={isSaving}
+                disabled={isSaving || isTourOpen}
                 duplicateMessage={duplicateMessage}
                 items={inputListings}
                 onPasteText={handlePasteText}
@@ -719,6 +727,7 @@ export function TruckHarvesterApp() {
 
           <div className="grid content-start gap-5">
             <DirectorySelector
+              disabled={isTourOpen}
               isSupported={fileSystemSupported}
               onSelectDirectory={selectDirectory}
               permissionState={directoryPermissionState}
@@ -730,6 +739,7 @@ export function TruckHarvesterApp() {
               selectedDirectoryName={directory?.name}
             />
             <CompletionNotificationToggle
+              disabled={isTourOpen}
               isAvailable={notificationAvailable}
               onEnable={requestNotificationPermission}
               permission={notificationPermission}
