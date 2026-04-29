@@ -31,6 +31,15 @@ const createListing = (url: string, id: number): TruckListing => ({
   images: [],
 })
 
+const createAddedItems = (urls: readonly string[], startId = 1) =>
+  urls.map((url, index) => ({ id: `listing-${startId + index}`, url }))
+
+const createReadySettledItems = (urls: readonly string[], startId = 1) =>
+  createAddedItems(urls, startId).map((item) => ({
+    ...item,
+    status: 'ready' as const,
+  }))
+
 const waitUntil = async (condition: () => boolean) => {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     if (condition()) {
@@ -53,7 +62,12 @@ describe('prepareListingUrls', () => {
 
     const result = await prepareListingUrls({ urls, store, parse })
 
-    expect(result).toEqual({ added: urls, duplicates: [] })
+    expect(result).toEqual({
+      added: urls,
+      duplicates: [],
+      addedItems: createAddedItems(urls),
+      settledItems: createReadySettledItems(urls),
+    })
     expect(parse).toHaveBeenCalledTimes(2)
     expect(store.getState().items).toMatchObject([
       {
@@ -77,7 +91,12 @@ describe('prepareListingUrls', () => {
     await prepareListingUrls({ urls: [url], store, parse })
     const result = await prepareListingUrls({ urls: [url], store, parse })
 
-    expect(result).toEqual({ added: [], duplicates: [url] })
+    expect(result).toEqual({
+      added: [],
+      duplicates: [url],
+      addedItems: [],
+      settledItems: [],
+    })
     expect(parse).toHaveBeenCalledTimes(1)
     expect(store.getState().items).toHaveLength(1)
   })
@@ -91,7 +110,19 @@ describe('prepareListingUrls', () => {
 
     const result = await prepareListingUrls({ urls: [url], store, parse })
 
-    expect(result).toEqual({ added: [url], duplicates: [] })
+    expect(result).toEqual({
+      added: [url],
+      duplicates: [],
+      addedItems: createAddedItems([url]),
+      settledItems: [
+        {
+          id: 'listing-1',
+          url,
+          status: 'failed',
+          message: recoveryMessage,
+        },
+      ],
+    })
     expect(store.getState().items[0]).toMatchObject({
       status: 'failed',
       url,
@@ -111,7 +142,19 @@ describe('prepareListingUrls', () => {
 
     const result = await prepareListingUrls({ urls: [url], store, parse })
 
-    expect(result).toEqual({ added: [url], duplicates: [] })
+    expect(result).toEqual({
+      added: [url],
+      duplicates: [],
+      addedItems: createAddedItems([url]),
+      settledItems: [
+        {
+          id: 'listing-1',
+          url,
+          status: 'invalid',
+          message: '매물 정보를 찾지 못했어요. 주소를 다시 확인해 주세요.',
+        },
+      ],
+    })
     expect(store.getState().items[0]).toMatchObject({
       status: 'invalid',
       url,
@@ -136,7 +179,12 @@ describe('prepareListingUrls', () => {
       parse,
     })
 
-    expect(result).toEqual({ added: urls, duplicates: [] })
+    expect(result).toEqual({
+      added: urls,
+      duplicates: [],
+      addedItems: createAddedItems(urls),
+      settledItems: [],
+    })
     expect(parse).not.toHaveBeenCalled()
     expect(store.getState().items).toEqual([])
   })

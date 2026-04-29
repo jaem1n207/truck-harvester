@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
 
+import Script from 'next/script'
+
+import { getUmamiScriptConfig } from './umami-script-config'
 import './globals.css'
 import './theme.css'
 
@@ -72,6 +75,8 @@ export const metadata: Metadata = {
   category: 'productivity',
 }
 
+const umamiScriptConfig = getUmamiScriptConfig()
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -80,6 +85,13 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="antialiased">
+        {umamiScriptConfig ? (
+          <Script
+            data-website-id={umamiScriptConfig.websiteId}
+            src={umamiScriptConfig.src}
+            strategy="afterInteractive"
+          />
+        ) : null}
         <div className="v2-theme min-h-dvh">{children}</div>
       </body>
     </html>

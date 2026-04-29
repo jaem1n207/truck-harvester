@@ -71,6 +71,15 @@ export interface PrepareListingUrlsInput {
   parse?: (url: string, signal?: AbortSignal) => Promise<TruckListing>
 }
 
+export interface PreparedListingRunItem {
+  id: string
+  url: string
+}
+
+export type PreparedListingSettledItem =
+  | (PreparedListingRunItem & { status: 'ready' })
+  | (PreparedListingRunItem & { status: 'failed' | 'invalid'; message: string })
+
 export async function prepareListingUrls({
   urls,
   store,
@@ -82,12 +91,17 @@ export async function prepareListingUrls({
   const result = store.getState().addUrls([...urls])
   const addedItemIdsByUrl = findAddedItemIdsByUrl(store, result.added)
   const addedItemIds = [...addedItemIdsByUrl.values()]
+  const addedItems = result.added.flatMap<PreparedListingRunItem>((url) => {
+    const id = addedItemIdsByUrl.get(url)
+
+    return id ? [{ id, url }] : []
+  })
 
   const previewResults = await runConcurrent({
     items: result.added,
     limit: concurrency,
     signal,
-    task: async (url) => {
+    task: async (url): Promise<PreparedListingSettledItem | undefined> => {
       const itemId = addedItemIdsByUrl.get(url)
 
       if (!itemId) {
@@ -100,16 +114,28 @@ export async function prepareListingUrls({
           store
             .getState()
             .markInvalidById(itemId, missingListingIdentityMessage)
-          return
+          return {
+            id: itemId,
+            url,
+            status: 'invalid',
+            message: missingListingIdentityMessage,
+          }
         }
 
         store.getState().markReadyById(itemId, listing)
+        return { id: itemId, url, status: 'ready' }
       } catch (error) {
         if (isAbortError(error)) {
           throw error
         }
 
         store.getState().markFailedById(itemId, previewFailureMessage)
+        return {
+          id: itemId,
+          url,
+          status: 'failed',
+          message: previewFailureMessage,
+        }
       }
     },
   })
@@ -123,5 +149,11 @@ export async function prepareListingUrls({
     removeCheckingItemIds(store, addedItemIds)
   }
 
-  return result
+  const settledItems = previewResults.flatMap((previewResult) =>
+    previewResult.status === 'fulfilled' && previewResult.value
+      ? [previewResult.value]
+      : []
+  )
+
+  return { ...result, addedItems, settledItems }
 }
