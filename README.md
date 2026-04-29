@@ -7,7 +7,28 @@
 
 ## 🎬 제품 소개 영상
 
-- **20초 프로모션 MP4**: [`videos/truck-harvester-promo/renders/truck-harvester-promo.mp4`](videos/truck-harvester-promo/renders/truck-harvester-promo.mp4)
+<video
+autoplay
+controls
+muted
+loop
+playsinline
+width="100%"
+
+>
+
+  <source
+    src="https://raw.githubusercontent.com/jaem1n207/truck-harvester/main/videos/truck-harvester-promo/renders/truck-harvester-promo.mp4"
+    type="video/mp4"
+  />
+  <source
+    src="https://raw.githubusercontent.com/jaem1n207/truck-harvester/codex/truck-harvester-promo/videos/truck-harvester-promo/renders/truck-harvester-promo.mp4"
+    type="video/mp4"
+  />
+  <a href="videos/truck-harvester-promo/renders/truck-harvester-promo.mp4">20초 프로모션 MP4 보기</a>
+</video>
+
+- **동영상 직접 열기**: [`videos/truck-harvester-promo/renders/truck-harvester-promo.mp4`](videos/truck-harvester-promo/renders/truck-harvester-promo.mp4)
 - **HyperFrames 소스**: [`videos/truck-harvester-promo/`](videos/truck-harvester-promo/)
 
 ## ✨ 주요 기능
