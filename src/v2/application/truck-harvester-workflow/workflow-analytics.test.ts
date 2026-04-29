@@ -230,6 +230,62 @@ describe('workflow analytics adapter', () => {
     )
   })
 
+  it('clears previous save failures when the same listing is retried successfully', () => {
+    const transport = createTransport()
+    const tracker = createWorkflowAnalytics({
+      createBatchId: () => 'batch-retry-save',
+      getFilesystemSupported: () => true,
+      getNotificationEnabled: () => false,
+      now: () => 250,
+      transport,
+    })
+    const batch = tracker.previewStarted({ urlCount: 1, startedAt: 100 })
+    const item = { id: 'listing-1', url: firstUrl, listing }
+
+    tracker.previewCompleted({
+      batch,
+      items: [{ id: item.id, url: item.url, status: 'ready' }],
+    })
+    tracker.saveStarted({
+      items: [item],
+      saveMethod: 'directory',
+    })
+    tracker.saveListingFailed({
+      item,
+      message: '저장하지 못했어요.',
+    })
+    tracker.saveSettled({
+      items: [item],
+      saveMethod: 'directory',
+      savedItemIds: new Set(),
+    })
+
+    tracker.saveStarted({
+      items: [item],
+      saveMethod: 'directory',
+    })
+    tracker.saveSettled({
+      items: [item],
+      saveMethod: 'directory',
+      savedItemIds: new Set([item.id]),
+    })
+
+    expect(transport.trackSaveFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-retry-save',
+        savedCount: 0,
+        saveFailedCount: 1,
+      })
+    )
+    expect(transport.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-retry-save',
+        savedCount: 1,
+        saveFailedCount: 0,
+      })
+    )
+  })
+
   it('removes listing analytics state when a chip is removed', () => {
     const transport = createTransport()
     const createBatchId = vi

@@ -248,6 +248,10 @@ export function createWorkflowAnalytics({
       })
     },
     saveStarted: ({ items, saveMethod }) => {
+      items.forEach((item) => {
+        saveFailureIds.delete(item.id)
+      })
+
       getSaveGroups(items).forEach((group) => {
         transport.trackSaveStarted(
           toBatchInput(group.batch, toReadyPreviewItems(group.items), {
