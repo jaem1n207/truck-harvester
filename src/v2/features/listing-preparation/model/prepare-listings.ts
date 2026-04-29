@@ -71,6 +71,11 @@ export interface PrepareListingUrlsInput {
   parse?: (url: string, signal?: AbortSignal) => Promise<TruckListing>
 }
 
+export interface PreparedListingRunItem {
+  id: string
+  url: string
+}
+
 export async function prepareListingUrls({
   urls,
   store,
@@ -82,6 +87,11 @@ export async function prepareListingUrls({
   const result = store.getState().addUrls([...urls])
   const addedItemIdsByUrl = findAddedItemIdsByUrl(store, result.added)
   const addedItemIds = [...addedItemIdsByUrl.values()]
+  const addedItems = result.added.flatMap<PreparedListingRunItem>((url) => {
+    const id = addedItemIdsByUrl.get(url)
+
+    return id ? [{ id, url }] : []
+  })
 
   const previewResults = await runConcurrent({
     items: result.added,
@@ -123,5 +133,5 @@ export async function prepareListingUrls({
     removeCheckingItemIds(store, addedItemIds)
   }
 
-  return result
+  return { ...result, addedItems }
 }
