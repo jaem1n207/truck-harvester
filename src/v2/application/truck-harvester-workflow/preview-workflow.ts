@@ -70,6 +70,10 @@ export async function runPreviewWorkflow({
     return { duplicateMessage: input.message }
   }
 
+  if (signal?.aborted) {
+    return { duplicateMessage: null }
+  }
+
   const batch = tracker.previewStarted({
     urlCount: input.urls.length,
     startedAt,

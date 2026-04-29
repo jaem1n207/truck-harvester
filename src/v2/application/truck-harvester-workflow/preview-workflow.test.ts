@@ -135,6 +135,26 @@ describe('runPreviewWorkflow', () => {
     })
   })
 
+  it('does not start preview analytics when already cancelled', async () => {
+    const store = createPreparedListingStore()
+    const controller = new AbortController()
+    const { tracker } = createTracker()
+
+    controller.abort()
+
+    const result = await runWorkflow({
+      text: firstUrl,
+      store,
+      tracker,
+      signal: controller.signal,
+    })
+
+    expect(result).toEqual({ duplicateMessage: null })
+    expect(tracker.previewStarted).not.toHaveBeenCalled()
+    expect(tracker.previewCompleted).not.toHaveBeenCalled()
+    expect(store.getState().items).toEqual([])
+  })
+
   it('returns the duplicate helper message for duplicate pasted addresses', async () => {
     const store = createPreparedListingStore()
 
