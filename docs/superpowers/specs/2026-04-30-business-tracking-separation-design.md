@@ -250,6 +250,10 @@ ListingChipInput start button
   규칙을 둔다.
 - 필요하면 `docs/runbooks/`에 workflow 변경 시 만질 위치를 추가한다.
 
+## Implementation Plan
+
+Execution plan: `docs/superpowers/plans/2026-04-30-business-tracking-separation.md`
+
 ## 수용 기준
 
 - `truck-harvester-app.tsx`는 analytics wrapper를 직접 import하지 않는다.

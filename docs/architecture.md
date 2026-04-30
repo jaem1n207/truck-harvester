@@ -37,6 +37,12 @@ bounded input sample, vehicle number, and vehicle name; successful listings are
 represented by counts only. Unsupported input samples are whitespace-normalized,
 capped at 160 characters, and sent at most once per failed paste.
 
+The application workflow layer emits business facts to a workflow analytics
+adapter. The route component and widgets do not assemble Umami payloads, and
+preview/save use cases do not call `window.umami` directly. The shared
+analytics transport remains the only layer that knows the concrete Umami event
+names and payload keys.
+
 The client owns preview scheduling with concurrency 5. The server endpoint
 accepts one address at a time so each request can stay inside the short
 Vercel Hobby execution budget. The visible user state is the prepared
@@ -87,13 +93,16 @@ users choose the save folder again.
 
 ## Layer Responsibilities
 
-- `src/app`: root route composition, page layout, and wiring.
+- `src/app`: root route composition, page layout, and widget wiring.
+- `src/v2/application`: root app workflow orchestration, React hook adapters,
+  and workflow analytics boundaries.
 - `src/v2/widgets`: user-facing blocks that compose features and shared
   selectors.
-- `src/v2/features`: workflows such as listing preparation, parsing,
+- `src/v2/features`: capabilities such as listing preparation, parsing,
   saving, completion notifications, and onboarding.
 - `src/v2/entities`: pure schemas and state contracts.
-- `src/v2/shared`: utilities, stores, selectors, and low-level UI.
+- `src/v2/shared`: utilities, stores, selectors, analytics transport, and
+  low-level UI.
 - `src/v2/design-system`: tokens and motion presets for the root app.
 
 ## Guardrails
