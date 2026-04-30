@@ -62,11 +62,14 @@ it.each([
   [-1, '00_under_1s'],
   [0, '00_under_1s'],
   [999, '00_under_1s'],
+  [999.5, '00_under_1s'],
   [1000, '01_1s'],
   [1999, '01_1s'],
+  [1999.9, '01_1s'],
   [2000, '02_2s'],
   [6420, '06_6s'],
   [9999, '09_9s'],
+  [9999.9, '09_9s'],
   [10000, '10_10s_plus'],
   [15320, '10_10s_plus'],
 ])('maps %s ms to %s', (durationMs, bucket) => {
@@ -150,7 +153,7 @@ In `src/v2/shared/lib/analytics.ts`, add this helper after `createAnalyticsBatch
 
 ```ts
 export function toDurationBucket(durationMs: number) {
-  const normalizedDurationMs = Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : 0
+  const normalizedDurationMs = Number.isFinite(durationMs) ? Math.max(0, durationMs) : 0
 
   if (normalizedDurationMs < 1000) {
     return '00_under_1s'
