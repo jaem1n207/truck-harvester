@@ -77,6 +77,26 @@ export function createAnalyticsBatchId() {
     .slice(2, 8)}`
 }
 
+export function toDurationBucket(durationMs: number) {
+  const normalizedDurationMs = Number.isFinite(durationMs)
+    ? Math.max(0, durationMs)
+    : 0
+
+  if (normalizedDurationMs < 1000) {
+    return '00_under_1s'
+  }
+
+  const seconds = Math.floor(normalizedDurationMs / 1000)
+
+  if (seconds >= 10) {
+    return '10_10s_plus'
+  }
+
+  const paddedSeconds = seconds.toString().padStart(2, '0')
+
+  return `${paddedSeconds}_${seconds}s`
+}
+
 export function toBatchEventData(input: BatchAnalyticsInput) {
   return compactEventData({
     batch_id: input.batchId,
@@ -88,6 +108,7 @@ export function toBatchEventData(input: BatchAnalyticsInput) {
     saved_count: input.savedCount,
     save_failed_count: input.saveFailedCount,
     duration_ms: input.durationMs,
+    duration_bucket: toDurationBucket(input.durationMs),
     save_method: input.saveMethod,
     filesystem_supported: input.filesystemSupported,
     notification_enabled: input.notificationEnabled,
