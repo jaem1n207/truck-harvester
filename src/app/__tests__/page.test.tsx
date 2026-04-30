@@ -20,12 +20,16 @@ const { JSDOM } = require('jsdom') as {
 }
 
 vi.mock('@/v2/features/listing-preparation', async () => {
+  const parser = await vi.importActual<
+    typeof import('@/v2/features/listing-preparation/model/url-input-parser')
+  >('@/v2/features/listing-preparation/model/url-input-parser')
   const store = await vi.importActual<
     typeof import('@/v2/features/listing-preparation/model/prepared-listing-store')
   >('@/v2/features/listing-preparation/model/prepared-listing-store')
 
   return {
     createPreparedListingStore: store.createPreparedListingStore,
+    parseUrlInputText: parser.parseUrlInputText,
     prepareListingUrls: listingPreparationMocks.prepareListingUrls,
     selectCheckingPreparedListings: store.selectCheckingPreparedListings,
     selectReadyPreparedListings: store.selectReadyPreparedListings,

@@ -21,6 +21,7 @@ const requiredDocs = [
 const layerAgentFiles = [
   'AGENTS.md',
   'src/v2/AGENTS.md',
+  'src/v2/application/AGENTS.md',
   'src/v2/entities/AGENTS.md',
   'src/v2/features/AGENTS.md',
   'src/v2/shared/AGENTS.md',
@@ -54,6 +55,16 @@ describe('v2 AI knowledge base', () => {
     })
 
     expect(missingLinks).toEqual([])
+  })
+
+  it('documents the application workflow layer', () => {
+    const guide = readText('src/v2/AGENTS.md')
+    const applicationGuide = readText('src/v2/application/AGENTS.md')
+
+    expect(guide).toContain('application/')
+    expect(applicationGuide).toContain('business workflow orchestration')
+    expect(applicationGuide).toContain('must not import widgets')
+    expect(applicationGuide).toContain('workflow analytics')
   })
 
   it('documents the v2 data flow with a Mermaid diagram', () => {
