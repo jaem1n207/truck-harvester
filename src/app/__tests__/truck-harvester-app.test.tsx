@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { type TruckListing } from '@/v2/entities/truck'
 import { type WritableDirectoryHandle } from '@/v2/features/file-management'
-import { type PrepareListingUrlsInput } from '@/v2/features/listing-preparation'
 import { onboardingStorageKey } from '@/v2/shared/model'
 
 const analyticsMocks = vi.hoisted(() => ({
@@ -34,6 +33,9 @@ vi.mock('@/v2/features/listing-preparation', async () => {
   const store = await vi.importActual<
     typeof import('@/v2/features/listing-preparation/model/prepared-listing-store')
   >('@/v2/features/listing-preparation/model/prepared-listing-store')
+  const parser = await vi.importActual<
+    typeof import('@/v2/features/listing-preparation/model/url-input-parser')
+  >('@/v2/features/listing-preparation/model/url-input-parser')
 
   listingPreparationMocks.prepareListingUrls.mockImplementation(
     prepare.prepareListingUrls
@@ -41,6 +43,7 @@ vi.mock('@/v2/features/listing-preparation', async () => {
 
   return {
     createPreparedListingStore: store.createPreparedListingStore,
+    parseUrlInputText: parser.parseUrlInputText,
     prepareListingUrls: listingPreparationMocks.prepareListingUrls,
     selectCheckingPreparedListings: store.selectCheckingPreparedListings,
     selectReadyPreparedListings: store.selectReadyPreparedListings,
@@ -250,12 +253,6 @@ afterEach(() => {
   })
 })
 
-const expectNoVehicleIdentity = (payload: object | undefined) => {
-  expect(payload).toBeDefined()
-  expect(payload).not.toHaveProperty('vehicleNumber')
-  expect(payload).not.toHaveProperty('vehicleName')
-}
-
 const createTruckListing = (
   url: string,
   overrides: Partial<TruckListing> = {}
@@ -420,11 +417,6 @@ const disableFileSystemAccess = () => {
     Reflect.deleteProperty(window, 'showDirectoryPicker')
   }
 }
-
-const getSaveListingFailures = () =>
-  analyticsMocks.trackListingFailed.mock.calls
-    .map(([payload]) => payload)
-    .filter((payload) => payload.failureStage === 'save')
 
 describe('TruckHarvesterApp persistence', () => {
   it('disables the four background controls while onboarding is open', async () => {
@@ -689,25 +681,9 @@ describe('TruckHarvesterApp persistence', () => {
     expect(statusRegion?.textContent).toContain('현대 메가트럭')
     expect(statusRegion?.textContent).toContain('저장 완료')
     expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
-    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        saveMethod: 'directory',
-        readyCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        saveMethod: 'directory',
-        savedCount: 1,
-        saveFailedCount: 0,
-      })
-    )
-    expect(analyticsMocks.trackSaveFailed).not.toHaveBeenCalled()
   })
 
-  it('tracks batch and preview completion without success listing identifiers', async () => {
+  it('renders a parsed listing in the input and status regions after paste', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3'
 
@@ -791,32 +767,20 @@ describe('TruckHarvesterApp persistence', () => {
       })
     }
 
-    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        urlCount: 1,
-        uniqueUrlCount: 1,
-        readyCount: 0,
-        invalidCount: 0,
-        previewFailedCount: 0,
-        savedCount: 0,
-        saveFailedCount: 0,
-      })
+    const inputRegion = container.querySelector(
+      'section[aria-labelledby="listing-chip-input-title"]'
     )
-    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        urlCount: 1,
-        uniqueUrlCount: 1,
-        readyCount: 1,
-        invalidCount: 0,
-        previewFailedCount: 0,
-      })
+    const statusRegion = container.querySelector(
+      'section[aria-labelledby="prepared-listing-status-title"]'
     )
-    expect(analyticsMocks.trackListingFailed).not.toHaveBeenCalled()
+
+    expect(inputRegion?.textContent).toContain('현대 메가트럭')
+    expect(inputRegion?.textContent).toContain('확인 완료')
+    expect(statusRegion?.textContent).toContain('현대 메가트럭')
+    expect(statusRegion?.textContent).toContain('저장 준비 완료')
   })
 
-  it('tracks unsupported non-empty pasted input once without starting preview', async () => {
+  it('shows guidance for unsupported non-empty pasted input without starting preview', async () => {
     const unsupportedInput =
       '  DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300055501\nabc...  '
 
@@ -826,37 +790,26 @@ describe('TruckHarvesterApp persistence', () => {
     await pasteListingText(unsupportedInput)
     await flushAsyncUi(2)
 
-    expect(analyticsMocks.createAnalyticsBatchId).toHaveBeenCalledTimes(1)
-    expect(analyticsMocks.trackUnsupportedInputFailure).toHaveBeenCalledTimes(1)
-    expect(analyticsMocks.trackUnsupportedInputFailure).toHaveBeenCalledWith({
-      batchId: 'batch-1',
-      rawInput: unsupportedInput,
-      elapsedMs: expect.any(Number),
-    })
-    expect(listingPreparationMocks.prepareListingUrls).not.toHaveBeenCalled()
-    expect(analyticsMocks.trackBatchStarted).not.toHaveBeenCalled()
-    expect(analyticsMocks.trackPreviewCompleted).not.toHaveBeenCalled()
     expect(container?.textContent).toContain(
       '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.'
     )
+    expect(listingPreparationMocks.prepareListingUrls).not.toHaveBeenCalled()
   })
 
-  it('does not track empty pasted input as an unsupported input failure', async () => {
+  it('shows guidance for empty pasted input without starting preview', async () => {
     installDom({} as WritableDirectoryHandle)
     await renderTruckHarvesterApp()
 
     await pasteListingText(' \n\t ')
     await flushAsyncUi(2)
 
-    expect(analyticsMocks.createAnalyticsBatchId).not.toHaveBeenCalled()
-    expect(analyticsMocks.trackUnsupportedInputFailure).not.toHaveBeenCalled()
     expect(listingPreparationMocks.prepareListingUrls).not.toHaveBeenCalled()
     expect(container?.textContent).toContain(
       '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.'
     )
   })
 
-  it('does not track surrounding prose as unsupported input when a valid listing url is present', async () => {
+  it('extracts a valid listing url from surrounding prose', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=21'
 
@@ -867,18 +820,11 @@ describe('TruckHarvesterApp persistence', () => {
     await pasteListingText(`확인 부탁드립니다\n${truckUrl}\nabc...`)
     await flushAsyncUi(4)
 
-    expect(analyticsMocks.trackUnsupportedInputFailure).not.toHaveBeenCalled()
     expect(listingPreparationMocks.prepareListingUrls).toHaveBeenCalledTimes(1)
-    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        urlCount: 1,
-        uniqueUrlCount: 1,
-      })
-    )
+    expect(container?.textContent).toContain('현대 메가트럭')
   })
 
-  it('tracks preview failures with listing url but without vehicle identifiers', async () => {
+  it('renders preview failures as recoverable listing guidance', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=5'
 
@@ -936,39 +882,28 @@ describe('TruckHarvesterApp persistence', () => {
       })
     }
 
-    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        previewFailedCount: 1,
-      })
+    const inputRegion = container.querySelector(
+      'section[aria-labelledby="listing-chip-input-title"]'
     )
-    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        failureStage: 'preview',
-        listingUrl: truckUrl,
-      })
+    const statusRegion = container.querySelector(
+      'section[aria-labelledby="prepared-listing-status-title"]'
     )
 
-    const previewFailurePayload =
-      analyticsMocks.trackListingFailed.mock.calls.find(
-        ([payload]) =>
-          payload.failureStage === 'preview' && payload.listingUrl === truckUrl
-      )?.[0]
-
-    expectNoVehicleIdentity(previewFailurePayload)
+    expect(inputRegion?.textContent).toContain('확인 필요')
+    expect(inputRegion?.textContent).toContain(
+      '확인하지 못한 매물은 지우고 다시 붙여넣어 주세요.'
+    )
+    expect(statusRegion?.textContent).toContain(
+      '매물 이름을 확인하지 못했어요. 잠시 후 다시 붙여넣어 주세요.'
+    )
   })
 
-  it('tracks superseded preview runs without overwriting latest duplicate helper text', async () => {
+  it('keeps latest duplicate helper text when an older preview resolves later', async () => {
     const olderTruckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=7'
     const newerTruckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=8'
     const olderPreview = createDeferred<Response>()
-
-    analyticsMocks.createAnalyticsBatchId
-      .mockReturnValueOnce('batch-old')
-      .mockReturnValueOnce('batch-latest')
 
     installDom({} as WritableDirectoryHandle)
     markOnboardingComplete()
@@ -1084,216 +1019,9 @@ describe('TruckHarvesterApp persistence', () => {
     }
 
     expect(container.textContent).toContain('이미 넣은 매물이에요.')
-    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-old',
-        urlCount: 1,
-        uniqueUrlCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackBatchStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-latest',
-        urlCount: 2,
-        uniqueUrlCount: 2,
-      })
-    )
-    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-latest',
-        urlCount: 2,
-        uniqueUrlCount: 1,
-        readyCount: 1,
-        previewFailedCount: 0,
-      })
-    )
-    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-old',
-        urlCount: 1,
-        uniqueUrlCount: 1,
-        readyCount: 0,
-        previewFailedCount: 1,
-      })
-    )
-
-    const olderFailurePayload =
-      analyticsMocks.trackListingFailed.mock.calls.find(
-        ([payload]) =>
-          payload.failureStage === 'preview' &&
-          payload.listingUrl === olderTruckUrl
-      )?.[0]
-
-    expect(olderFailurePayload).toEqual(
-      expect.objectContaining({
-        batchId: 'batch-old',
-        failureStage: 'preview',
-        listingUrl: olderTruckUrl,
-      })
-    )
-    expectNoVehicleIdentity(olderFailurePayload)
   })
 
-  it('does not attach an old same-url preview run to a newer pasted item', async () => {
-    const truckUrl =
-      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=9'
-    const oldPreview = createDeferred<Response>()
-
-    analyticsMocks.createAnalyticsBatchId
-      .mockReturnValueOnce('batch-old')
-      .mockReturnValueOnce('batch-new')
-
-    installDom({} as WritableDirectoryHandle)
-    markOnboardingComplete()
-    Object.defineProperty(globalThis, 'fetch', {
-      configurable: true,
-      value: vi
-        .fn()
-        .mockReturnValueOnce(oldPreview.promise)
-        .mockResolvedValueOnce(
-          Response.json({
-            success: true,
-            data: {
-              url: truckUrl,
-              vname: '현대 메가트럭',
-              vehicleName: '현대 메가트럭',
-              vnumber: '서울12가3456',
-              price: {
-                raw: 3200,
-                rawWon: 32000000,
-                label: '3,200만원',
-                compactLabel: '3,200만원',
-              },
-              year: '2020',
-              mileage: '120,000km',
-              options: '윙바디',
-              images: [],
-            },
-          })
-        ),
-    })
-
-    const { TruckHarvesterApp } = await import('../truck-harvester-app')
-
-    container = document.createElement('div')
-    document.body.append(container)
-    root = createRoot(container)
-
-    await act(async () => {
-      root?.render(<TruckHarvesterApp />)
-      await new Promise((resolve) => window.setTimeout(resolve, 0))
-    })
-
-    const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
-    )
-
-    if (!(textarea instanceof HTMLTextAreaElement)) {
-      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
-    }
-
-    const oldPasteEvent = new Event('paste', {
-      bubbles: true,
-      cancelable: true,
-    })
-    Object.defineProperty(oldPasteEvent, 'clipboardData', {
-      value: { getData: () => truckUrl },
-    })
-
-    await act(async () => {
-      textarea.dispatchEvent(oldPasteEvent)
-    })
-
-    for (let index = 0; index < 2; index += 1) {
-      await act(async () => {
-        await Promise.resolve()
-        await new Promise((resolve) => window.setTimeout(resolve, 0))
-      })
-    }
-
-    const removeButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.getAttribute('aria-label')?.startsWith('매물 지우기:')
-    )
-
-    expect(removeButton).toBeInstanceOf(HTMLButtonElement)
-
-    await act(async () => {
-      removeButton?.dispatchEvent(
-        new dom!.window.MouseEvent('click', { bubbles: true })
-      )
-    })
-
-    const newPasteEvent = new Event('paste', {
-      bubbles: true,
-      cancelable: true,
-    })
-    Object.defineProperty(newPasteEvent, 'clipboardData', {
-      value: { getData: () => truckUrl },
-    })
-
-    await act(async () => {
-      textarea.dispatchEvent(newPasteEvent)
-    })
-
-    for (let index = 0; index < 4; index += 1) {
-      await act(async () => {
-        await Promise.resolve()
-        await new Promise((resolve) => window.setTimeout(resolve, 0))
-      })
-    }
-
-    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-new',
-        uniqueUrlCount: 1,
-        readyCount: 1,
-        previewFailedCount: 0,
-      })
-    )
-
-    oldPreview.resolve(
-      Response.json(
-        {
-          success: false,
-          reason: 'site-timeout',
-          message: '사이트 응답이 늦습니다.',
-        },
-        { status: 504 }
-      )
-    )
-
-    for (let index = 0; index < 4; index += 1) {
-      await act(async () => {
-        await Promise.resolve()
-        await new Promise((resolve) => window.setTimeout(resolve, 0))
-      })
-    }
-
-    expect(analyticsMocks.trackPreviewCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-old',
-        uniqueUrlCount: 1,
-        readyCount: 0,
-        previewFailedCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackPreviewCompleted).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-old',
-        uniqueUrlCount: 1,
-        readyCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-old',
-        failureStage: 'preview',
-        listingUrl: truckUrl,
-      })
-    )
-  })
-
-  it('tracks invalid listing identity as an invalid_url failure', async () => {
+  it('renders invalid listing identity as address-check guidance', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=6'
 
@@ -1362,87 +1090,20 @@ describe('TruckHarvesterApp persistence', () => {
       })
     }
 
-    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        failureStage: 'invalid_url',
-        listingUrl: truckUrl,
-      })
+    const inputRegion = container.querySelector(
+      'section[aria-labelledby="listing-chip-input-title"]'
+    )
+    const statusRegion = container.querySelector(
+      'section[aria-labelledby="prepared-listing-status-title"]'
     )
 
-    const invalidFailurePayload =
-      analyticsMocks.trackListingFailed.mock.calls.find(
-        ([payload]) =>
-          payload.failureStage === 'invalid_url' &&
-          payload.listingUrl === truckUrl
-      )?.[0]
-
-    expectNoVehicleIdentity(invalidFailurePayload)
+    expect(inputRegion?.textContent).toContain('확인 필요')
+    expect(statusRegion?.textContent).toContain(
+      '매물 정보를 찾지 못했어요. 주소를 다시 확인해 주세요.'
+    )
   })
 
-  it('tracks save summaries per paste batch when saving ready listings together', async () => {
-    const firstUrl =
-      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=11'
-    const secondUrl =
-      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=12'
-    const firstListing = createTruckListing(firstUrl, {
-      vname: '현대 메가트럭',
-      vnumber: '서울11가1111',
-    })
-    const secondListing = createTruckListing(secondUrl, {
-      vname: '기아 봉고',
-      vnumber: '부산22나2222',
-    })
-    const restoredDirectory = createWritableDirectory()
-
-    analyticsMocks.createAnalyticsBatchId
-      .mockReturnValueOnce('batch-first')
-      .mockReturnValueOnce('batch-second')
-
-    installDom(restoredDirectory)
-    mockParseResponses([firstListing, secondListing])
-    await renderTruckHarvesterApp()
-    await selectSaveDirectory(restoredDirectory)
-
-    await pasteListingText(firstUrl)
-    await flushAsyncUi()
-    await pasteListingText(secondUrl)
-    await flushAsyncUi()
-    await startSavingReadyListings()
-    await flushAsyncUi(6)
-
-    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-first',
-        saveMethod: 'directory',
-        readyCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-second',
-        saveMethod: 'directory',
-        readyCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-first',
-        savedCount: 1,
-        saveFailedCount: 0,
-      })
-    )
-    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-second',
-        savedCount: 1,
-        saveFailedCount: 0,
-      })
-    )
-    expect(analyticsMocks.trackSaveFailed).not.toHaveBeenCalled()
-  })
-
-  it('tracks partial directory save failures without failing saved listings', async () => {
+  it('keeps partial directory save failures separate from saved listings', async () => {
     const savedUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=13'
     const failedUrl =
@@ -1460,8 +1121,6 @@ describe('TruckHarvesterApp persistence', () => {
       new Set([failedListing.vnumber])
     )
 
-    analyticsMocks.createAnalyticsBatchId.mockReturnValueOnce('batch-partial')
-
     installDom(restoredDirectory)
     mockParseResponses([savedListing, failedListing])
     await renderTruckHarvesterApp()
@@ -1472,35 +1131,23 @@ describe('TruckHarvesterApp persistence', () => {
     await startSavingReadyListings()
     await flushAsyncUi(6)
 
-    expect(analyticsMocks.trackSaveFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-partial',
-        saveMethod: 'directory',
-        readyCount: 2,
-        savedCount: 1,
-        saveFailedCount: 1,
-      })
+    const statusRegion = container?.querySelector(
+      'section[aria-labelledby="prepared-listing-status-title"]'
     )
-    expect(analyticsMocks.trackSaveCompleted).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-partial',
-      })
+    const inputRegion = container?.querySelector(
+      'section[aria-labelledby="listing-chip-input-title"]'
     )
 
-    const saveFailures = getSaveListingFailures()
-
-    expect(saveFailures).toHaveLength(1)
-    expect(saveFailures[0]).toEqual(
-      expect.objectContaining({
-        batchId: 'batch-partial',
-        listingUrl: failedUrl,
-        vehicleNumber: '인천44라4444',
-        vehicleName: '대우 프리마',
-      })
+    expect(statusRegion?.textContent).toContain('현대 메가트럭')
+    expect(statusRegion?.textContent).toContain('저장 완료')
+    expect(statusRegion?.textContent).toContain(
+      '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
     )
+    expect(inputRegion?.textContent).not.toContain('현대 메가트럭')
+    expect(inputRegion?.textContent).toContain('확인 필요')
   })
 
-  it('tracks zip fallback failures as zip save failures', async () => {
+  it('shows a recoverable failure when zip fallback cannot be created', async () => {
     const truckUrl =
       'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=15'
     const listing = createTruckListing(truckUrl, {
@@ -1508,8 +1155,6 @@ describe('TruckHarvesterApp persistence', () => {
       vehicleName: '현대 엑시언트',
       vnumber: '대구55마5555',
     })
-
-    analyticsMocks.createAnalyticsBatchId.mockReturnValueOnce('batch-zip')
 
     installDom({} as WritableDirectoryHandle)
     disableFileSystemAccess()
@@ -1527,227 +1172,12 @@ describe('TruckHarvesterApp persistence', () => {
     await startSavingReadyListings()
     await flushAsyncUi(6)
 
-    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-zip',
-        saveMethod: 'zip',
-      })
-    )
-    expect(analyticsMocks.trackSaveFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-zip',
-        saveMethod: 'zip',
-        saveFailedCount: 1,
-      })
-    )
-    expect(getSaveListingFailures()).toEqual([
-      expect.objectContaining({
-        batchId: 'batch-zip',
-        listingUrl: truckUrl,
-        vehicleNumber: '대구55마5555',
-        vehicleName: '현대 엑시언트',
-      }),
-    ])
-  })
-
-  it('uses a fallback save batch when a ready listing has no preview mapping', async () => {
-    const truckUrl =
-      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=16'
-    const listing = createTruckListing(truckUrl, {
-      vname: '타타대우 노부스',
-      vehicleName: '타타대우 노부스',
-      vnumber: '광주66바6666',
-    })
-    const restoredDirectory = createWritableDirectory()
-
-    analyticsMocks.createAnalyticsBatchId
-      .mockReturnValueOnce('batch-preview')
-      .mockReturnValueOnce('batch-fallback')
-    listingPreparationMocks.prepareListingUrls.mockImplementationOnce(
-      async ({ urls, store }: PrepareListingUrlsInput) => {
-        const result = store.getState().addUrls([...urls])
-        const item = store
-          .getState()
-          .items.find(
-            (entry) => entry.url === truckUrl && entry.status === 'checking'
-          )
-
-        if (!item) {
-          throw new Error('테스트 매물을 준비하지 못했습니다.')
-        }
-
-        store.getState().markReadyById(item.id, listing)
-
-        return {
-          ...result,
-          addedItems: [],
-          settledItems: [
-            {
-              id: item.id,
-              url: truckUrl,
-              status: 'ready' as const,
-            },
-          ],
-        }
-      }
+    const statusRegion = container?.querySelector(
+      'section[aria-labelledby="prepared-listing-status-title"]'
     )
 
-    installDom(restoredDirectory)
-    await renderTruckHarvesterApp()
-    await selectSaveDirectory(restoredDirectory)
-
-    await pasteListingText(truckUrl)
-    await flushAsyncUi()
-    await startSavingReadyListings()
-    await flushAsyncUi(6)
-
-    expect(analyticsMocks.trackSaveStarted).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-preview',
-      })
-    )
-    expect(analyticsMocks.trackSaveStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-fallback',
-        saveMethod: 'directory',
-        readyCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackSaveCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-fallback',
-        saveMethod: 'directory',
-        savedCount: 1,
-        saveFailedCount: 0,
-      })
-    )
-  })
-
-  it('tracks save failures with vehicle identifiers for parsed listings', async () => {
-    const truckUrl =
-      'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=7'
-    const requestPermission = vi.fn().mockResolvedValue('granted')
-    const restoredDirectory: WritableDirectoryHandle = {
-      getDirectoryHandle: vi.fn().mockRejectedValue(new Error('disk full')),
-      getFileHandle: async () => {
-        throw new Error('테스트에서는 파일에 쓰지 않습니다.')
-      },
-      name: 'truck-test',
-      requestPermission,
-    }
-
-    installDom(restoredDirectory)
-    markOnboardingComplete()
-    Object.defineProperty(globalThis, 'fetch', {
-      configurable: true,
-      value: vi.fn().mockResolvedValue(
-        Response.json({
-          success: true,
-          data: {
-            url: truckUrl,
-            vname: '차명 정보 없음',
-            vehicleName: '현대 메가트럭',
-            vnumber: '서울12가3456',
-            price: {
-              raw: 3200,
-              rawWon: 32000000,
-              label: '3,200만원',
-              compactLabel: '3,200만원',
-            },
-            year: '2020',
-            mileage: '120,000km',
-            options: '윙바디',
-            images: [],
-          },
-        })
-      ),
-    })
-
-    const { TruckHarvesterApp } = await import('../truck-harvester-app')
-
-    container = document.createElement('div')
-    document.body.append(container)
-    root = createRoot(container)
-
-    await act(async () => {
-      root?.render(<TruckHarvesterApp />)
-      await new Promise((resolve) => window.setTimeout(resolve, 0))
-    })
-
-    Object.defineProperty(window, 'showDirectoryPicker', {
-      configurable: true,
-      value: vi.fn().mockResolvedValue(restoredDirectory),
-    })
-
-    const folderButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '저장 폴더 고르기'
-    )
-    await act(async () => {
-      folderButton?.dispatchEvent(
-        new dom!.window.MouseEvent('click', { bubbles: true })
-      )
-    })
-
-    const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
-    )
-
-    if (!(textarea instanceof HTMLTextAreaElement)) {
-      throw new Error('매물 주소 입력란을 찾지 못했습니다.')
-    }
-
-    const pasteEvent = new Event('paste', {
-      bubbles: true,
-      cancelable: true,
-    })
-    Object.defineProperty(pasteEvent, 'clipboardData', {
-      value: { getData: () => truckUrl },
-    })
-
-    await act(async () => {
-      textarea.dispatchEvent(pasteEvent)
-    })
-
-    for (let index = 0; index < 4; index += 1) {
-      await act(async () => {
-        await Promise.resolve()
-        await new Promise((resolve) => window.setTimeout(resolve, 0))
-      })
-    }
-
-    const startButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '확인된 1대 저장 시작'
-    )
-
-    await act(async () => {
-      startButton?.dispatchEvent(
-        new dom!.window.MouseEvent('click', { bubbles: true })
-      )
-    })
-
-    for (let index = 0; index < 6; index += 1) {
-      await act(async () => {
-        await Promise.resolve()
-        await new Promise((resolve) => window.setTimeout(resolve, 0))
-      })
-    }
-
-    expect(analyticsMocks.trackSaveFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        saveMethod: 'directory',
-        saveFailedCount: 1,
-      })
-    )
-    expect(analyticsMocks.trackListingFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        batchId: 'batch-1',
-        failureStage: 'save',
-        listingUrl: truckUrl,
-        vehicleNumber: '서울12가3456',
-        vehicleName: '현대 메가트럭',
-        imageCount: 0,
-      })
+    expect(statusRegion?.textContent).toContain(
+      '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
     )
   })
 })
