@@ -3,10 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createAnalyticsBatchId,
   toBatchEventData,
+  toDurationBucket,
   toListingFailureEventData,
   toUnsupportedInputFailureInput,
   trackBatchStarted,
   trackListingFailed,
+  trackSaveCompleted,
   trackUnsupportedInputFailure,
 } from '../analytics'
 
@@ -35,6 +37,23 @@ describe('analytics payload builders', () => {
     expect(createAnalyticsBatchId()).toBe('batch-loyw3v28-4fzzzx')
   })
 
+  it.each([
+    [Number.NaN, '00_under_1s'],
+    [Number.POSITIVE_INFINITY, '00_under_1s'],
+    [-1, '00_under_1s'],
+    [0, '00_under_1s'],
+    [999, '00_under_1s'],
+    [1000, '01_1s'],
+    [1999, '01_1s'],
+    [2000, '02_2s'],
+    [6420, '06_6s'],
+    [9999, '09_9s'],
+    [10000, '10_10s_plus'],
+    [15320, '10_10s_plus'],
+  ])('maps %s ms to %s', (durationMs, bucket) => {
+    expect(toDurationBucket(durationMs)).toBe(bucket)
+  })
+
   it('builds batch event data with aggregate fields only', () => {
     const data = toBatchEventData({
       batchId: 'batch-1',
@@ -61,6 +80,7 @@ describe('analytics payload builders', () => {
       saved_count: 1,
       save_failed_count: 0,
       duration_ms: 1234,
+      duration_bucket: '01_1s',
       save_method: 'directory',
       filesystem_supported: true,
       notification_enabled: false,
@@ -206,6 +226,42 @@ describe('analytics tracking', () => {
       listing_url:
         'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3',
       elapsed_ms: 300,
+    })
+  })
+
+  it('sends duration bucket with save_completed event data', () => {
+    const track = vi.fn()
+    stubWindow({ umami: { track } })
+
+    trackSaveCompleted({
+      batchId: 'batch-1',
+      urlCount: 4,
+      uniqueUrlCount: 4,
+      readyCount: 4,
+      invalidCount: 0,
+      previewFailedCount: 0,
+      savedCount: 4,
+      saveFailedCount: 0,
+      durationMs: 6420,
+      saveMethod: 'directory',
+      filesystemSupported: true,
+      notificationEnabled: false,
+    })
+
+    expect(track).toHaveBeenCalledWith('save_completed', {
+      batch_id: 'batch-1',
+      url_count: 4,
+      unique_url_count: 4,
+      ready_count: 4,
+      invalid_count: 0,
+      preview_failed_count: 0,
+      saved_count: 4,
+      save_failed_count: 0,
+      duration_ms: 6420,
+      duration_bucket: '06_6s',
+      save_method: 'directory',
+      filesystem_supported: true,
+      notification_enabled: false,
     })
   })
 
