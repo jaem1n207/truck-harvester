@@ -38,10 +38,6 @@ const useBrowserLayoutEffect =
 type DirectoryPermissionState = 'denied' | 'ready'
 type DirectoryPickerStartIn = WritableDirectoryHandle | 'downloads'
 
-interface HandlePasteTextInput {
-  text: string
-}
-
 const pickSaveDirectory = pickWritableDirectory as (options: {
   id: string
   startIn: DirectoryPickerStartIn
@@ -228,7 +224,7 @@ export function useTruckHarvesterWorkflow() {
     }
   }
 
-  const handlePasteText = ({ text }: HandlePasteTextInput) => {
+  const handlePasteText = (text: string) => {
     const tracker = getTracker()
     const pasteStartedAt = getWorkflowNow()
     const pasteSequence = pasteSequenceRef.current + 1
