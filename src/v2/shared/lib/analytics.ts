@@ -79,7 +79,7 @@ export function createAnalyticsBatchId() {
 
 export function toDurationBucket(durationMs: number) {
   const normalizedDurationMs = Number.isFinite(durationMs)
-    ? Math.max(0, Math.round(durationMs))
+    ? Math.max(0, durationMs)
     : 0
 
   if (normalizedDurationMs < 1000) {
