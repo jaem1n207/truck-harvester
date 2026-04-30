@@ -83,14 +83,42 @@ describe('analytics payload builders', () => {
       saved_count: 1,
       save_failed_count: 0,
       duration_ms: 1234,
-      duration_bucket: '01_1s',
       save_method: 'directory',
       filesystem_supported: true,
       notification_enabled: false,
     })
+    expect(data).not.toHaveProperty('duration_bucket')
     expect(data).not.toHaveProperty('listing_url')
     expect(data).not.toHaveProperty('vehicle_number')
     expect(data).not.toHaveProperty('vehicle_name')
+  })
+
+  it.each([
+    [Number.NaN, 0],
+    [Number.POSITIVE_INFINITY, 0],
+    [Number.NEGATIVE_INFINITY, 0],
+    [-1, 0],
+    [0, 0],
+    [999.9, 999],
+    [1000.7, 1000],
+  ])('normalizes %s ms to duration_ms %s', (durationMs, expectedDurationMs) => {
+    const data = toBatchEventData({
+      batchId: 'batch-normalized',
+      urlCount: 1,
+      uniqueUrlCount: 1,
+      readyCount: 1,
+      invalidCount: 0,
+      previewFailedCount: 0,
+      savedCount: 1,
+      saveFailedCount: 0,
+      durationMs,
+      filesystemSupported: true,
+      notificationEnabled: false,
+    })
+
+    expect(data).toMatchObject({
+      duration_ms: expectedDurationMs,
+    })
   })
 
   it('omits optional failure fields when the listing was never parsed', () => {
@@ -209,6 +237,39 @@ describe('analytics tracking', () => {
     ).not.toThrow()
   })
 
+  it('does not send duration bucket with batch_started event data', () => {
+    const track = vi.fn()
+    stubWindow({ umami: { track } })
+
+    trackBatchStarted({
+      batchId: 'batch-started',
+      urlCount: 2,
+      uniqueUrlCount: 2,
+      readyCount: 0,
+      invalidCount: 0,
+      previewFailedCount: 0,
+      savedCount: 0,
+      saveFailedCount: 0,
+      durationMs: Number.NaN,
+      filesystemSupported: true,
+      notificationEnabled: false,
+    })
+
+    expect(track).toHaveBeenCalledWith('batch_started', {
+      batch_id: 'batch-started',
+      url_count: 2,
+      unique_url_count: 2,
+      ready_count: 0,
+      invalid_count: 0,
+      preview_failed_count: 0,
+      saved_count: 0,
+      save_failed_count: 0,
+      duration_ms: 0,
+      filesystem_supported: true,
+      notification_enabled: false,
+    })
+  })
+
   it('sends named events with event data to Umami', () => {
     const track = vi.fn()
     stubWindow({ umami: { track } })
@@ -245,7 +306,7 @@ describe('analytics tracking', () => {
       previewFailedCount: 0,
       savedCount: 4,
       saveFailedCount: 0,
-      durationMs: 6420,
+      durationMs: 6420.9,
       saveMethod: 'directory',
       filesystemSupported: true,
       notificationEnabled: false,

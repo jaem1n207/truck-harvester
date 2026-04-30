@@ -59,6 +59,14 @@ const compactEventData = (data: OptionalAnalyticsEventData) =>
     Object.entries(data).filter(([, value]) => value !== undefined)
   ) as AnalyticsEventData
 
+const normalizeDurationMs = (durationMs: number) => {
+  if (!Number.isFinite(durationMs)) {
+    return 0
+  }
+
+  return Math.max(0, Math.floor(durationMs))
+}
+
 const trackEvent = (eventName: string, data: OptionalAnalyticsEventData) => {
   if (typeof window === 'undefined') {
     return
@@ -78,9 +86,7 @@ export function createAnalyticsBatchId() {
 }
 
 export function toDurationBucket(durationMs: number) {
-  const normalizedDurationMs = Number.isFinite(durationMs)
-    ? Math.max(0, durationMs)
-    : 0
+  const normalizedDurationMs = normalizeDurationMs(durationMs)
 
   if (normalizedDurationMs < 1000) {
     return '00_under_1s'
@@ -98,6 +104,8 @@ export function toDurationBucket(durationMs: number) {
 }
 
 export function toBatchEventData(input: BatchAnalyticsInput) {
+  const durationMs = normalizeDurationMs(input.durationMs)
+
   return compactEventData({
     batch_id: input.batchId,
     url_count: input.urlCount,
@@ -107,8 +115,7 @@ export function toBatchEventData(input: BatchAnalyticsInput) {
     preview_failed_count: input.previewFailedCount,
     saved_count: input.savedCount,
     save_failed_count: input.saveFailedCount,
-    duration_ms: input.durationMs,
-    duration_bucket: toDurationBucket(input.durationMs),
+    duration_ms: durationMs,
     save_method: input.saveMethod,
     filesystem_supported: input.filesystemSupported,
     notification_enabled: input.notificationEnabled,
@@ -163,7 +170,15 @@ export const trackSaveStarted = (input: BatchAnalyticsInput) => {
 }
 
 export const trackSaveCompleted = (input: BatchAnalyticsInput) => {
-  trackEvent('save_completed', toBatchEventData(input))
+  const durationMs = normalizeDurationMs(input.durationMs)
+
+  trackEvent('save_completed', {
+    ...toBatchEventData({
+      ...input,
+      durationMs,
+    }),
+    duration_bucket: toDurationBucket(durationMs),
+  })
 }
 
 export const trackSaveFailed = (input: BatchAnalyticsInput) => {
