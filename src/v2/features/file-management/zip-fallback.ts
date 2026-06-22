@@ -56,12 +56,12 @@ async function fetchImageBytes(url: string, signal?: AbortSignal) {
 
 async function addPerformanceCheckImagesToFolder({
   capturePerformanceCheckImages,
-  folder,
+  vehicleFolder,
   performanceCheckUrl,
   signal,
 }: {
   capturePerformanceCheckImages: CapturePerformanceCheckImages
-  folder: JSZip
+  vehicleFolder: JSZip
   performanceCheckUrl?: string | null
   signal?: AbortSignal
 }) {
@@ -83,6 +83,18 @@ async function addPerformanceCheckImagesToFolder({
     assertNotAborted(signal)
 
     if (images.length === 0) {
+      return {
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'missing',
+      } satisfies Pick<
+        TruckSaveResult,
+        'performanceCheckImageCount' | 'performanceCheckStatus'
+      >
+    }
+
+    const folder = vehicleFolder.folder(buildPerformanceCheckFolderName())
+
+    if (!folder) {
       return {
         performanceCheckImageCount: 0,
         performanceCheckStatus: 'missing',
@@ -143,12 +155,9 @@ export async function createTruckZipArchive(
     }
 
     const vehicleImagesFolder = folder.folder(buildVehicleImagesFolderName())
-    const performanceCheckFolder = folder.folder(
-      buildPerformanceCheckFolderName()
-    )
     const manuscriptFolder = folder.folder(buildManuscriptFolderName())
 
-    if (!vehicleImagesFolder || !performanceCheckFolder || !manuscriptFolder) {
+    if (!vehicleImagesFolder || !manuscriptFolder) {
       continue
     }
 
@@ -175,9 +184,9 @@ export async function createTruckZipArchive(
 
     const performanceCheckResult = await addPerformanceCheckImagesToFolder({
       capturePerformanceCheckImages,
-      folder: performanceCheckFolder,
       performanceCheckUrl: truck.performanceCheckUrl,
       signal,
+      vehicleFolder: folder,
     })
 
     assertNotAborted(signal)

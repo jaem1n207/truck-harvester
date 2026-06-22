@@ -54,6 +54,7 @@ describe('createTruckZipBlob', () => {
     expect(zip.file('12가_3456/원고/차량정보.txt')).toBeTruthy()
     expect(zip.file('12가_3456/차량 이미지/사진_1.jpg')).toBeTruthy()
     expect(zip.file('12가_3456/차량 이미지/사진_2.jpg')).toBeTruthy()
+    expect(zip.files['12가_3456/성능점검기록부/']?.dir).toBe(true)
     expect(
       zip.file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')
     ).toBeTruthy()
@@ -112,6 +113,7 @@ describe('createTruckZipBlob', () => {
     const zip = await JSZip.loadAsync(blob)
 
     expect(zip.file('12가_3456/원고/차량정보.txt')).toBeTruthy()
+    expect(zip.files['12가_3456/성능점검기록부/']).toBeUndefined()
     expect(zip.file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')).toBeNull()
     expect(results).toEqual([
       {
@@ -132,10 +134,11 @@ describe('createTruckZipBlob', () => {
       new Uint8Array([1]),
     ])
 
-    const { results } = await createTruckZipArchive(
+    const { blob, results } = await createTruckZipArchive(
       [{ ...listing, performanceCheckUrl: undefined }],
       { capturePerformanceCheckImages }
     )
+    const zip = await JSZip.loadAsync(blob)
 
     expect(results).toEqual([
       {
@@ -145,6 +148,7 @@ describe('createTruckZipBlob', () => {
         vehicleNumber: '12가/3456',
       },
     ])
+    expect(zip.files['12가_3456/성능점검기록부/']).toBeUndefined()
     expect(capturePerformanceCheckImages).not.toHaveBeenCalled()
   })
 
