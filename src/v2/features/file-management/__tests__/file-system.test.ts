@@ -234,6 +234,10 @@ describe('v2 file-system', () => {
     ).resolves.toEqual({
       performanceCheckImageCount: 2,
       performanceCheckStatus: 'saved',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
       vehicleFolderName: '12가_3456',
       vehicleNumber: '12가/3456',
     })
@@ -316,6 +320,10 @@ describe('v2 file-system', () => {
     ).resolves.toMatchObject({
       performanceCheckImageCount: 0,
       performanceCheckStatus: 'missing',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
     })
     expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
       '성능점검기록부',
@@ -343,6 +351,10 @@ describe('v2 file-system', () => {
     ).resolves.toMatchObject({
       performanceCheckImageCount: 0,
       performanceCheckStatus: 'not_requested',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
     })
     expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
       '성능점검기록부',
@@ -369,6 +381,10 @@ describe('v2 file-system', () => {
     ).resolves.toMatchObject({
       performanceCheckImageCount: 0,
       performanceCheckStatus: 'missing',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
     })
 
     expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith(
@@ -402,6 +418,40 @@ describe('v2 file-system', () => {
       [0, 0, 2],
       [50, 1, 2],
       [100, 2, 2],
+    ])
+  })
+
+  it('reports partial vehicle image results when some image fetches fail', async () => {
+    stubFetch(
+      vi.fn(async (url: string) => {
+        if (url.includes('two.jpg')) {
+          return new Response('missing', { status: 404 })
+        }
+
+        return new Response(`image:${url}`, { status: 200 })
+      }) as typeof fetch
+    )
+    const { rootDirectory, writables } = createDirectoryHandle()
+    const progress: Array<[number, number, number]> = []
+
+    await expect(
+      saveTruckToDirectory(rootDirectory, listing, {
+        capturePerformanceCheckImages: vi.fn(async () => []),
+        onProgress: (progressValue, downloaded, total) =>
+          progress.push([progressValue, downloaded, total]),
+      })
+    ).resolves.toMatchObject({
+      sourceUrl: listing.url,
+      vehicleImageCount: 1,
+      vehicleImageStatus: 'partial',
+      vehicleImageTotalCount: 2,
+    })
+
+    expect(writables.has('12가_3456/차량 이미지/사진_1.jpg')).toBe(true)
+    expect(writables.has('12가_3456/차량 이미지/사진_2.jpg')).toBe(false)
+    expect(progress).toEqual([
+      [0, 0, 2],
+      [50, 1, 2],
     ])
   })
 

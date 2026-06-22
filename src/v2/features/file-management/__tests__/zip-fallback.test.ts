@@ -62,6 +62,10 @@ describe('createTruckZipBlob', () => {
       {
         performanceCheckImageCount: 1,
         performanceCheckStatus: 'saved',
+        sourceUrl: listing.url,
+        vehicleImageCount: 2,
+        vehicleImageStatus: 'complete',
+        vehicleImageTotalCount: 2,
         vehicleFolderName: '12가_3456',
         vehicleNumber: '12가/3456',
       },
@@ -119,6 +123,10 @@ describe('createTruckZipBlob', () => {
       {
         performanceCheckImageCount: 0,
         performanceCheckStatus: 'missing',
+        sourceUrl: listing.url,
+        vehicleImageCount: 2,
+        vehicleImageStatus: 'complete',
+        vehicleImageTotalCount: 2,
         vehicleFolderName: '12가_3456',
         vehicleNumber: '12가/3456',
       },
@@ -144,6 +152,10 @@ describe('createTruckZipBlob', () => {
       {
         performanceCheckImageCount: 0,
         performanceCheckStatus: 'not_requested',
+        sourceUrl: listing.url,
+        vehicleImageCount: 2,
+        vehicleImageStatus: 'complete',
+        vehicleImageTotalCount: 2,
         vehicleFolderName: '12가_3456',
         vehicleNumber: '12가/3456',
       },
@@ -171,6 +183,39 @@ describe('createTruckZipBlob', () => {
     )
 
     expect(progress).toEqual([50, 100])
+  })
+
+  it('reports partial vehicle image results when an image fetch fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('two.jpg')) {
+          return new Response('missing', { status: 404 })
+        }
+
+        return new Response(`image:${url}`, { status: 200 })
+      })
+    )
+
+    const { blob, results } = await createTruckZipArchive([listing], {
+      capturePerformanceCheckImages: vi.fn(async () => []),
+    })
+    const zip = await JSZip.loadAsync(blob)
+
+    expect(results).toEqual([
+      {
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'missing',
+        sourceUrl: listing.url,
+        vehicleImageCount: 1,
+        vehicleImageStatus: 'partial',
+        vehicleImageTotalCount: 2,
+        vehicleFolderName: '12가_3456',
+        vehicleNumber: '12가/3456',
+      },
+    ])
+    expect(zip.file('12가_3456/차량 이미지/사진_1.jpg')).toBeTruthy()
+    expect(zip.file('12가_3456/차량 이미지/사진_2.jpg')).toBeNull()
   })
 
   it('rejects abort during image fetch without reporting truck progress', async () => {
@@ -284,6 +329,10 @@ describe('createTruckZipBlob', () => {
       {
         performanceCheckImageCount: 1,
         performanceCheckStatus: 'saved',
+        sourceUrl: listing.url,
+        vehicleImageCount: 2,
+        vehicleImageStatus: 'complete',
+        vehicleImageTotalCount: 2,
         vehicleFolderName: '12가_3456',
         vehicleNumber: '12가/3456',
       },
