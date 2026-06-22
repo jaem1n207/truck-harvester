@@ -62,6 +62,10 @@ function sanitizeActionAttribute(rawAction: string) {
     return '#'
   }
 
+  if (/^\/\//.test(trimmed) || /^(?!https?:)\w+:/.test(trimmed)) {
+    return '#'
+  }
+
   return trimmed
 }
 
