@@ -43,10 +43,14 @@ describe('checkpaper proxy helpers', () => {
           <script src="/assets/vendor/jquery/jquery.min.js"></script>
         </head>
         <body>
+          <a id="adobe" href="https://www.adobe.com/get.adobe.com/reader">adobe</a>
           <a id="link" href="javascript:alert(1)" onClick="alert(2)">링크</a>
           <button id="button" onclick="alert(3)">버튼</button>
           <img id="car_img_file_url_1" src="javascript:alert(1)">
           <form id="form" action="javascript:alert(1)"></form>
+          <form id="external" action="https://example.com/post"></form>
+          <form id="allowed" action="https://checkpaper.jmenetworks.co.kr/Service/CheckPaper"></form>
+          <form id="relative" action="/Service/CheckPaper"></form>
         </body>
       </html>
     `
@@ -56,11 +60,19 @@ describe('checkpaper proxy helpers', () => {
     expect(rewritten).not.toContain('<script')
     expect(rewritten).not.toContain('onclick')
     expect(rewritten).not.toContain('onClick')
+    expect(rewritten).not.toContain('id="adobe"')
+    expect(rewritten).not.toContain('adobe')
     expect(rewritten).toContain('href="#"')
     expect(rewritten).toContain('id="button"')
     expect(rewritten).toContain('id="car_img_file_url_1"')
     expect(rewritten).toContain('src="#"')
     expect(rewritten).toContain('action="#"')
+    expect(rewritten).toContain('id="allowed"')
+    expect(rewritten).toContain(
+      'action="https://checkpaper.jmenetworks.co.kr/Service/CheckPaper"'
+    )
+    expect(rewritten).toContain('action="/Service/CheckPaper"')
+    expect(rewritten).toContain('id="relative"')
   })
 
   it('rewrites stylesheet, image, and action URLs', () => {

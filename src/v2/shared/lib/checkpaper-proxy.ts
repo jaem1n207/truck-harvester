@@ -62,11 +62,39 @@ function sanitizeActionAttribute(rawAction: string) {
     return '#'
   }
 
+  if (/^https?:\/\//i.test(trimmed) && !isAllowedCheckPaperUrl(trimmed)) {
+    return '#'
+  }
+
   if (/^\/\//.test(trimmed) || /^(?!https?:)\w+:/.test(trimmed)) {
     return '#'
   }
 
   return trimmed
+}
+
+export async function readResponseBodyWithTimeout<T>(
+  read: () => Promise<T>,
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+) {
+  let timeoutId: ReturnType<typeof setTimeout>
+
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(
+        new DOMException(
+          'CheckPaper response body read timed out',
+          'TimeoutError'
+        )
+      )
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([read(), timeout])
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
@@ -84,6 +112,8 @@ export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
       }
     })
   })
+
+  $('a[href*="get.adobe.com"]').remove()
 
   $('[href],[src],[action]').each((_, element) => {
     const node = $(element)
@@ -117,7 +147,6 @@ export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
   })
 
   $('#print').remove()
-  $('a[href*="get.adobe.com"]').remove()
 
   $('base').remove()
 
