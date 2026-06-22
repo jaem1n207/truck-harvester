@@ -65,11 +65,13 @@ async function addPerformanceCheckImagesToFolder({
   vehicleFolder,
   performanceCheckUrl,
   signal,
+  vehicleNumber,
 }: {
   capturePerformanceCheckImages: CapturePerformanceCheckImages
   vehicleFolder: JSZip
   performanceCheckUrl?: string | null
   signal?: AbortSignal
+  vehicleNumber: string
 }) {
   const trimmedUrl = performanceCheckUrl?.trim()
 
@@ -112,7 +114,10 @@ async function addPerformanceCheckImagesToFolder({
 
     for (const [index, imageBytes] of images.entries()) {
       assertNotAborted(signal)
-      folder.file(buildPerformanceCheckImageFileName(index), imageBytes)
+      folder.file(
+        buildPerformanceCheckImageFileName(index, vehicleNumber),
+        imageBytes
+      )
     }
 
     return {
@@ -196,11 +201,12 @@ export async function createTruckZipArchive(
       performanceCheckUrl: truck.performanceCheckUrl,
       signal,
       vehicleFolder: folder,
+      vehicleNumber: truck.vnumber,
     })
 
     assertNotAborted(signal)
     manuscriptFolder.file(
-      buildManuscriptFileName(),
+      buildManuscriptFileName(truck.vnumber),
       buildTruckTextContent(truck)
     )
 

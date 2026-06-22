@@ -51,12 +51,12 @@ describe('createTruckZipBlob', () => {
     })
     const zip = await JSZip.loadAsync(blob)
 
-    expect(zip.file('12가_3456/원고/차량정보.txt')).toBeTruthy()
-    expect(zip.file('12가_3456/차량 이미지/사진_1.jpg')).toBeTruthy()
-    expect(zip.file('12가_3456/차량 이미지/사진_2.jpg')).toBeTruthy()
+    expect(zip.file('12가_3456/원고/12가_3456 원고.txt')).toBeTruthy()
+    expect(zip.file('12가_3456/차량 이미지/K-001.jpg')).toBeTruthy()
+    expect(zip.file('12가_3456/차량 이미지/K-002.jpg')).toBeTruthy()
     expect(zip.files['12가_3456/성능점검기록부/']?.dir).toBe(true)
     expect(
-      zip.file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')
+      zip.file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')
     ).toBeTruthy()
     expect(results).toEqual([
       {
@@ -72,20 +72,20 @@ describe('createTruckZipBlob', () => {
     ])
 
     await expect(
-      zip.file('12가_3456/원고/차량정보.txt')!.async('string')
+      zip.file('12가_3456/원고/12가_3456 원고.txt')!.async('string')
     ).resolves.toContain('차량번호 :  12가/3456')
     await expect(
-      zip.file('12가_3456/원고/차량정보.txt')!.async('string')
-    ).resolves.toContain('#사진:사진_1.jpg')
+      zip.file('12가_3456/원고/12가_3456 원고.txt')!.async('string')
+    ).resolves.toContain('#사진:K-001.jpg')
     await expect(
-      zip.file('12가_3456/원고/차량정보.txt')!.async('string')
-    ).resolves.not.toContain('K-001.jpg')
+      zip.file('12가_3456/원고/12가_3456 원고.txt')!.async('string')
+    ).resolves.not.toContain('#사진:사진_1.jpg')
     await expect(
-      zip.file('12가_3456/차량 이미지/사진_1.jpg')!.async('string')
+      zip.file('12가_3456/차량 이미지/K-001.jpg')!.async('string')
     ).resolves.toBe('image:https://img.example.com/one.jpg')
     await expect(
       zip
-        .file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')!
+        .file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')!
         .async('uint8array')
     ).resolves.toEqual(new Uint8Array([7, 8]))
   })
@@ -116,9 +116,11 @@ describe('createTruckZipBlob', () => {
     })
     const zip = await JSZip.loadAsync(blob)
 
-    expect(zip.file('12가_3456/원고/차량정보.txt')).toBeTruthy()
+    expect(zip.file('12가_3456/원고/12가_3456 원고.txt')).toBeTruthy()
     expect(zip.files['12가_3456/성능점검기록부/']).toBeUndefined()
-    expect(zip.file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')).toBeNull()
+    expect(
+      zip.file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')
+    ).toBeNull()
     expect(results).toEqual([
       {
         performanceCheckImageCount: 0,
@@ -214,8 +216,8 @@ describe('createTruckZipBlob', () => {
         vehicleNumber: '12가/3456',
       },
     ])
-    expect(zip.file('12가_3456/차량 이미지/사진_1.jpg')).toBeTruthy()
-    expect(zip.file('12가_3456/차량 이미지/사진_2.jpg')).toBeNull()
+    expect(zip.file('12가_3456/차량 이미지/K-001.jpg')).toBeTruthy()
+    expect(zip.file('12가_3456/차량 이미지/K-002.jpg')).toBeNull()
   })
 
   it('rejects abort during image fetch without reporting truck progress', async () => {
