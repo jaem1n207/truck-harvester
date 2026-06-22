@@ -281,6 +281,12 @@ describe('v2 file-system', () => {
       writables.get('12가_3456/원고/차량정보.txt')!.write
     ).toHaveBeenCalledWith(expect.stringContaining('차량번호 :  12가/3456'))
     await expect(
+      writables.get('12가_3456/원고/차량정보.txt')!.write
+    ).toHaveBeenCalledWith(expect.stringContaining('#사진:사진_1.jpg'))
+    await expect(
+      writables.get('12가_3456/원고/차량정보.txt')!.write
+    ).not.toHaveBeenCalledWith(expect.stringContaining('K-001.jpg'))
+    await expect(
       getWrittenBlob(writables.get('12가_3456/차량 이미지/사진_1.jpg')).text()
     ).resolves.toBe('image:https://img.example.com/one.jpg')
     await expect(

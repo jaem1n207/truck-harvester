@@ -70,6 +70,12 @@ describe('createTruckZipBlob', () => {
       zip.file('12가_3456/원고/차량정보.txt')!.async('string')
     ).resolves.toContain('차량번호 :  12가/3456')
     await expect(
+      zip.file('12가_3456/원고/차량정보.txt')!.async('string')
+    ).resolves.toContain('#사진:사진_1.jpg')
+    await expect(
+      zip.file('12가_3456/원고/차량정보.txt')!.async('string')
+    ).resolves.not.toContain('K-001.jpg')
+    await expect(
       zip.file('12가_3456/차량 이미지/사진_1.jpg')!.async('string')
     ).resolves.toBe('image:https://img.example.com/one.jpg')
     await expect(

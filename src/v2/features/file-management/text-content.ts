@@ -1,12 +1,12 @@
 import { type TruckListing } from '@/v2/entities/truck'
 
-import { buildImageFileName } from './filename'
+import { buildVehicleImageFileName } from './filename'
 
 export function buildTruckTextContent(truck: TruckListing) {
   const imageUrls =
     truck.images.length > 0
       ? truck.images
-          .map((_, index) => `#사진:${buildImageFileName(index)}`)
+          .map((_, index) => `#사진:${buildVehicleImageFileName(index)}`)
           .join('\n')
       : '이미지 없음'
 
