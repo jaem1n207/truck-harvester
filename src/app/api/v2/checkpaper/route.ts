@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import {
   CHECKPAPER_FETCH_TIMEOUT_MS,
+  createTimeoutBudget,
   fetchWithManualRedirect,
   isAllowedCheckPaperUrl,
   readResponseBodyWithTimeout,
@@ -51,10 +52,12 @@ export async function GET(request: Request) {
   }
 
   try {
+    const timeoutBudget = createTimeoutBudget(CHECKPAPER_FETCH_TIMEOUT_MS)
+
     const { response, finalUrl } = await fetchWithManualRedirect(
       url,
       headers,
-      CHECKPAPER_FETCH_TIMEOUT_MS
+      timeoutBudget
     )
 
     if (!response.ok) {
@@ -68,10 +71,16 @@ export async function GET(request: Request) {
       )
     }
 
+    const timeoutMs = timeoutBudget.getRemainingMs()
+    if (timeoutMs <= 0) {
+      return createErrorResponse(502, '성능점검기록부를 불러오지 못했어요.')
+    }
+
     const html = await readResponseBodyWithTimeout(
       () => response.text(),
-      CHECKPAPER_FETCH_TIMEOUT_MS
+      timeoutMs
     )
+
     const rewrittenHtml = rewriteCheckPaperHtml(html, finalUrl)
 
     return new NextResponse(rewrittenHtml, {

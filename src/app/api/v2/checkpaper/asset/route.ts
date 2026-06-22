@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import {
   CHECKPAPER_FETCH_TIMEOUT_MS,
+  createTimeoutBudget,
   fetchWithManualRedirect,
   readResponseBodyWithTimeout,
   isAllowedCheckPaperUrl,
@@ -36,6 +37,27 @@ function getCheckPaperUserAgent() {
   )
 }
 
+function isRejectedActiveDocumentContentType(
+  contentType: string | null
+): boolean {
+  if (!contentType) {
+    return false
+  }
+
+  const normalizedContentType = contentType.split(';')[0]?.trim().toLowerCase()
+  const rejectedTypes = new Set([
+    'text/html',
+    'application/xhtml+xml',
+    'image/svg+xml',
+    'application/xml',
+    'text/xml',
+  ])
+
+  return (
+    Boolean(normalizedContentType) && rejectedTypes.has(normalizedContentType)
+  )
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url).searchParams.get('url')
 
@@ -51,10 +73,12 @@ export async function GET(request: Request) {
   }
 
   try {
+    const timeoutBudget = createTimeoutBudget(CHECKPAPER_FETCH_TIMEOUT_MS)
+
     const { response, finalUrl } = await fetchWithManualRedirect(
       url,
       headers,
-      CHECKPAPER_FETCH_TIMEOUT_MS
+      timeoutBudget
     )
 
     if (!response.ok) {
@@ -72,10 +96,25 @@ export async function GET(request: Request) {
     }
 
     const contentType = response.headers.get('content-type')
+    if (isRejectedActiveDocumentContentType(contentType)) {
+      return createErrorResponse(
+        502,
+        '성능점검기록부 파일을 불러오지 못했어요.'
+      )
+    }
+
+    const timeoutMs = timeoutBudget.getRemainingMs()
+    if (timeoutMs <= 0) {
+      return createErrorResponse(
+        502,
+        '성능점검기록부 파일을 불러오지 못했어요.'
+      )
+    }
+
     if (contentType?.includes('text/css')) {
       const css = await readResponseBodyWithTimeout(
         () => response.text(),
-        CHECKPAPER_FETCH_TIMEOUT_MS
+        timeoutMs
       )
       const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
 
@@ -89,7 +128,7 @@ export async function GET(request: Request) {
 
     const fileBuffer = await readResponseBodyWithTimeout(
       () => response.arrayBuffer(),
-      CHECKPAPER_FETCH_TIMEOUT_MS
+      timeoutMs
     )
 
     return new Response(fileBuffer, {
