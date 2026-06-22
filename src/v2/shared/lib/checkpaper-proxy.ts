@@ -91,7 +91,7 @@ export async function readResponseBodyWithTimeout<T>(
   read: () => Promise<T>,
   timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
 ) {
-  let timeoutId: ReturnType<typeof setTimeout>
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
 
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -107,7 +107,9 @@ export async function readResponseBodyWithTimeout<T>(
   try {
     return await Promise.race([read(), timeout])
   } finally {
-    clearTimeout(timeoutId)
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
   }
 }
 
