@@ -11,6 +11,8 @@ const listing = {
   vname: '현대 마이티',
   vehicleName: '2020년 현대 마이티',
   vnumber: '12가3456',
+  performanceCheckUrl:
+    'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3',
   price: {
     raw: 3550,
     rawWon: 35500000,
@@ -35,6 +37,15 @@ describe('truckListingSchema', () => {
     })
 
     expect(images).toEqual([])
+  })
+
+  it('allows listings without a performance check URL', () => {
+    const parsed = truckListingSchema.parse({
+      ...listing,
+      performanceCheckUrl: undefined,
+    })
+
+    expect(parsed.performanceCheckUrl).toBeUndefined()
   })
 })
 

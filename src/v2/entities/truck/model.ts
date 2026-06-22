@@ -9,6 +9,7 @@ export const truckPriceSchema = z.object({
 
 export const truckListingSchema = z.object({
   url: z.string().url(),
+  performanceCheckUrl: z.string().url().optional(),
   vname: z.string().min(1),
   vehicleName: z.string().min(1),
   vnumber: z.string().min(1),

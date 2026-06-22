@@ -2,6 +2,44 @@ import { load } from 'cheerio'
 
 import { truckListingSchema, type TruckListing } from '@/v2/entities/truck'
 
+function normalizeOptionalUrl(href: string | undefined, baseUrl: string) {
+  if (!href || href.trim().length === 0) {
+    return undefined
+  }
+
+  try {
+    return new URL(href, baseUrl).toString()
+  } catch {
+    return undefined
+  }
+}
+
+function extractPerformanceCheckUrl(
+  $: ReturnType<typeof load>,
+  listingUrl: string
+) {
+  const candidate = $('a')
+    .toArray()
+    .map((element) => {
+      const link = $(element)
+      const text = link.text().replace(/\s+/g, '')
+      const href = link.attr('href')
+
+      return {
+        href,
+        text,
+      }
+    })
+    .find(
+      ({ href, text }) =>
+        text.includes('성능점검보기') ||
+        href?.includes('CarCheck_Form') ||
+        href?.includes('CheckPaper')
+    )
+
+  return normalizeOptionalUrl(candidate?.href, listingUrl)
+}
+
 function buildCompactPriceLabel(priceRaw: number) {
   const priceLabel = `${priceRaw.toLocaleString()}만원`
 
@@ -105,6 +143,7 @@ export function parseTruckHtml(html: string, url: string): TruckListing {
 
   return truckListingSchema.parse({
     url,
+    performanceCheckUrl: extractPerformanceCheckUrl($, url),
     vname,
     vehicleName: extractedVehicleName || vname,
     vnumber,

@@ -31,6 +31,14 @@ const fullHtml = `
       <img src="https://img.example.com/three.jpg" />
       <img src="https://img.example.com/three.jpg" />
     </div>
+    <dl>
+      <dt>성능번호</dt>
+      <dd>
+        <a href="http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3" class="pc_btn_view"
+          >성능점검보기(클릭)</a
+        >
+      </dd>
+    </dl>
   </body>
 </html>
 `
@@ -64,6 +72,8 @@ describe('parseTruckHtml', () => {
       year: '2020',
       mileage: '150,000km',
       options: '냉동탑 / 후방카메라 / 블랙박스',
+      performanceCheckUrl:
+        'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3',
       images: [
         'https://img.example.com/one.jpg',
         'https://img.example.com/two.jpg',
@@ -91,5 +101,11 @@ describe('parseTruckHtml', () => {
       options: '기타사항 정보 없음',
       images: [],
     })
+  })
+
+  it('leaves performanceCheckUrl empty when the listing has no check link', () => {
+    const listing = parseTruckHtml(sparseHtml, detailUrl)
+
+    expect(listing.performanceCheckUrl).toBeUndefined()
   })
 })
