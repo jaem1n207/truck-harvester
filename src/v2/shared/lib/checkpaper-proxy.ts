@@ -55,18 +55,32 @@ function toProxiedAssetUrl(rawUrl: string, baseUrl: string) {
   }
 }
 
-function sanitizeActionAttribute(rawAction: string) {
+function sanitizeActionAttribute(rawAction: string, baseUrl: string) {
   const trimmed = rawAction.trim()
 
   if (!trimmed || isDisallowedUrlScheme(trimmed)) {
     return '#'
   }
 
-  if (/^https?:\/\//i.test(trimmed) && !isAllowedCheckPaperUrl(trimmed)) {
+  if (/^\/\//.test(trimmed)) {
     return '#'
   }
 
-  if (/^\/\//.test(trimmed) || /^(?!https?:)\w+:/.test(trimmed)) {
+  if (!/^(https?:\/\/)/i.test(trimmed) && /^(https?:)/i.test(trimmed)) {
+    return '#'
+  }
+
+  try {
+    const actionUrl = new URL(trimmed, baseUrl)
+
+    if (!/^(https?:)$/i.test(actionUrl.protocol)) {
+      return '#'
+    }
+
+    if (!isAllowedCheckPaperUrl(actionUrl.toString())) {
+      return '#'
+    }
+  } catch {
     return '#'
   }
 
@@ -142,7 +156,7 @@ export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
 
     const action = node.attr('action')
     if (action !== undefined) {
-      node.attr('action', sanitizeActionAttribute(action))
+      node.attr('action', sanitizeActionAttribute(action, baseUrl))
     }
   })
 

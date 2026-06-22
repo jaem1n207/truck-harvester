@@ -49,6 +49,11 @@ describe('checkpaper proxy helpers', () => {
           <img id="car_img_file_url_1" src="javascript:alert(1)">
           <form id="form" action="javascript:alert(1)"></form>
           <form id="external" action="https://example.com/post"></form>
+          <form id="weird-http" action="http:evil.com"></form>
+          <form id="weird-http-slash" action="http:/evil.com"></form>
+          <form id="weird-https" action="https:evil.com"></form>
+          <form id="protocol-relative" action="//evil.com/post"></form>
+          <form id="relative-plain" action="CheckPaper"></form>
           <form id="allowed" action="https://checkpaper.jmenetworks.co.kr/Service/CheckPaper"></form>
           <form id="relative" action="/Service/CheckPaper"></form>
         </body>
@@ -67,10 +72,13 @@ describe('checkpaper proxy helpers', () => {
     expect(rewritten).toContain('id="car_img_file_url_1"')
     expect(rewritten).toContain('src="#"')
     expect(rewritten).toContain('action="#"')
+    expect(rewritten).toContain('id="weird-http"')
+    expect(rewritten).toContain('action="#"')
     expect(rewritten).toContain('id="allowed"')
     expect(rewritten).toContain(
       'action="https://checkpaper.jmenetworks.co.kr/Service/CheckPaper"'
     )
+    expect(rewritten).toContain('action="CheckPaper"')
     expect(rewritten).toContain('action="/Service/CheckPaper"')
     expect(rewritten).toContain('id="relative"')
   })
