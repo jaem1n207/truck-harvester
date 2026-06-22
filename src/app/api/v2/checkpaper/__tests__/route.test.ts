@@ -10,11 +10,12 @@ const sampleHtml = `
   <html>
     <head>
       <link href="/assets/css/style_v2.css" rel="stylesheet">
-      <script src="/assets/vendor/jquery/jquery.min.js"></script>
+      <script>console.log('should be removed')</script>
     </head>
     <body>
       <div id="print">print section</div>
       <a href="https://www.adobe.com/get.adobe.com">adobe link</a>
+      <a href="javascript:alert(1)" onclick="alert(1)">event</a>
       <img id="car_img_file_url_1" src="/carimage/one.jpg" />
       <form action="/Service/CheckPaper"></form>
     </body>
@@ -59,12 +60,23 @@ describe('GET /api/v2/checkpaper', () => {
   })
 
   it('fetches and rewrites CheckPaper html', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      url: finalUrl,
-      text: vi.fn().mockResolvedValue(sampleHtml),
-    })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: {
+            Location:
+              'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107099659&print=0&iframe=1&key=',
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(sampleHtml, {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        })
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     const response = await GET(createRequest(sourceUrl))
@@ -75,7 +87,21 @@ describe('GET /api/v2/checkpaper', () => {
       sourceUrl,
       expect.objectContaining({
         cache: 'no-store',
-        redirect: 'follow',
+        redirect: 'manual',
+        headers: expect.objectContaining({
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'User-Agent': expect.any(String),
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        }),
+      })
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      finalUrl,
+      expect.objectContaining({
+        cache: 'no-store',
+        redirect: 'manual',
         headers: expect.objectContaining({
           Accept:
             'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -89,15 +115,13 @@ describe('GET /api/v2/checkpaper', () => {
       'text/html; charset=utf-8'
     )
     expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('content-security-policy')).toContain(
+      "script-src 'none'"
+    )
     expect(body).toContain('/api/v2/checkpaper/asset?url=')
     expect(body).toContain(
       encodeURIComponent(
         'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'
-      )
-    )
-    expect(body).toContain(
-      encodeURIComponent(
-        'https://checkpaper.jmenetworks.co.kr/assets/vendor/jquery/jquery.min.js'
       )
     )
     expect(body).toContain(
@@ -108,14 +132,16 @@ describe('GET /api/v2/checkpaper', () => {
     expect(body).toContain('action="/Service/CheckPaper"')
     expect(body).not.toContain('id="print"')
     expect(body).not.toContain('get.adobe.com')
+    expect(body).not.toContain('<script')
+    expect(body).not.toContain('onclick')
   })
 
   it('returns 502 when CheckPaper fails to load', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      text: vi.fn(),
-    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 404,
+      })
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const response = await GET(createRequest(sourceUrl))
@@ -128,12 +154,12 @@ describe('GET /api/v2/checkpaper', () => {
   })
 
   it('rejects redirected hosts outside the checkpaper domain', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      url: 'https://example.com/Service/CheckPaper',
-      text: vi.fn().mockResolvedValue(sampleHtml),
-    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(sampleHtml, {
+        status: 302,
+        headers: { Location: 'https://example.com/Service/CheckPaper' },
+      })
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const response = await GET(createRequest(sourceUrl))
@@ -142,6 +168,22 @@ describe('GET /api/v2/checkpaper', () => {
     expect(await response.json()).toEqual({
       success: false,
       message: '성능점검기록부 주소를 확인하지 못했어요.',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('maps timeout and aborts to fetch failure', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(new DOMException('timeout', 'AbortError'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await GET(createRequest(sourceUrl))
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부를 불러오지 못했어요.',
     })
   })
 })

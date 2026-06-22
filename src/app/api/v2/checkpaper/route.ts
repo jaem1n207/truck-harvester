@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import {
+  CHECKPAPER_FETCH_TIMEOUT_MS,
+  fetchWithManualRedirect,
   isAllowedCheckPaperUrl,
   rewriteCheckPaperHtml,
 } from '@/v2/shared/lib/checkpaper-proxy'
@@ -37,23 +39,23 @@ export async function GET(request: Request) {
     return createErrorResponse(400, '성능점검기록부 주소를 확인하지 못했어요.')
   }
 
+  const headers = {
+    'User-Agent': getCheckPaperUserAgent(),
+    Accept:
+      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+  }
+
   try {
-    const response = await fetch(url, {
-      cache: 'no-store',
-      redirect: 'follow',
-      headers: {
-        'User-Agent': getCheckPaperUserAgent(),
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-      },
-    })
+    const { response, finalUrl } = await fetchWithManualRedirect(
+      url,
+      headers,
+      CHECKPAPER_FETCH_TIMEOUT_MS
+    )
 
     if (!response.ok) {
       return createErrorResponse(502, '성능점검기록부를 불러오지 못했어요.')
     }
-
-    const finalUrl = response.url || url
 
     if (!isAllowedCheckPaperUrl(finalUrl)) {
       return createErrorResponse(
@@ -69,9 +71,23 @@ export async function GET(request: Request) {
       headers: {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',
+        'content-security-policy':
+          "default-src 'none'; base-uri 'none'; script-src 'none'; object-src 'none'; style-src 'self'; img-src 'self'; frame-ancestors 'none';",
       },
     })
-  } catch {
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'UNSAFE_REDIRECT'
+    ) {
+      return createErrorResponse(
+        400,
+        '성능점검기록부 주소를 확인하지 못했어요.'
+      )
+    }
+
     return createErrorResponse(502, '성능점검기록부를 불러오지 못했어요.')
   }
 }
