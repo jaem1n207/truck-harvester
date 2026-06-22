@@ -59,10 +59,17 @@ function createCanvasWithRejectingBytes(error: Error) {
   } as unknown as HTMLCanvasElement
 }
 
+function createCanvasWithoutBlobCallback() {
+  return {
+    toBlob: vi.fn((): undefined => undefined),
+  } as unknown as HTMLCanvasElement
+}
+
 describe('capturePerformanceCheckImages', () => {
   afterEach(() => {
     document.body.innerHTML = ''
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('returns an empty array when the performance check URL is missing', async () => {
@@ -71,7 +78,7 @@ describe('capturePerformanceCheckImages', () => {
     expect(document.querySelector('iframe')).toBeNull()
   })
 
-  it('returns an empty array when the proxied document has no page elements', async () => {
+  it('rejects and cleans up when the proxied document has no page elements', async () => {
     const renderPage = vi.fn<PerformanceCheckPageRenderer>()
     const capturePromise = capturePerformanceCheckImages(sourceUrl, {
       renderPage,
@@ -86,7 +93,9 @@ describe('capturePerformanceCheckImages', () => {
     addPagesToIframe('<main>점검 기록을 찾지 못했습니다.</main>')
     dispatchIframeLoad()
 
-    await expect(capturePromise).resolves.toEqual([])
+    await expect(capturePromise).rejects.toThrow(
+      '성능점검기록부 페이지를 찾지 못했습니다.'
+    )
     expect(renderPage).not.toHaveBeenCalled()
     expect(document.querySelector('iframe')).toBeNull()
   })
@@ -162,6 +171,51 @@ describe('capturePerformanceCheckImages', () => {
     expect(document.querySelector('iframe')).toBeNull()
   })
 
+  it('rejects and cleans up when iframe load times out', async () => {
+    vi.useFakeTimers()
+
+    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+      renderPage: vi.fn<PerformanceCheckPageRenderer>(),
+      timeoutMs: 50,
+    })
+
+    expect(document.querySelector('iframe')).toBeInstanceOf(HTMLIFrameElement)
+
+    const rejection = expect(capturePromise).rejects.toThrow(
+      '성능점검기록부를 불러오는 시간이 초과되었습니다.'
+    )
+
+    await vi.advanceTimersByTimeAsync(50)
+
+    await rejection
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('rejects and cleans up when canvas blob conversion times out', async () => {
+    vi.useFakeTimers()
+
+    const renderPage = vi
+      .fn<PerformanceCheckPageRenderer>()
+      .mockResolvedValue(createCanvasWithoutBlobCallback())
+
+    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+      renderPage,
+      timeoutMs: 50,
+    })
+
+    addPagesToIframe('<section class="page"></section>')
+    dispatchIframeLoad()
+
+    const rejection = expect(capturePromise).rejects.toThrow(
+      '성능점검기록부 이미지를 만드는 시간이 초과되었습니다.'
+    )
+
+    await vi.advanceTimersByTimeAsync(50)
+
+    await rejection
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
   it('throws AbortError without creating an iframe when already aborted', async () => {
     const controller = new AbortController()
 
@@ -178,6 +232,14 @@ describe('capturePerformanceCheckImages', () => {
 
   it('throws AbortError and cleans up when aborted during iframe load', async () => {
     const controller = new AbortController()
+    const removeFrameListener = vi.spyOn(
+      HTMLIFrameElement.prototype,
+      'removeEventListener'
+    )
+    const removeAbortListener = vi.spyOn(
+      controller.signal,
+      'removeEventListener'
+    )
     const capturePromise = capturePerformanceCheckImages(sourceUrl, {
       signal: controller.signal,
       renderPage: vi.fn<PerformanceCheckPageRenderer>(),
@@ -191,6 +253,18 @@ describe('capturePerformanceCheckImages', () => {
       name: 'AbortError',
       message: '다운로드가 취소되었습니다.',
     })
+    expect(removeFrameListener).toHaveBeenCalledWith(
+      'load',
+      expect.any(Function)
+    )
+    expect(removeFrameListener).toHaveBeenCalledWith(
+      'error',
+      expect.any(Function)
+    )
+    expect(removeAbortListener).toHaveBeenCalledWith(
+      'abort',
+      expect.any(Function)
+    )
     expect(document.querySelector('iframe')).toBeNull()
   })
 })

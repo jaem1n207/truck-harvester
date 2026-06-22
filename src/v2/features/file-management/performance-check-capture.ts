@@ -4,6 +4,7 @@ const DEFAULT_PROXY_PATH = '/api/v2/checkpaper'
 const DEFAULT_JPEG_QUALITY = 0.92
 const DEFAULT_IFRAME_WIDTH = 1200
 const DEFAULT_IFRAME_HEIGHT = 1800
+const DEFAULT_TIMEOUT_MS = 15_000
 
 export type PerformanceCheckPageRenderer = (
   page: HTMLElement
@@ -15,6 +16,7 @@ export interface CapturePerformanceCheckImagesOptions {
   proxyPath?: string
   renderPage?: PerformanceCheckPageRenderer
   signal?: AbortSignal
+  timeoutMs?: number
 }
 
 function createAbortError() {
@@ -73,50 +75,128 @@ function withAbort<T>(work: Promise<T>, signal?: AbortSignal) {
   })
 }
 
-function waitForFrameDocument(iframe: HTMLIFrameElement, signal?: AbortSignal) {
-  const frameDocumentPromise = new Promise<Document>((resolve, reject) => {
+function waitForFrameDocument({
+  iframe,
+  signal,
+  timeoutMs,
+}: {
+  iframe: HTMLIFrameElement
+  signal?: AbortSignal
+  timeoutMs: number
+}) {
+  return new Promise<Document>((resolve, reject) => {
+    let settled = false
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
     const cleanup = () => {
       iframe.removeEventListener('load', handleLoad)
       iframe.removeEventListener('error', handleError)
+      signal?.removeEventListener('abort', handleAbort)
+
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
     }
 
-    const handleLoad = () => {
-      cleanup()
-
-      if (!iframe.contentDocument) {
-        reject(new Error('성능점검기록부 문서를 불러오지 못했습니다.'))
+    const settle = (callback: (value: Document) => void, value: Document) => {
+      if (settled) {
         return
       }
 
-      resolve(iframe.contentDocument)
+      settled = true
+      cleanup()
+      callback(value)
+    }
+
+    const settleError = (error: unknown) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      reject(error)
+    }
+
+    const handleLoad = () => {
+      if (!iframe.contentDocument) {
+        settleError(new Error('성능점검기록부 문서를 불러오지 못했습니다.'))
+        return
+      }
+
+      settle(resolve, iframe.contentDocument)
     }
 
     const handleError = () => {
-      cleanup()
-      reject(new Error('성능점검기록부를 불러오지 못했습니다.'))
+      settleError(new Error('성능점검기록부를 불러오지 못했습니다.'))
+    }
+
+    const handleAbort = () => {
+      settleError(createAbortError())
     }
 
     iframe.addEventListener('load', handleLoad, { once: true })
     iframe.addEventListener('error', handleError, { once: true })
-  })
+    signal?.addEventListener('abort', handleAbort, { once: true })
 
-  return withAbort(frameDocumentPromise, signal)
+    timeoutId = setTimeout(() => {
+      settleError(new Error('성능점검기록부를 불러오는 시간이 초과되었습니다.'))
+    }, timeoutMs)
+
+    if (signal?.aborted) {
+      handleAbort()
+    }
+  })
 }
 
-function canvasToJpegBytes(canvas: HTMLCanvasElement, quality: number) {
+function canvasToJpegBytes(
+  canvas: HTMLCanvasElement,
+  quality: number,
+  timeoutMs: number
+) {
   return new Promise<Uint8Array>((resolve, reject) => {
+    let settled = false
+    const timeoutId = setTimeout(() => {
+      settleError(
+        new Error('성능점검기록부 이미지를 만드는 시간이 초과되었습니다.')
+      )
+    }, timeoutMs)
+
+    const cleanup = () => {
+      clearTimeout(timeoutId)
+    }
+
+    const settle = (value: Uint8Array) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      resolve(value)
+    }
+
+    const settleError = (error: unknown) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      reject(error)
+    }
+
     canvas.toBlob(
-      async (blob) => {
+      (blob) => {
         if (!blob) {
-          reject(new Error('성능점검기록부 이미지를 만들지 못했습니다.'))
+          settleError(new Error('성능점검기록부 이미지를 만들지 못했습니다.'))
           return
         }
 
-        try {
-          resolve(new Uint8Array(await blob.arrayBuffer()))
-        } catch (error) {
-          reject(error)
-        }
+        blob.arrayBuffer().then(
+          (buffer) => settle(new Uint8Array(buffer)),
+          (error: unknown) => settleError(error)
+        )
       },
       'image/jpeg',
       quality
@@ -138,6 +218,7 @@ export async function capturePerformanceCheckImages(
     proxyPath = DEFAULT_PROXY_PATH,
     renderPage = renderPageWithHtml2Canvas,
     signal,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
   }: CapturePerformanceCheckImagesOptions = {}
 ) {
   const trimmedUrl = performanceCheckUrl?.trim()
@@ -161,7 +242,11 @@ export async function capturePerformanceCheckImages(
   )
 
   try {
-    const frameDocument = await waitForFrameDocument(iframe, signal)
+    const frameDocument = await waitForFrameDocument({
+      iframe,
+      signal,
+      timeoutMs,
+    })
     assertNotAborted(signal)
 
     const pages = Array.from(
@@ -169,7 +254,7 @@ export async function capturePerformanceCheckImages(
     )
 
     if (pages.length === 0) {
-      return []
+      throw new Error('성능점검기록부 페이지를 찾지 못했습니다.')
     }
 
     const images: Uint8Array[] = []
@@ -181,7 +266,10 @@ export async function capturePerformanceCheckImages(
       assertNotAborted(signal)
 
       images.push(
-        await withAbort(canvasToJpegBytes(canvas, jpegQuality), signal)
+        await withAbort(
+          canvasToJpegBytes(canvas, jpegQuality, timeoutMs),
+          signal
+        )
       )
     }
 
