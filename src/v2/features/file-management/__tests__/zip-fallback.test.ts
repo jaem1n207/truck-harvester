@@ -273,10 +273,21 @@ describe('createTruckZipBlob', () => {
       revokeObjectURL: vi.fn(),
     })
 
-    await downloadTruckZip([listing], {
-      capturePerformanceCheckImages: vi.fn(async () => []),
+    const results = await downloadTruckZip([listing], {
+      capturePerformanceCheckImages: vi.fn(async () => [
+        new Uint8Array([7, 8]),
+      ]),
       date: new Date('2026-04-26T00:00:00Z'),
     })
+
+    expect(results).toEqual([
+      {
+        performanceCheckImageCount: 1,
+        performanceCheckStatus: 'saved',
+        vehicleFolderName: '12가_3456',
+        vehicleNumber: '12가/3456',
+      },
+    ])
 
     expect(createElement).toHaveBeenCalledWith('a')
     expect(anchor.href).toBe('blob:v2-zip')

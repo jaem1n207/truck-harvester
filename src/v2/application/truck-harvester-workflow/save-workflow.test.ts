@@ -157,7 +157,7 @@ describe('runSaveWorkflow', () => {
     const store = createPreparedListingStore()
     const items = addReadyListings(store)
     const tracker = createTracker()
-    const downloadTruckZip = vi.fn(async () => undefined)
+    const downloadTruckZip = vi.fn(async () => [directorySaveResult])
 
     const result = await runSaveWorkflow({
       directory: null,

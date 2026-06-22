@@ -225,7 +225,7 @@ export async function downloadTruckZip(
   trucks: readonly TruckListing[],
   { date = new Date(), ...options }: DownloadTruckZipOptions = {}
 ) {
-  const { blob } = await createTruckZipArchive(trucks, options)
+  const { blob, results } = await createTruckZipArchive(trucks, options)
 
   assertNotAborted(options.signal)
   const url = URL.createObjectURL(blob)
@@ -238,4 +238,6 @@ export async function downloadTruckZip(
   anchor.click()
   document.body.removeChild(anchor)
   URL.revokeObjectURL(url)
+
+  return results
 }
