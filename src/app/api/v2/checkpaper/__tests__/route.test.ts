@@ -43,6 +43,7 @@ describe('GET /api/v2/checkpaper', () => {
     )
 
     expect(missingUrlResponse.status).toBe(400)
+    expect(missingUrlResponse.headers.get('cache-control')).toBe('no-store')
     expect(await missingUrlResponse.json()).toEqual({
       success: false,
       message: '성능점검기록부 주소를 확인하지 못했어요.',
@@ -151,6 +152,7 @@ describe('GET /api/v2/checkpaper', () => {
     const response = await GET(createRequest(sourceUrl))
 
     expect(response.status).toBe(502)
+    expect(response.headers.get('cache-control')).toBe('no-store')
     expect(await response.json()).toEqual({
       success: false,
       message: '성능점검기록부를 불러오지 못했어요.',

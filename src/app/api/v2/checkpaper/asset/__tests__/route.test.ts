@@ -19,6 +19,7 @@ describe('GET /api/v2/checkpaper/asset', () => {
     const response = await GET(createRequest('https://example.com/file.png'))
 
     expect(response.status).toBe(400)
+    expect(response.headers.get('cache-control')).toBe('no-store')
     expect(await response.json()).toEqual({
       success: false,
       message: '성능점검기록부 파일을 확인하지 못했어요.',
@@ -163,6 +164,7 @@ describe('GET /api/v2/checkpaper/asset', () => {
     const response = await GET(createRequest(sourceUrl))
 
     expect(response.status).toBe(502)
+    expect(response.headers.get('cache-control')).toBe('no-store')
     expect(await response.json()).toEqual({
       success: false,
       message: '성능점검기록부 파일을 불러오지 못했어요.',

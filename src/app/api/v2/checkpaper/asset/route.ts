@@ -21,6 +21,9 @@ function createErrorResponse(status: number, message: string) {
     },
     {
       status,
+      headers: {
+        'cache-control': 'no-store',
+      },
     }
   )
 }
