@@ -26,6 +26,14 @@ export type PerformanceCheckPdfRenderer = (
   }
 ) => Promise<HTMLCanvasElement[]>
 
+export type PerformanceCheckPrintableUrlResolver = (
+  sourceUrl: string,
+  options: {
+    proxyPath: string
+    signal?: AbortSignal
+  }
+) => Promise<string | undefined>
+
 export interface CapturePerformanceCheckImagesOptions {
   assetProxyPath?: string
   document?: Document
@@ -33,6 +41,7 @@ export interface CapturePerformanceCheckImagesOptions {
   jpegQuality?: number
   preferPrintablePdf?: boolean
   proxyPath?: string
+  resolvePrintableUrl?: PerformanceCheckPrintableUrlResolver
   renderPdfPages?: PerformanceCheckPdfRenderer
   renderPage?: PerformanceCheckPageRenderer
   signal?: AbortSignal
@@ -303,6 +312,38 @@ const renderPageWithHtml2Canvas: PerformanceCheckPageRenderer = (page) =>
     scale: Math.max(1, Math.min(window.devicePixelRatio || 1, 2)),
   })
 
+function extractBaseHref(html: string) {
+  if (typeof DOMParser === 'undefined') {
+    return undefined
+  }
+
+  const parsedDocument = new DOMParser().parseFromString(html, 'text/html')
+  const href = parsedDocument.querySelector('base[href]')?.getAttribute('href')
+
+  return href?.trim() || undefined
+}
+
+const resolvePrintableUrlFromProxy: PerformanceCheckPrintableUrlResolver =
+  async (sourceUrl, { proxyPath, signal }) => {
+    const response = await fetch(
+      buildProxiedCheckPaperUrl(sourceUrl, proxyPath),
+      {
+        signal,
+      }
+    )
+
+    if (!response.ok) {
+      return undefined
+    }
+
+    const finalUrl = response.headers.get('x-checkpaper-final-url')?.trim()
+    if (finalUrl) {
+      return finalUrl
+    }
+
+    return extractBaseHref(await response.text())
+  }
+
 function configurePdfWorker(
   pdfjs: typeof import('pdfjs-dist/legacy/build/pdf.mjs')
 ) {
@@ -516,6 +557,7 @@ export async function capturePerformanceCheckImages(
     jpegQuality = DEFAULT_JPEG_QUALITY,
     preferPrintablePdf = true,
     proxyPath = DEFAULT_PROXY_PATH,
+    resolvePrintableUrl = resolvePrintableUrlFromProxy,
     renderPdfPages = renderPdfPagesWithPdfJs,
     renderPage = renderPageWithHtml2Canvas,
     signal,
@@ -541,13 +583,32 @@ export async function capturePerformanceCheckImages(
     ? derivePrintableRecordUrl(trimmedUrl)
     : undefined
 
-  if (printableRecordUrl) {
+  let resolvedPrintableRecordUrl = printableRecordUrl
+  if (preferPrintablePdf && !resolvedPrintableRecordUrl) {
+    const resolvedUrl = await withAbort(
+      resolvePrintableUrl(trimmedUrl, {
+        proxyPath,
+        signal,
+      }),
+      signal
+    )
+
+    resolvedPrintableRecordUrl = resolvedUrl
+      ? derivePrintableRecordUrl(resolvedUrl)
+      : undefined
+  }
+
+  if (preferPrintablePdf && !resolvedPrintableRecordUrl) {
+    throw new Error('성능점검기록부 인쇄본 주소를 찾지 못했습니다.')
+  }
+
+  if (resolvedPrintableRecordUrl) {
     return capturePrintablePdfImages({
       assetProxyPath,
       fetchPdf,
       jpegQuality,
       ownerDocument,
-      printableRecordUrl,
+      printableRecordUrl: resolvedPrintableRecordUrl,
       renderPdfPages,
       signal,
       timeoutMs,

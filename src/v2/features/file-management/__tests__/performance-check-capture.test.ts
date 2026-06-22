@@ -12,6 +12,8 @@ const printableSourceUrl =
   'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4100029368&print=0&iframe=1&key='
 const printableRecordUrl =
   'https://checkpaper.jmenetworks.co.kr/view/record.do?check_id=41-00-029368'
+const autocafeSourceUrl =
+  'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300060798'
 
 function captureHtmlImages(options: CapturePerformanceCheckImagesOptions = {}) {
   return capturePerformanceCheckImages(sourceUrl, {
@@ -145,6 +147,31 @@ describe('capturePerformanceCheckImages', () => {
       `/api/v2/checkpaper/asset?url=${encodeURIComponent(printableRecordUrl)}`,
       { signal: undefined }
     )
+  })
+
+  it('resolves redirected autocafe URLs before rendering the printable PDF', async () => {
+    const canvas = createCanvas([8])
+    const resolvePrintableUrl = vi.fn(async () => printableSourceUrl)
+    const fetchPdf = vi.fn(async () => new Uint8Array([30]))
+    const renderPdfPages = vi.fn(async () => [canvas])
+
+    await expect(
+      capturePerformanceCheckImages(autocafeSourceUrl, {
+        fetchPdf,
+        renderPdfPages,
+        resolvePrintableUrl,
+      })
+    ).resolves.toEqual([new Uint8Array([8])])
+
+    expect(resolvePrintableUrl).toHaveBeenCalledWith(autocafeSourceUrl, {
+      proxyPath: '/api/v2/checkpaper',
+      signal: undefined,
+    })
+    expect(fetchPdf).toHaveBeenCalledWith(
+      `/api/v2/checkpaper/asset?url=${encodeURIComponent(printableRecordUrl)}`,
+      { signal: undefined }
+    )
+    expect(document.querySelector('iframe')).toBeNull()
   })
 
   it('rejects and cleans up when the proxied document has no page elements', async () => {
