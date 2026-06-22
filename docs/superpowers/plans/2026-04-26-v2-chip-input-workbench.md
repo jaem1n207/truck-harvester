@@ -909,17 +909,17 @@ export function ListingChipInput({
   return (
     <section
       aria-labelledby="listing-chip-input-title"
-      className="border-border bg-card text-card-foreground grid gap-4 rounded-xl border p-5 shadow-sm"
+      className="grid gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm"
       data-tour="url-input"
     >
       <div className="grid gap-1.5">
         <h2 className="text-lg font-semibold" id="listing-chip-input-title">
           {v2Copy.urlInput.title}
         </h2>
-        <p className="text-muted-foreground text-sm">{v2Copy.urlInput.description}</p>
+        <p className="text-sm text-muted-foreground">{v2Copy.urlInput.description}</p>
       </div>
 
-      <div className="border-input bg-background focus-within:border-ring focus-within:ring-ring/50 min-h-36 rounded-lg border px-3 py-2 shadow-xs transition-colors focus-within:ring-3">
+      <div className="shadow-xs focus-within:ring-3 min-h-36 rounded-lg border border-input bg-background px-3 py-2 transition-colors focus-within:border-ring focus-within:ring-ring/50">
         <div className="flex flex-wrap gap-2">
           {items.map((item) => (
             <span
@@ -942,7 +942,7 @@ export function ListingChipInput({
           ))}
           <textarea
             aria-label="매물 주소"
-            className="placeholder:text-muted-foreground min-h-12 min-w-56 flex-1 resize-none bg-transparent text-sm outline-none"
+            className="min-h-12 min-w-56 flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             disabled={disabled}
             onChange={(event) => setDraftText(event.target.value)}
             onPaste={(event) => {
@@ -951,7 +951,7 @@ export function ListingChipInput({
               setDraftText('')
               onPasteText(text)
             }}
-            placeholder="복사한 내용을 여기에 붙여넣으세요"
+            placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798"
             value={draftText}
           />
         </div>
@@ -959,10 +959,10 @@ export function ListingChipInput({
 
       <div aria-live="polite" className="grid gap-1">
         {duplicateMessage ? (
-          <p className="text-muted-foreground text-sm">{duplicateMessage}</p>
+          <p className="text-sm text-muted-foreground">{duplicateMessage}</p>
         ) : null}
         {items.some((item) => item.status === 'failed' || item.status === 'invalid') ? (
-          <p className="text-destructive text-sm">
+          <p className="text-sm text-destructive">
             확인하지 못한 매물은 지우고 다시 붙여넣어 주세요.
           </p>
         ) : null}
@@ -986,7 +986,8 @@ export const v2Copy = {
     title: '매물 주소 넣기',
     description: '복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다.',
     label: '매물 주소',
-    placeholder: '복사한 내용을 여기에 붙여넣으세요',
+    placeholder:
+      '예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798',
     submit: '가져오기 시작',
     errors: {
       empty: '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.',
@@ -1155,7 +1156,7 @@ export function PreparedListingStatusPanel({ items }: PreparedListingStatusPanel
   return (
     <section
       aria-labelledby="prepared-status-title"
-      className="border-border bg-card text-card-foreground grid gap-4 rounded-xl border p-5 shadow-sm"
+      className="grid gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm"
       data-tour="processing-status"
     >
       <div className="grid gap-1.5">
@@ -1166,7 +1167,7 @@ export function PreparedListingStatusPanel({ items }: PreparedListingStatusPanel
           className={
             allDone
               ? 'rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900'
-              : 'text-muted-foreground text-sm'
+              : 'text-sm text-muted-foreground'
           }
           data-complete-summary={allDone ? 'true' : undefined}
         >
@@ -1175,14 +1176,14 @@ export function PreparedListingStatusPanel({ items }: PreparedListingStatusPanel
       </div>
 
       {items.length === 0 ? (
-        <p className="border-border bg-muted/40 text-muted-foreground rounded-lg border border-dashed px-3 py-4 text-sm">
+        <p className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-4 text-sm text-muted-foreground">
           아직 준비된 매물이 없습니다.
         </p>
       ) : (
         <ul className="grid gap-2" role="list">
           {items.map((item) => (
             <li
-              className="border-border bg-background grid gap-2 rounded-lg border px-3 py-2"
+              className="grid gap-2 rounded-lg border border-border bg-background px-3 py-2"
               key={item.id}
             >
               <div className="flex items-center justify-between gap-3">
@@ -1190,16 +1191,16 @@ export function PreparedListingStatusPanel({ items }: PreparedListingStatusPanel
                   <StatusIcon status={item.status} />
                   <span className="truncate">{item.label}</span>
                 </span>
-                <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs">
+                <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
                   {statusLabel[item.status]}
                 </span>
               </div>
               {item.status === 'saving' ? (
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   사진 {item.downloadedImages ?? 0}/{item.totalImages ?? 0}
                 </p>
               ) : null}
-              {item.message ? <p className="text-destructive text-xs">{item.message}</p> : null}
+              {item.message ? <p className="text-xs text-destructive">{item.message}</p> : null}
             </li>
           ))}
         </ul>
@@ -1416,7 +1417,7 @@ export function CompletionNotificationToggle({
 
   if (permission === 'granted') {
     return (
-      <p className="text-muted-foreground inline-flex items-center gap-1.5 text-sm">
+      <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
         <Bell aria-hidden="true" className="size-4" />
         완료 알림 켜짐
       </p>
@@ -1424,7 +1425,7 @@ export function CompletionNotificationToggle({
   }
 
   if (permission === 'denied') {
-    return <p className="text-muted-foreground text-sm">브라우저 알림이 꺼져 있습니다</p>
+    return <p className="text-sm text-muted-foreground">브라우저 알림이 꺼져 있습니다</p>
   }
 
   return (
@@ -1433,7 +1434,7 @@ export function CompletionNotificationToggle({
         <Bell aria-hidden="true" data-icon="inline-start" />
         완료 알림 켜기
       </Button>
-      <span className="text-muted-foreground text-xs">선택 사항</span>
+      <span className="text-xs text-muted-foreground">선택 사항</span>
     </div>
   )
 }

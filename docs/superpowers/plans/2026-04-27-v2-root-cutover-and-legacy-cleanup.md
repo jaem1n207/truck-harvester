@@ -433,16 +433,16 @@ import { Button } from '@/v2/shared/ui/button'
 
 export default function NotFound() {
   return (
-    <div className="bg-background text-foreground flex min-h-dvh items-center justify-center px-6">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-6 text-foreground">
       <div className="text-center">
         <div className="mb-6 flex justify-center">
-          <div className="bg-muted rounded-xl p-4">
-            <Truck aria-hidden="true" className="text-muted-foreground size-12" />
+          <div className="rounded-xl bg-muted p-4">
+            <Truck aria-hidden="true" className="size-12 text-muted-foreground" />
           </div>
         </div>
         <h1 className="mb-2 text-4xl font-bold">404</h1>
         <h2 className="mb-4 text-xl font-semibold">페이지를 찾을 수 없습니다</h2>
-        <p className="text-muted-foreground mb-8 max-w-md">
+        <p className="mb-8 max-w-md text-muted-foreground">
           요청하신 페이지가 존재하지 않거나 이동되었을 수 있습니다. 트럭 매물 수집기 메인 페이지로
           돌아가세요.
         </p>
@@ -620,7 +620,8 @@ export const v2Copy = {
     title: '매물 주소 넣기',
     description: '복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다.',
     label: '매물 주소',
-    placeholder: '복사한 내용을 여기에 붙여넣으세요',
+    placeholder:
+      '예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798',
     submit: '매물 확인 시작',
     errors: {
       empty: '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.',
