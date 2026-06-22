@@ -105,12 +105,19 @@ function sanitizeActionAttribute(rawAction: string, baseUrl: string) {
 
 export async function readResponseBodyWithTimeout<T>(
   read: () => Promise<T>,
-  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS,
+  options: { cancel?: () => void | Promise<void>; response?: Response } = {}
 ) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined
 
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
+      if (options.cancel) {
+        void options.cancel()
+      } else if (options.response?.body) {
+        void options.response.body.cancel().catch(() => {})
+      }
+
       reject(
         new DOMException(
           'CheckPaper response body read timed out',

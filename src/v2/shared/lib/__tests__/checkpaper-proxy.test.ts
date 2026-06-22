@@ -237,4 +237,36 @@ describe('checkpaper proxy helpers', () => {
       vi.unstubAllGlobals()
     }
   })
+
+  it('cancels response body when body read times out', async () => {
+    vi.useFakeTimers()
+    try {
+      const cancel = vi.fn().mockResolvedValue(undefined)
+      const response = {
+        body: {
+          cancel,
+        },
+      } as unknown as Response
+
+      const bodyReadResult = readResponseBodyWithTimeout(
+        () => new Promise<string>(() => {}),
+        10,
+        { response }
+      ).then(
+        (result) => ({ result }),
+        (error) => ({ error })
+      )
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      const settledBodyRead = await bodyReadResult
+      expect(settledBodyRead).toMatchObject({
+        error: { name: 'TimeoutError' },
+      })
+      expect(cancel).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+      vi.unstubAllGlobals()
+    }
+  })
 })
