@@ -44,6 +44,12 @@ const isAbortError = (error: unknown) =>
     ? error.name === 'AbortError'
     : error instanceof Error && error.name === 'AbortError'
 
+const getVehicleImageStatus = (
+  downloadedImages: number,
+  totalImages: number
+): TruckSaveResult['vehicleImageStatus'] =>
+  downloadedImages === totalImages ? 'complete' : 'partial'
+
 async function fetchImageBytes(url: string, signal?: AbortSignal) {
   const response = await fetch(url, { signal })
 
@@ -161,6 +167,8 @@ export async function createTruckZipArchive(
       continue
     }
 
+    let downloadedImages = 0
+
     for (const [imageIndex, imageUrl] of truck.images.entries()) {
       assertNotAborted(signal)
 
@@ -172,6 +180,7 @@ export async function createTruckZipArchive(
           buildVehicleImageFileName(imageIndex),
           imageBytes
         )
+        downloadedImages += 1
       } catch (error) {
         if (isAbortError(error)) {
           throw error
@@ -197,6 +206,13 @@ export async function createTruckZipArchive(
 
     results.push({
       ...performanceCheckResult,
+      sourceUrl: truck.url,
+      vehicleImageCount: downloadedImages,
+      vehicleImageStatus: getVehicleImageStatus(
+        downloadedImages,
+        truck.images.length
+      ),
+      vehicleImageTotalCount: truck.images.length,
       vehicleFolderName,
       vehicleNumber: truck.vnumber,
     })

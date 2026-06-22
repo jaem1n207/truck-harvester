@@ -22,7 +22,11 @@ export type {
   CapturePerformanceCheckImagesOptions,
   PerformanceCheckPageRenderer,
 } from './performance-check-capture'
-export type { PerformanceCheckSaveStatus, TruckSaveResult } from './save-result'
+export type {
+  PerformanceCheckSaveStatus,
+  TruckSaveResult,
+  VehicleImageSaveStatus,
+} from './save-result'
 export {
   createTruckZipArchive,
   createTruckZipBlob,

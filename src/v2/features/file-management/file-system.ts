@@ -130,6 +130,12 @@ const isAbortError = (error: unknown) =>
     ? error.name === 'AbortError'
     : error instanceof Error && error.name === 'AbortError'
 
+const getVehicleImageStatus = (
+  downloadedImages: number,
+  totalImages: number
+): TruckSaveResult['vehicleImageStatus'] =>
+  downloadedImages === totalImages ? 'complete' : 'partial'
+
 async function writeFile(
   directory: WritableDirectoryHandle,
   name: string,
@@ -306,6 +312,10 @@ export async function saveTruckToDirectory(
 
   return {
     ...performanceCheckResult,
+    sourceUrl: truck.url,
+    vehicleImageCount: downloadedImages,
+    vehicleImageStatus: getVehicleImageStatus(downloadedImages, totalImages),
+    vehicleImageTotalCount: totalImages,
     vehicleFolderName,
     vehicleNumber: truck.vnumber,
   }
