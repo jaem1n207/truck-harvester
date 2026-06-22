@@ -25,6 +25,11 @@ const saveRelevantStatuses = new Set<PreparedListing['status']>([
 const isSaveRelevant = (item: PreparedListing) =>
   saveRelevantStatuses.has(item.status)
 
+const needsPerformanceCheckReview = (item: PreparedListing) =>
+  item.status === 'saved' &&
+  (item.performanceCheckStatus === 'missing' ||
+    item.performanceCheckStatus === 'not_requested')
+
 const getSummary = (items: readonly PreparedListing[]) => {
   const saveRelevantItems = items.filter(isSaveRelevant)
   const totalCount = saveRelevantItems.length
@@ -57,10 +62,7 @@ const getSummary = (items: readonly PreparedListing[]) => {
 }
 
 const getMissingPerformanceCheckCount = (items: readonly PreparedListing[]) =>
-  items.filter(
-    (item) =>
-      item.status === 'saved' && item.performanceCheckStatus === 'missing'
-  ).length
+  items.filter(needsPerformanceCheckReview).length
 
 const getMissingPerformanceCheckNotice = (count: number) =>
   `저장은 완료됐어요. 다만 성능점검기록부를 찾지 못한 차량이 ${count}대 있어요. 스마트스토어에 올리기 전에 해당 차량 폴더를 한 번 확인해 주세요.`
@@ -111,7 +113,7 @@ function PreparedListingMessage({ item }: { item: PreparedListing }) {
       item.vehicleImageStatus === 'partial'
         ? '차량 사진 일부 확인 필요'
         : undefined,
-      item.performanceCheckStatus === 'missing'
+      needsPerformanceCheckReview(item)
         ? '성능점검기록부 확인 필요'
         : undefined,
     ].filter((message): message is string => Boolean(message))

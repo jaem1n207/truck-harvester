@@ -174,7 +174,7 @@ async function savePerformanceCheckImages({
   if (!trimmedUrl) {
     return {
       performanceCheckImageCount: 0,
-      performanceCheckStatus: 'not_requested',
+      performanceCheckStatus: 'missing',
     } satisfies Pick<
       TruckSaveResult,
       'performanceCheckImageCount' | 'performanceCheckStatus'

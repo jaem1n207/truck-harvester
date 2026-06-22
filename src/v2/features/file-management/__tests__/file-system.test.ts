@@ -331,7 +331,7 @@ describe('v2 file-system', () => {
     )
   })
 
-  it('returns not_requested when listing has no performance check URL', async () => {
+  it('returns missing when listing has no performance check URL', async () => {
     stubFetch(
       vi.fn(async () => {
         return new Response('image', { status: 200 })
@@ -350,7 +350,7 @@ describe('v2 file-system', () => {
       )
     ).resolves.toMatchObject({
       performanceCheckImageCount: 0,
-      performanceCheckStatus: 'not_requested',
+      performanceCheckStatus: 'missing',
       sourceUrl: listing.url,
       vehicleImageCount: 2,
       vehicleImageStatus: 'complete',

@@ -133,7 +133,7 @@ describe('createTruckZipBlob', () => {
     ])
   })
 
-  it('reports not_requested when a listing has no performance check URL', async () => {
+  it('reports missing when a listing has no performance check URL', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response('image-bytes', { status: 200 }))
@@ -151,7 +151,7 @@ describe('createTruckZipBlob', () => {
     expect(results).toEqual([
       {
         performanceCheckImageCount: 0,
-        performanceCheckStatus: 'not_requested',
+        performanceCheckStatus: 'missing',
         sourceUrl: listing.url,
         vehicleImageCount: 2,
         vehicleImageStatus: 'complete',

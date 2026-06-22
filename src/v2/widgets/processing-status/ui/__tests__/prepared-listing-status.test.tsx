@@ -262,7 +262,7 @@ describe('PreparedListingStatusPanel', () => {
             totalImages: 18,
             progress: 100,
             performanceCheckImageCount: 0,
-            performanceCheckStatus: 'missing',
+            performanceCheckStatus: 'not_requested',
           },
           {
             status: 'saved',
