@@ -75,6 +75,43 @@ function withAbort<T>(work: Promise<T>, signal?: AbortSignal) {
   })
 }
 
+function withImageTimeout<T>(work: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+    const timeoutId = setTimeout(() => {
+      settleError(
+        new Error('성능점검기록부 이미지를 만드는 시간이 초과되었습니다.')
+      )
+    }, timeoutMs)
+
+    const cleanup = () => {
+      clearTimeout(timeoutId)
+    }
+
+    const settle = (value: T) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      resolve(value)
+    }
+
+    const settleError = (error: unknown) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      reject(error)
+    }
+
+    work.then(settle, settleError)
+  })
+}
+
 function waitForFrameDocument({
   iframe,
   signal,
@@ -186,21 +223,25 @@ function canvasToJpegBytes(
       reject(error)
     }
 
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          settleError(new Error('성능점검기록부 이미지를 만들지 못했습니다.'))
-          return
-        }
+    try {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            settleError(new Error('성능점검기록부 이미지를 만들지 못했습니다.'))
+            return
+          }
 
-        blob.arrayBuffer().then(
-          (buffer) => settle(new Uint8Array(buffer)),
-          (error: unknown) => settleError(error)
-        )
-      },
-      'image/jpeg',
-      quality
-    )
+          blob.arrayBuffer().then(
+            (buffer) => settle(new Uint8Array(buffer)),
+            (error: unknown) => settleError(error)
+          )
+        },
+        'image/jpeg',
+        quality
+      )
+    } catch (error) {
+      settleError(error)
+    }
   })
 }
 
@@ -262,7 +303,10 @@ export async function capturePerformanceCheckImages(
     for (const page of pages) {
       assertNotAborted(signal)
 
-      const canvas = await withAbort(renderPage(page), signal)
+      const canvas = await withAbort(
+        withImageTimeout(renderPage(page), timeoutMs),
+        signal
+      )
       assertNotAborted(signal)
 
       images.push(

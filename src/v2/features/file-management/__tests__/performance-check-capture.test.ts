@@ -65,6 +65,14 @@ function createCanvasWithoutBlobCallback() {
   } as unknown as HTMLCanvasElement
 }
 
+function createCanvasWithThrowingToBlob(error: Error) {
+  return {
+    toBlob: vi.fn((): undefined => {
+      throw error
+    }),
+  } as unknown as HTMLCanvasElement
+}
+
 describe('capturePerformanceCheckImages', () => {
   afterEach(() => {
     document.body.innerHTML = ''
@@ -213,6 +221,55 @@ describe('capturePerformanceCheckImages', () => {
     await vi.advanceTimersByTimeAsync(50)
 
     await rejection
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('rejects and cleans up when rendering a page times out', async () => {
+    vi.useFakeTimers()
+
+    const renderPage = vi.fn<PerformanceCheckPageRenderer>(
+      () => new Promise<HTMLCanvasElement>(() => undefined)
+    )
+    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+      renderPage,
+      timeoutMs: 50,
+    })
+
+    addPagesToIframe('<section class="page"></section>')
+    dispatchIframeLoad()
+
+    const rejection = expect(capturePromise).rejects.toThrow(
+      '성능점검기록부 이미지를 만드는 시간이 초과되었습니다.'
+    )
+
+    await vi.advanceTimersByTimeAsync(50)
+
+    await rejection
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('rejects with the original error and cleans up when canvas toBlob throws synchronously', async () => {
+    vi.useFakeTimers()
+
+    const toBlobError = new Error('toBlob failed')
+    const renderPage = vi
+      .fn<PerformanceCheckPageRenderer>()
+      .mockResolvedValue(createCanvasWithThrowingToBlob(toBlobError))
+
+    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+      renderPage,
+      timeoutMs: 50,
+    })
+
+    addPagesToIframe('<section class="page"></section>')
+    dispatchIframeLoad()
+
+    await expect(capturePromise).rejects.toBe(toBlobError)
+    expect(document.querySelector('iframe')).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+
+    await vi.advanceTimersByTimeAsync(50)
+    await expect(capturePromise).rejects.toBe(toBlobError)
     expect(document.querySelector('iframe')).toBeNull()
   })
 
