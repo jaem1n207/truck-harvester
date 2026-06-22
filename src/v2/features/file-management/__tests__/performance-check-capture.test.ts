@@ -2,11 +2,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   capturePerformanceCheckImages,
+  type CapturePerformanceCheckImagesOptions,
   type PerformanceCheckPageRenderer,
 } from '../performance-check-capture'
 
 const sourceUrl =
   'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107099659&print=0&iframe=1&key='
+const printableSourceUrl =
+  'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4100029368&print=0&iframe=1&key='
+const printableRecordUrl =
+  'https://checkpaper.jmenetworks.co.kr/view/record.do?check_id=41-00-029368'
+
+function captureHtmlImages(options: CapturePerformanceCheckImagesOptions = {}) {
+  return capturePerformanceCheckImages(sourceUrl, {
+    preferPrintablePdf: false,
+    ...options,
+  })
+}
 
 function dispatchIframeLoad() {
   const iframe = document.querySelector('iframe')
@@ -86,9 +98,58 @@ describe('capturePerformanceCheckImages', () => {
     expect(document.querySelector('iframe')).toBeNull()
   })
 
+  it('renders the printable record PDF as JPG byte arrays when a checkNo URL is provided', async () => {
+    const firstCanvas = createCanvas([1, 2, 3])
+    const secondCanvas = createCanvas([4, 5, 6])
+    const pdfBytes = new Uint8Array([10, 11, 12])
+    const fetchPdf = vi.fn(async () => pdfBytes)
+    const renderPdfPages = vi.fn(async () => [firstCanvas, secondCanvas])
+
+    await expect(
+      capturePerformanceCheckImages(printableSourceUrl, {
+        fetchPdf,
+        renderPdfPages,
+      })
+    ).resolves.toEqual([new Uint8Array([1, 2, 3]), new Uint8Array([4, 5, 6])])
+
+    expect(fetchPdf).toHaveBeenCalledWith(
+      `/api/v2/checkpaper/asset?url=${encodeURIComponent(printableRecordUrl)}`,
+      { signal: undefined }
+    )
+    expect(renderPdfPages).toHaveBeenCalledWith(
+      pdfBytes,
+      expect.objectContaining({
+        document,
+        signal: undefined,
+        timeoutMs: 15_000,
+      })
+    )
+    expect(firstCanvas.toBlob).toHaveBeenCalledTimes(1)
+    expect(secondCanvas.toBlob).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('uses record.do URLs directly when the printable URL is already provided', async () => {
+    const canvas = createCanvas([7])
+    const fetchPdf = vi.fn(async () => new Uint8Array([20]))
+    const renderPdfPages = vi.fn(async () => [canvas])
+
+    await expect(
+      capturePerformanceCheckImages(printableRecordUrl, {
+        fetchPdf,
+        renderPdfPages,
+      })
+    ).resolves.toEqual([new Uint8Array([7])])
+
+    expect(fetchPdf).toHaveBeenCalledWith(
+      `/api/v2/checkpaper/asset?url=${encodeURIComponent(printableRecordUrl)}`,
+      { signal: undefined }
+    )
+  })
+
   it('rejects and cleans up when the proxied document has no page elements', async () => {
     const renderPage = vi.fn<PerformanceCheckPageRenderer>()
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       renderPage,
     })
 
@@ -116,7 +177,7 @@ describe('capturePerformanceCheckImages', () => {
       .mockResolvedValueOnce(firstCanvas)
       .mockResolvedValueOnce(secondCanvas)
 
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       proxyPath: '/custom/checkpaper',
       renderPage,
     })
@@ -155,7 +216,7 @@ describe('capturePerformanceCheckImages', () => {
       .fn<PerformanceCheckPageRenderer>()
       .mockResolvedValue(createCanvasWithRejectingBytes(conversionError))
 
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       renderPage,
     })
 
@@ -182,7 +243,7 @@ describe('capturePerformanceCheckImages', () => {
   it('rejects and cleans up when iframe load times out', async () => {
     vi.useFakeTimers()
 
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       renderPage: vi.fn<PerformanceCheckPageRenderer>(),
       timeoutMs: 50,
     })
@@ -206,7 +267,7 @@ describe('capturePerformanceCheckImages', () => {
       .fn<PerformanceCheckPageRenderer>()
       .mockResolvedValue(createCanvasWithoutBlobCallback())
 
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       renderPage,
       timeoutMs: 50,
     })
@@ -230,7 +291,7 @@ describe('capturePerformanceCheckImages', () => {
     const renderPage = vi.fn<PerformanceCheckPageRenderer>(
       () => new Promise<HTMLCanvasElement>(() => undefined)
     )
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       renderPage,
       timeoutMs: 50,
     })
@@ -256,7 +317,7 @@ describe('capturePerformanceCheckImages', () => {
       .fn<PerformanceCheckPageRenderer>()
       .mockResolvedValue(createCanvasWithThrowingToBlob(toBlobError))
 
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       renderPage,
       timeoutMs: 50,
     })
@@ -297,7 +358,7 @@ describe('capturePerformanceCheckImages', () => {
       controller.signal,
       'removeEventListener'
     )
-    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+    const capturePromise = captureHtmlImages({
       signal: controller.signal,
       renderPage: vi.fn<PerformanceCheckPageRenderer>(),
     })
