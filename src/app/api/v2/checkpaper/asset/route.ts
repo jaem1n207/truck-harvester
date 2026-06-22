@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 
-import { isAllowedCheckPaperUrl } from '@/v2/shared/lib/checkpaper-proxy'
+import {
+  CHECKPAPER_FETCH_TIMEOUT_MS,
+  fetchWithManualRedirect,
+  isAllowedCheckPaperUrl,
+  rewriteCheckPaperCss,
+} from '@/v2/shared/lib/checkpaper-proxy'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,17 +39,19 @@ export async function GET(request: Request) {
     return createErrorResponse(400, '성능점검기록부 파일을 확인하지 못했어요.')
   }
 
+  const headers = {
+    'User-Agent': getCheckPaperUserAgent(),
+    Accept:
+      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+  }
+
   try {
-    const response = await fetch(url, {
-      cache: 'no-store',
-      redirect: 'follow',
-      headers: {
-        'User-Agent': getCheckPaperUserAgent(),
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-      },
-    })
+    const { response, finalUrl } = await fetchWithManualRedirect(
+      url,
+      headers,
+      CHECKPAPER_FETCH_TIMEOUT_MS
+    )
 
     if (!response.ok) {
       return createErrorResponse(
@@ -53,7 +60,6 @@ export async function GET(request: Request) {
       )
     }
 
-    const finalUrl = response.url || url
     if (!isAllowedCheckPaperUrl(finalUrl)) {
       return createErrorResponse(
         400,
@@ -61,8 +67,20 @@ export async function GET(request: Request) {
       )
     }
 
-    const fileBuffer = await response.arrayBuffer()
     const contentType = response.headers.get('content-type')
+    if (contentType?.includes('text/css')) {
+      const css = await response.text()
+      const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
+
+      return new Response(rewrittenCss, {
+        headers: {
+          'content-type': contentType,
+          'cache-control': 'no-store',
+        },
+      })
+    }
+
+    const fileBuffer = await response.arrayBuffer()
 
     return new Response(fileBuffer, {
       headers: {
@@ -70,7 +88,19 @@ export async function GET(request: Request) {
         'cache-control': 'no-store',
       },
     })
-  } catch {
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'UNSAFE_REDIRECT'
+    ) {
+      return createErrorResponse(
+        400,
+        '성능점검기록부 파일을 확인하지 못했어요.'
+      )
+    }
+
     return createErrorResponse(502, '성능점검기록부 파일을 불러오지 못했어요.')
   }
 }
