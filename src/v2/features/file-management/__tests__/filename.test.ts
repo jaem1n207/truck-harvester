@@ -20,11 +20,15 @@ describe('file-management filename builders', () => {
   })
 
   it('builds the save structure file names', () => {
-    expect(buildVehicleImageFileName(0)).toBe('사진_1.jpg')
-    expect(buildVehicleImageFileName(8)).toBe('사진_9.jpg')
-    expect(buildPerformanceCheckImageFileName(0)).toBe('성능점검기록부_1.jpg')
-    expect(buildPerformanceCheckImageFileName(2)).toBe('성능점검기록부_3.jpg')
-    expect(buildManuscriptFileName()).toBe('차량정보.txt')
+    expect(buildVehicleImageFileName(0)).toBe('K-001.jpg')
+    expect(buildVehicleImageFileName(8)).toBe('K-009.jpg')
+    expect(buildPerformanceCheckImageFileName(0, '12가/3456')).toBe(
+      '12가_3456_성능점검기록부_1.jpg'
+    )
+    expect(buildPerformanceCheckImageFileName(2, '12가/3456')).toBe(
+      '12가_3456_성능점검기록부_3.jpg'
+    )
+    expect(buildManuscriptFileName('12가/3456')).toBe('12가_3456 원고.txt')
   })
 
   it('builds legacy-compatible image file names', () => {

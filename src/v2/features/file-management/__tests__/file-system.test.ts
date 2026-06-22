@@ -257,23 +257,23 @@ describe('v2 file-system', () => {
       create: true,
     })
     expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith(
-      '차량정보.txt',
+      '12가_3456 원고.txt',
       { create: true }
     )
     expect(vehicleImagesDirectory.getFileHandle).toHaveBeenCalledWith(
-      '사진_1.jpg',
+      'K-001.jpg',
       { create: true }
     )
     expect(vehicleImagesDirectory.getFileHandle).toHaveBeenCalledWith(
-      '사진_2.jpg',
+      'K-002.jpg',
       { create: true }
     )
     expect(performanceCheckDirectory.getFileHandle).toHaveBeenCalledWith(
-      '성능점검기록부_1.jpg',
+      '12가_3456_성능점검기록부_1.jpg',
       { create: true }
     )
     expect(performanceCheckDirectory.getFileHandle).toHaveBeenCalledWith(
-      '성능점검기록부_2.jpg',
+      '12가_3456_성능점검기록부_2.jpg',
       { create: true }
     )
     expect(capturePerformanceCheckImages).toHaveBeenCalledWith(
@@ -282,20 +282,20 @@ describe('v2 file-system', () => {
     )
 
     await expect(
-      writables.get('12가_3456/원고/차량정보.txt')!.write
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
     ).toHaveBeenCalledWith(expect.stringContaining('차량번호 :  12가/3456'))
     await expect(
-      writables.get('12가_3456/원고/차량정보.txt')!.write
-    ).toHaveBeenCalledWith(expect.stringContaining('#사진:사진_1.jpg'))
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
+    ).toHaveBeenCalledWith(expect.stringContaining('#사진:K-001.jpg'))
     await expect(
-      writables.get('12가_3456/원고/차량정보.txt')!.write
-    ).not.toHaveBeenCalledWith(expect.stringContaining('K-001.jpg'))
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
+    ).not.toHaveBeenCalledWith(expect.stringContaining('#사진:사진_1.jpg'))
     await expect(
-      getWrittenBlob(writables.get('12가_3456/차량 이미지/사진_1.jpg')).text()
+      getWrittenBlob(writables.get('12가_3456/차량 이미지/K-001.jpg')).text()
     ).resolves.toBe('image:https://img.example.com/one.jpg')
     await expect(
       getWrittenBlob(
-        writables.get('12가_3456/성능점검기록부/성능점검기록부_1.jpg')
+        writables.get('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')
       ).arrayBuffer()
     ).resolves.toEqual(new Uint8Array([7, 8]).buffer)
     expect(progress).toEqual([
@@ -388,7 +388,7 @@ describe('v2 file-system', () => {
     })
 
     expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith(
-      '차량정보.txt',
+      '12가_3456 원고.txt',
       { create: true }
     )
     expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
@@ -396,7 +396,7 @@ describe('v2 file-system', () => {
       { create: true }
     )
     await expect(
-      writables.get('12가_3456/원고/차량정보.txt')!.write
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
     ).toHaveBeenCalledWith(expect.stringContaining('차량번호 :  12가/3456'))
   })
 
@@ -447,8 +447,8 @@ describe('v2 file-system', () => {
       vehicleImageTotalCount: 2,
     })
 
-    expect(writables.has('12가_3456/차량 이미지/사진_1.jpg')).toBe(true)
-    expect(writables.has('12가_3456/차량 이미지/사진_2.jpg')).toBe(false)
+    expect(writables.has('12가_3456/차량 이미지/K-001.jpg')).toBe(true)
+    expect(writables.has('12가_3456/차량 이미지/K-002.jpg')).toBe(false)
     expect(progress).toEqual([
       [0, 0, 2],
       [50, 1, 2],
@@ -511,7 +511,7 @@ describe('v2 file-system', () => {
 
     await expect(savePromise).rejects.toThrow('다운로드가 취소되었습니다.')
     expect(manuscriptDirectory.getFileHandle).not.toHaveBeenCalledWith(
-      '차량정보.txt',
+      '12가_3456 원고.txt',
       { create: true }
     )
     expect(progress).toEqual([[0, 0, 1]])

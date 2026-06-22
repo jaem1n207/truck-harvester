@@ -14,15 +14,18 @@ export function buildManuscriptFolderName() {
 }
 
 export function buildVehicleImageFileName(index: number) {
-  return `사진_${index + 1}.jpg`
+  return buildImageFileName(index)
 }
 
-export function buildPerformanceCheckImageFileName(index: number) {
-  return `성능점검기록부_${index + 1}.jpg`
+export function buildPerformanceCheckImageFileName(
+  index: number,
+  vehicleNumber: string
+) {
+  return `${buildTruckFolderName(vehicleNumber)}_성능점검기록부_${index + 1}.jpg`
 }
 
-export function buildManuscriptFileName() {
-  return '차량정보.txt'
+export function buildManuscriptFileName(vehicleNumber: string) {
+  return buildTextFileName(vehicleNumber)
 }
 
 export function buildImageFileName(index: number) {

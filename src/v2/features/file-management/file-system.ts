@@ -163,11 +163,13 @@ async function savePerformanceCheckImages({
   performanceCheckUrl,
   signal,
   vehicleDirectory,
+  vehicleNumber,
 }: {
   capturePerformanceCheckImages: CapturePerformanceCheckImages
   performanceCheckUrl?: string | null
   signal?: AbortSignal
   vehicleDirectory: WritableDirectoryHandle
+  vehicleNumber: string
 }) {
   const trimmedUrl = performanceCheckUrl?.trim()
 
@@ -205,7 +207,7 @@ async function savePerformanceCheckImages({
       assertNotAborted(signal)
       await writeFile(
         directory,
-        buildPerformanceCheckImageFileName(index),
+        buildPerformanceCheckImageFileName(index, vehicleNumber),
         new Blob([imageBytes as Uint8Array<ArrayBuffer>], {
           type: 'image/jpeg',
         })
@@ -300,12 +302,13 @@ export async function saveTruckToDirectory(
     performanceCheckUrl: truck.performanceCheckUrl,
     signal,
     vehicleDirectory,
+    vehicleNumber: truck.vnumber,
   })
 
   assertNotAborted(signal)
   await writeFile(
     manuscriptDirectory,
-    buildManuscriptFileName(),
+    buildManuscriptFileName(truck.vnumber),
     buildTruckTextContent(truck)
   )
   assertNotAborted(signal)
