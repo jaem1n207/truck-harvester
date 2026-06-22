@@ -353,7 +353,7 @@ const renderTruckHarvesterApp = async () => {
 
 const getTextArea = () => {
   const textarea = container?.querySelector(
-    'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+    'textarea#listing-chip-input-textarea'
   )
 
   if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -608,7 +608,7 @@ describe('TruckHarvesterApp persistence', () => {
     }
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -727,7 +727,7 @@ describe('TruckHarvesterApp persistence', () => {
     })
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -845,7 +845,7 @@ describe('TruckHarvesterApp persistence', () => {
     })
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -945,7 +945,7 @@ describe('TruckHarvesterApp persistence', () => {
     })
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -1053,7 +1053,7 @@ describe('TruckHarvesterApp persistence', () => {
     })
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     if (!(textarea instanceof HTMLTextAreaElement)) {

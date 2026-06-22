@@ -18,6 +18,10 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
 
+const listingUrlPlaceholder =
+  '예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798'
+const listingUrlPlaceholderHtml = listingUrlPlaceholder.replaceAll('&', '&amp;')
+
 let root: Root | null = null
 let container: HTMLDivElement | null = null
 
@@ -97,7 +101,7 @@ describe('ListingChipInput', () => {
     expect(html).toContain(
       '복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다.'
     )
-    expect(html).toContain('복사한 내용을 여기에 붙여넣으세요')
+    expect(html).toContain(`placeholder="${listingUrlPlaceholderHtml}"`)
     expect(html).toContain('현대 메가트럭')
     expect(html).not.toContain('URL')
     expect(html).not.toContain('API')
@@ -167,7 +171,7 @@ describe('ListingChipInput', () => {
     })
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     expect(textarea).toBeInstanceOf(HTMLTextAreaElement)
