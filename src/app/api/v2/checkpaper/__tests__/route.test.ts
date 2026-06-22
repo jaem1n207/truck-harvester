@@ -42,18 +42,20 @@ describe('GET /api/v2/checkpaper', () => {
     )
 
     expect(missingUrlResponse.status).toBe(400)
-    expect(await missingUrlResponse.text()).toBe(
-      '성능점검기록부 주소를 확인하지 못했어요.'
-    )
+    expect(await missingUrlResponse.json()).toEqual({
+      success: false,
+      message: '성능점검기록부 주소를 확인하지 못했어요.',
+    })
 
     const unsupportedResponse = await GET(
       createRequest('https://example.com/checkpaper')
     )
 
     expect(unsupportedResponse.status).toBe(400)
-    expect(await unsupportedResponse.text()).toBe(
-      '성능점검기록부 주소를 확인하지 못했어요.'
-    )
+    expect(await unsupportedResponse.json()).toEqual({
+      success: false,
+      message: '성능점검기록부 주소를 확인하지 못했어요.',
+    })
   })
 
   it('fetches and rewrites CheckPaper html', async () => {
@@ -74,6 +76,12 @@ describe('GET /api/v2/checkpaper', () => {
       expect.objectContaining({
         cache: 'no-store',
         redirect: 'follow',
+        headers: expect.objectContaining({
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'User-Agent': expect.any(String),
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        }),
       })
     )
 
@@ -113,7 +121,10 @@ describe('GET /api/v2/checkpaper', () => {
     const response = await GET(createRequest(sourceUrl))
 
     expect(response.status).toBe(502)
-    expect(await response.text()).toBe('성능점검기록부를 불러오지 못했어요.')
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부를 불러오지 못했어요.',
+    })
   })
 
   it('rejects redirected hosts outside the checkpaper domain', async () => {
@@ -128,8 +139,9 @@ describe('GET /api/v2/checkpaper', () => {
     const response = await GET(createRequest(sourceUrl))
 
     expect(response.status).toBe(400)
-    expect(await response.text()).toBe(
-      '성능점검기록부 주소를 확인하지 못했어요.'
-    )
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부 주소를 확인하지 못했어요.',
+    })
   })
 })

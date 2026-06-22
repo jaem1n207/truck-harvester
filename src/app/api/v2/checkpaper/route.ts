@@ -11,12 +11,15 @@ export const revalidate = 0
 export const maxDuration = 5
 
 function createErrorResponse(status: number, message: string) {
-  return new NextResponse(message, {
-    status,
-    headers: {
-      'content-type': 'text/plain; charset=utf-8',
+  return NextResponse.json(
+    {
+      success: false,
+      message,
     },
-  })
+    {
+      status,
+    }
+  )
 }
 
 function getCheckPaperUserAgent() {
@@ -40,6 +43,8 @@ export async function GET(request: Request) {
       redirect: 'follow',
       headers: {
         'User-Agent': getCheckPaperUserAgent(),
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
       },
     })

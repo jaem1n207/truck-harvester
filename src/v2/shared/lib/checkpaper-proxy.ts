@@ -9,7 +9,9 @@ export function isAllowedCheckPaperUrl(value: string) {
   try {
     const url = new URL(value)
 
-    return allowedCheckPaperHosts.has(url.hostname)
+    return (
+      /^https?:$/.test(url.protocol) && allowedCheckPaperHosts.has(url.hostname)
+    )
   } catch {
     return false
   }

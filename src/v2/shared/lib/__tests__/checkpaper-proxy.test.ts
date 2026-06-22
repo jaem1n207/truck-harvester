@@ -18,6 +18,11 @@ describe('checkpaper proxy helpers', () => {
       )
     ).toBe(true)
     expect(isAllowedCheckPaperUrl('https://example.com/CheckPaper')).toBe(false)
+    expect(
+      isAllowedCheckPaperUrl(
+        'ftp://checkpaper.jmenetworks.co.kr/Service/CheckPaper'
+      )
+    ).toBe(false)
   })
 
   it('builds encoded same-origin asset proxy URLs', () => {
