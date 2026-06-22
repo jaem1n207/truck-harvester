@@ -47,6 +47,7 @@ function createDirectoryHandle() {
 
   function createMockDirectory(path = '') {
     return {
+      removeEntry: vi.fn(async (_name: string) => undefined),
       getDirectoryHandle: vi.fn(async (name: string) => {
         const nextPath = path ? `${path}/${name}` : name
         const existing = directories.get(nextPath)
@@ -256,6 +257,11 @@ describe('v2 file-system', () => {
     expect(vehicleDirectory.getDirectoryHandle).toHaveBeenCalledWith('원고', {
       create: true,
     })
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith(
+      '12가_3456 원고.txt'
+    )
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith('K-001.jpg')
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith('K-002.jpg')
     expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith(
       '12가_3456 원고.txt',
       { create: true }

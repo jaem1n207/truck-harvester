@@ -1,6 +1,7 @@
 import { type TruckListing } from '@/v2/entities/truck'
 
 import {
+  buildImageFileName,
   buildManuscriptFileName,
   buildManuscriptFolderName,
   buildPerformanceCheckFolderName,
@@ -25,12 +26,19 @@ interface WritableFileHandle {
   createWritable: () => Promise<WritableFileStream>
 }
 
+interface WritableFileSystemHandle {
+  kind?: 'file' | 'directory'
+  name?: string
+}
+
 type WritableDirectoryPermissionDescriptor = { mode: 'readwrite' }
 const WRITABLE_PERMISSION_DESCRIPTOR = { mode: 'readwrite' } as const
+const legacyRootImageFilePattern = /^K-\d{3}\.jpg$/i
 
 export interface WritableDirectoryHandle {
   kind?: 'directory'
   name?: string
+  entries?: () => AsyncIterableIterator<[string, WritableFileSystemHandle]>
   getDirectoryHandle: (
     name: string,
     options?: { create?: boolean }
@@ -45,6 +53,10 @@ export interface WritableDirectoryHandle {
   requestPermission?: (
     descriptor: WritableDirectoryPermissionDescriptor
   ) => Promise<PermissionState>
+  removeEntry?: (
+    name: string,
+    options?: { recursive?: boolean }
+  ) => Promise<void>
 }
 
 interface SaveTruckToDirectoryOptions {
@@ -158,6 +170,69 @@ async function fetchImageBlob(url: string, signal?: AbortSignal) {
   return response.blob()
 }
 
+async function removeLegacyRootEntry(
+  directory: WritableDirectoryHandle,
+  name: string,
+  signal?: AbortSignal
+) {
+  if (!directory.removeEntry) {
+    return
+  }
+
+  assertNotAborted(signal)
+
+  try {
+    await directory.removeEntry(name)
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error
+    }
+  }
+}
+
+async function cleanupLegacyRootFiles({
+  imageCount,
+  signal,
+  vehicleDirectory,
+  vehicleNumber,
+}: {
+  imageCount: number
+  signal?: AbortSignal
+  vehicleDirectory: WritableDirectoryHandle
+  vehicleNumber: string
+}) {
+  if (!vehicleDirectory.removeEntry) {
+    return
+  }
+
+  const manuscriptFileName = buildManuscriptFileName(vehicleNumber)
+
+  if (vehicleDirectory.entries) {
+    for await (const [name, handle] of vehicleDirectory.entries()) {
+      assertNotAborted(signal)
+
+      if (
+        handle.kind !== 'directory' &&
+        (name === manuscriptFileName || legacyRootImageFilePattern.test(name))
+      ) {
+        await removeLegacyRootEntry(vehicleDirectory, name, signal)
+      }
+    }
+
+    return
+  }
+
+  await removeLegacyRootEntry(vehicleDirectory, manuscriptFileName, signal)
+
+  for (let index = 0; index < imageCount; index += 1) {
+    await removeLegacyRootEntry(
+      vehicleDirectory,
+      buildImageFileName(index),
+      signal
+    )
+  }
+}
+
 async function savePerformanceCheckImages({
   capturePerformanceCheckImages,
   performanceCheckUrl,
@@ -254,6 +329,13 @@ export async function saveTruckToDirectory(
     vehicleFolderName,
     { create: true }
   )
+  await cleanupLegacyRootFiles({
+    imageCount: truck.images.length,
+    signal,
+    vehicleDirectory,
+    vehicleNumber: truck.vnumber,
+  })
+
   const vehicleImagesDirectory = await vehicleDirectory.getDirectoryHandle(
     buildVehicleImagesFolderName(),
     { create: true }
