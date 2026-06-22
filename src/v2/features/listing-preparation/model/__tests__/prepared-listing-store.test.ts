@@ -35,8 +35,20 @@ const listing: TruckListing = {
 const missingPerformanceCheckResult: TruckSaveResult = {
   performanceCheckImageCount: 0,
   performanceCheckStatus: 'missing',
+  sourceUrl: firstUrl,
+  vehicleImageCount: 1,
+  vehicleImageStatus: 'complete',
+  vehicleImageTotalCount: 1,
   vehicleFolderName: '서울01가1234',
   vehicleNumber: '서울01가1234',
+}
+
+const partialVehicleImageResult: TruckSaveResult = {
+  ...missingPerformanceCheckResult,
+  performanceCheckStatus: 'not_requested',
+  vehicleImageCount: 1,
+  vehicleImageStatus: 'partial',
+  vehicleImageTotalCount: 3,
 }
 
 describe('prepared listing store', () => {
@@ -236,6 +248,24 @@ describe('prepared listing store', () => {
         progress: 100,
         performanceCheckImageCount: 0,
         performanceCheckStatus: 'missing',
+      },
+    ])
+  })
+
+  it('uses actual vehicle image counts from save results', () => {
+    const store = createPreparedListingStore()
+    store.getState().addUrls([firstUrl])
+    store.getState().markReady(firstUrl, listing)
+
+    store.getState().markSaved('listing-1', partialVehicleImageResult)
+
+    expect(selectSavedPreparedListings(store.getState())).toMatchObject([
+      {
+        status: 'saved',
+        downloadedImages: 1,
+        totalImages: 3,
+        progress: 100,
+        vehicleImageStatus: 'partial',
       },
     ])
   })

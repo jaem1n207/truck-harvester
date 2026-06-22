@@ -49,6 +49,7 @@ export interface SavingPreparedListing {
   label: string
   listing?: TruckListing
   downloadedImages: number
+  saveProgressMode?: 'vehicle_images' | 'zip_preparing'
   totalImages: number
   progress: number
 }
@@ -64,6 +65,7 @@ export interface SavedPreparedListing {
   progress: 100
   performanceCheckImageCount?: number
   performanceCheckStatus?: TruckSaveResult['performanceCheckStatus']
+  vehicleImageStatus?: TruckSaveResult['vehicleImageStatus']
 }
 
 export type PreparedListing =
@@ -81,6 +83,7 @@ export interface AddPreparedUrlsResult {
 
 export interface PreparedListingSaveProgress {
   downloadedImages: number
+  saveProgressMode?: 'vehicle_images' | 'zip_preparing'
   totalImages: number
   progress: number
 }
@@ -126,6 +129,21 @@ const getPerformanceCheckSaveDetails = (result?: TruckSaveResult) => ({
   performanceCheckImageCount: result?.performanceCheckImageCount ?? 0,
   performanceCheckStatus: result?.performanceCheckStatus ?? 'not_requested',
 })
+
+const getVehicleImageSaveDetails = (
+  item: PreparedListing,
+  result?: TruckSaveResult
+) => {
+  const totalImages =
+    result?.vehicleImageTotalCount ?? getSavedTotalImages(item)
+  const downloadedImages = result?.vehicleImageCount ?? totalImages
+
+  return {
+    downloadedImages,
+    totalImages,
+    vehicleImageStatus: result?.vehicleImageStatus ?? 'complete',
+  }
+}
 
 const updateByUrl = (
   items: PreparedListing[],
@@ -266,6 +284,7 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
           label: item.label,
           listing: getListing(item),
           downloadedImages: progress.downloadedImages,
+          saveProgressMode: progress.saveProgressMode ?? 'vehicle_images',
           totalImages: progress.totalImages,
           progress: progress.progress,
         })),
@@ -273,8 +292,8 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
     markSaved: (id, result) =>
       set((state) => ({
         items: updateById(state.items, id, (item) => {
-          const totalImages = getSavedTotalImages(item)
           const performanceCheckDetails = getPerformanceCheckSaveDetails(result)
+          const vehicleImageDetails = getVehicleImageSaveDetails(item, result)
 
           return {
             status: 'saved',
@@ -282,10 +301,11 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
             url: item.url,
             label: item.label,
             listing: getListing(item),
-            downloadedImages: totalImages,
-            totalImages,
+            downloadedImages: vehicleImageDetails.downloadedImages,
+            totalImages: vehicleImageDetails.totalImages,
             progress: 100,
             ...performanceCheckDetails,
+            vehicleImageStatus: vehicleImageDetails.vehicleImageStatus,
           }
         }),
       })),
