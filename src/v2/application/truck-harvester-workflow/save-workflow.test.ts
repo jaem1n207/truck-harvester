@@ -47,6 +47,13 @@ const directorySaveResult: TruckSaveResult = {
   vehicleNumber: '서울12가3456',
 }
 
+const missingPerformanceCheckResult: TruckSaveResult = {
+  performanceCheckImageCount: 0,
+  performanceCheckStatus: 'missing',
+  vehicleFolderName: '서울12가3456',
+  vehicleNumber: '서울12가3456',
+}
+
 const createTracker = () =>
   ({
     previewCompleted: vi.fn(),
@@ -102,6 +109,8 @@ describe('runSaveWorkflow', () => {
       status: 'saved',
       id: 'listing-1',
       progress: 100,
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'not_requested',
     })
     expect(tracker.saveStarted).toHaveBeenCalledWith({
       items: [workflowItem],
@@ -111,6 +120,31 @@ describe('runSaveWorkflow', () => {
       items: [workflowItem],
       saveMethod: 'directory',
       savedItemIds: new Set(['listing-1']),
+    })
+  })
+
+  it('passes directory save results into saved store items', async () => {
+    const store = createPreparedListingStore()
+    const items = addReadyListings(store)
+    const tracker = createTracker()
+    const saveTruckToDirectory = vi.fn(
+      async () => missingPerformanceCheckResult
+    )
+
+    await runSaveWorkflow({
+      directory: createDirectory(),
+      items,
+      saveMethod: 'directory',
+      saveTruckToDirectory,
+      store,
+      tracker,
+    })
+
+    expect(store.getState().items[0]).toMatchObject({
+      status: 'saved',
+      id: 'listing-1',
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'missing',
     })
   })
 
@@ -177,7 +211,52 @@ describe('runSaveWorkflow', () => {
       status: 'saved',
       id: 'listing-1',
       progress: 100,
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'not_requested',
     })
+  })
+
+  it('preserves ZIP save results on matching saved items', async () => {
+    const store = createPreparedListingStore()
+    const secondListing = {
+      ...listing,
+      url: secondUrl,
+      vnumber: '부산34나7890',
+    }
+    const items = addReadyListings(store, [listing, secondListing])
+    const tracker = createTracker()
+    const downloadTruckZip = vi.fn(async () => [
+      {
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'saved',
+        vehicleFolderName: '부산34나7890',
+        vehicleNumber: '부산34나7890',
+      } satisfies TruckSaveResult,
+      missingPerformanceCheckResult,
+    ])
+
+    await runSaveWorkflow({
+      downloadTruckZip,
+      items,
+      saveMethod: 'zip',
+      store,
+      tracker,
+    })
+
+    expect(store.getState().items).toMatchObject([
+      {
+        status: 'saved',
+        id: 'listing-1',
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'missing',
+      },
+      {
+        status: 'saved',
+        id: 'listing-2',
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'saved',
+      },
+    ])
   })
 
   it('marks all ready listings failed when ZIP saving fails', async () => {

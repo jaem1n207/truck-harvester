@@ -1,8 +1,10 @@
 import { type StoreApi } from 'zustand/vanilla'
 
 import {
+  buildTruckFolderName,
   downloadTruckZip as defaultDownloadTruckZip,
   saveTruckToDirectory as defaultSaveTruckToDirectory,
+  type TruckSaveResult,
   type WritableDirectoryHandle,
 } from '@/v2/features/file-management'
 import {
@@ -51,6 +53,50 @@ const getInitialProgress = (
 
 const isAborted = (signal?: AbortSignal) => signal?.aborted === true
 
+const takeResultAtIndex = (
+  results: Array<{ index: number; result: TruckSaveResult }>,
+  index: number
+) => {
+  const matchingIndex = results.findIndex((entry) => entry.index === index)
+
+  if (matchingIndex === -1) {
+    return undefined
+  }
+
+  return results.splice(matchingIndex, 1)[0]?.result
+}
+
+const takeFirstMatchingResult = (
+  results: Array<{ index: number; result: TruckSaveResult }>,
+  item: ReadyPreparedListing
+) => {
+  const matchingIndex = results.findIndex(
+    ({ result }) =>
+      result.vehicleNumber === item.listing.vnumber ||
+      result.vehicleFolderName === buildTruckFolderName(item.listing.vnumber)
+  )
+
+  if (matchingIndex === -1) {
+    return undefined
+  }
+
+  return results.splice(matchingIndex, 1)[0]?.result
+}
+
+const matchZipSaveResults = (
+  items: readonly ReadyPreparedListing[],
+  results: readonly TruckSaveResult[]
+) => {
+  const unmatchedResults = results.map((result, index) => ({ index, result }))
+
+  return items.map(
+    (item, index) =>
+      takeFirstMatchingResult(unmatchedResults, item) ??
+      takeResultAtIndex(unmatchedResults, index) ??
+      unmatchedResults.shift()?.result
+  )
+}
+
 export async function runSaveWorkflow({
   directory,
   downloadTruckZip = defaultDownloadTruckZip,
@@ -83,7 +129,7 @@ export async function runSaveWorkflow({
       store.getState().markSaving(item.id, getInitialProgress(item))
 
       try {
-        await saveTruckToDirectory(directory, item.listing, {
+        const saveResult = await saveTruckToDirectory(directory, item.listing, {
           signal,
           onProgress: (progress, downloadedImages, totalImages) => {
             if (isAborted(signal)) {
@@ -102,7 +148,7 @@ export async function runSaveWorkflow({
           return { savedCount }
         }
 
-        store.getState().markSaved(item.id)
+        store.getState().markSaved(item.id, saveResult)
         savedItemIds.add(item.id)
         savedCount += 1
       } catch {
@@ -123,7 +169,7 @@ export async function runSaveWorkflow({
     })
 
     try {
-      await downloadTruckZip(
+      const saveResults = await downloadTruckZip(
         items.map((item) => item.listing),
         {
           signal,
@@ -147,8 +193,10 @@ export async function runSaveWorkflow({
         return { savedCount }
       }
 
-      items.forEach((item) => {
-        store.getState().markSaved(item.id)
+      const matchedResults = matchZipSaveResults(items, saveResults)
+
+      items.forEach((item, index) => {
+        store.getState().markSaved(item.id, matchedResults[index])
         savedItemIds.add(item.id)
       })
       savedCount = items.length
