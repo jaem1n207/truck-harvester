@@ -45,6 +45,20 @@ function createCanvas(bytes: number[]) {
   } as unknown as HTMLCanvasElement
 }
 
+function createCanvasWithRejectingBytes(error: Error) {
+  return {
+    toBlob: vi.fn((callback: BlobCallback): undefined => {
+      callback({
+        arrayBuffer: vi.fn(async () => {
+          throw error
+        }),
+      } as unknown as Blob)
+
+      return undefined
+    }),
+  } as unknown as HTMLCanvasElement
+}
+
 describe('capturePerformanceCheckImages', () => {
   afterEach(() => {
     document.body.innerHTML = ''
@@ -115,6 +129,36 @@ describe('capturePerformanceCheckImages', () => {
     )
     expect(firstCanvas.toBlob).toHaveBeenCalledTimes(1)
     expect(secondCanvas.toBlob).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('rejects and cleans up the iframe when byte conversion fails', async () => {
+    const conversionError = new Error('arrayBuffer failed')
+    const renderPage = vi
+      .fn<PerformanceCheckPageRenderer>()
+      .mockResolvedValue(createCanvasWithRejectingBytes(conversionError))
+
+    const capturePromise = capturePerformanceCheckImages(sourceUrl, {
+      renderPage,
+    })
+
+    addPagesToIframe('<section class="page"></section>')
+    dispatchIframeLoad()
+
+    const result = await Promise.race([
+      capturePromise.then(
+        () => ({ status: 'resolved' as const }),
+        (error: unknown) => ({ error, status: 'rejected' as const })
+      ),
+      new Promise<{ status: 'pending' }>((resolve) => {
+        setTimeout(() => resolve({ status: 'pending' }), 20)
+      }),
+    ])
+
+    expect(result).toEqual({
+      error: conversionError,
+      status: 'rejected',
+    })
     expect(document.querySelector('iframe')).toBeNull()
   })
 

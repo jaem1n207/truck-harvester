@@ -112,7 +112,11 @@ function canvasToJpegBytes(canvas: HTMLCanvasElement, quality: number) {
           return
         }
 
-        resolve(new Uint8Array(await blob.arrayBuffer()))
+        try {
+          resolve(new Uint8Array(await blob.arrayBuffer()))
+        } catch (error) {
+          reject(error)
+        }
       },
       'image/jpeg',
       quality
