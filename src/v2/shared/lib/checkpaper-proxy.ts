@@ -103,37 +103,103 @@ function sanitizeActionAttribute(rawAction: string, baseUrl: string) {
   return trimmed
 }
 
-export async function readResponseBodyWithTimeout<T>(
-  read: () => Promise<T>,
-  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS,
-  options: { cancel?: () => void | Promise<void>; response?: Response } = {}
+function createTimeoutError() {
+  return new DOMException(
+    'CheckPaper response body read timed out',
+    'TimeoutError'
+  )
+}
+
+async function readWithTimeoutFromReader<T>(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number,
+  readBuffer: (chunks: Uint8Array[]) => T
 ) {
+  const chunks: Uint8Array[] = []
   let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let timedOut = false
 
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
-      if (options.cancel) {
-        void options.cancel()
-      } else if (options.response?.body) {
-        void options.response.body.cancel().catch(() => {})
-      }
-
-      reject(
-        new DOMException(
-          'CheckPaper response body read timed out',
-          'TimeoutError'
-        )
-      )
+      timedOut = true
+      void reader.cancel()
+      reject(createTimeoutError())
     }, timeoutMs)
   })
 
   try {
-    return await Promise.race([read(), timeout])
+    while (true) {
+      const chunkOrTimeout = (await Promise.race([reader.read(), timeout])) as
+        | ReadableStreamReadResult<Uint8Array>
+        | typeof timeout
+
+      if (timedOut) {
+        throw createTimeoutError()
+      }
+
+      if ('done' in chunkOrTimeout) {
+        if (chunkOrTimeout.done) {
+          return readBuffer(chunks)
+        }
+
+        chunks.push(chunkOrTimeout.value ?? new Uint8Array())
+      }
+    }
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId)
     }
   }
+}
+
+export async function readResponseTextWithTimeout(
+  response: Response,
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+): Promise<string> {
+  if (!response.body) {
+    return response.text()
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+
+  return readWithTimeoutFromReader(reader, timeoutMs, (chunks) => {
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+    const merged = new Uint8Array(totalLength)
+
+    let offset = 0
+    for (const chunk of chunks) {
+      merged.set(chunk, offset)
+      offset += chunk.length
+    }
+
+    return decoder.decode(merged)
+  })
+}
+
+export async function readResponseArrayBufferWithTimeout(
+  response: Response,
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+): Promise<ArrayBuffer> {
+  if (!response.body) {
+    const fallback = await response.arrayBuffer()
+    return fallback
+  }
+
+  const reader = response.body.getReader()
+
+  return readWithTimeoutFromReader(reader, timeoutMs, (chunks) => {
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+    const merged = new Uint8Array(totalLength)
+
+    let offset = 0
+    for (const chunk of chunks) {
+      merged.set(chunk, offset)
+      offset += chunk.length
+    }
+
+    return merged.buffer.slice(0, merged.byteLength)
+  })
 }
 
 export function rewriteCheckPaperHtml(html: string, finalUrl: string) {

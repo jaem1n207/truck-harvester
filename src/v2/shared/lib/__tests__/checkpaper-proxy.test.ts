@@ -4,7 +4,8 @@ import {
   createTimeoutBudget,
   fetchWithManualRedirect,
   isAllowedCheckPaperUrl,
-  readResponseBodyWithTimeout,
+  readResponseArrayBufferWithTimeout,
+  readResponseTextWithTimeout,
   rewriteCheckPaperCss,
   rewriteCheckPaperHtml,
   toCheckPaperAssetProxyUrl,
@@ -162,111 +163,121 @@ describe('checkpaper proxy helpers', () => {
   })
 
   it('shares timeout budget between redirects and later body read attempts', async () => {
-    vi.useFakeTimers()
-    try {
-      const headers = {
-        'User-Agent': 'test',
-      }
-      const budget = createTimeoutBudget(300)
-      const redirectDelay = 120
-
-      const fetchMock = vi
-        .fn()
-        .mockImplementationOnce(
-          () =>
-            new Promise<Response>((resolve) => {
-              setTimeout(() => {
-                resolve(
-                  new Response(null, {
-                    status: 302,
-                    headers: {
-                      Location:
-                        'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?step=2',
-                    },
-                  })
-                )
-              }, redirectDelay)
-            })
-        )
-        .mockResolvedValueOnce(
-          new Response('ok', {
-            status: 200,
-            headers: { 'content-type': 'text/plain' },
-          })
-        )
-
-      vi.stubGlobal('fetch', fetchMock)
-
-      const redirectPromise = fetchWithManualRedirect(
-        'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?step=1',
-        headers,
-        budget
-      )
-
-      await vi.advanceTimersByTimeAsync(redirectDelay + 1)
-      await redirectPromise
-
-      const remainingBudgetMs = budget.getRemainingMs()
-
-      expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(remainingBudgetMs).toBeLessThan(300)
-      expect(remainingBudgetMs).toBeGreaterThan(0)
-
-      const bodyReadDelayMs = remainingBudgetMs + 5
-      const bodyReadResult = readResponseBodyWithTimeout(
-        () =>
-          new Promise<string>((resolve) => {
-            setTimeout(() => {
-              resolve('body')
-            }, bodyReadDelayMs)
-          }),
-        remainingBudgetMs
-      ).then(
-        (result) => ({ result }),
-        (error) => ({ error })
-      )
-
-      await vi.advanceTimersByTimeAsync(bodyReadDelayMs)
-      const settledBodyRead = await bodyReadResult
-
-      expect(settledBodyRead).toMatchObject({
-        error: { name: 'TimeoutError' },
-      })
-    } finally {
-      vi.useRealTimers()
-      vi.unstubAllGlobals()
+    const headers = {
+      'User-Agent': 'test',
     }
+    const budget = createTimeoutBudget(300)
+    const redirectDelay = 20
+
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            setTimeout(() => {
+              resolve(
+                new Response(null, {
+                  status: 302,
+                  headers: {
+                    Location:
+                      'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?step=2',
+                  },
+                })
+              )
+            }, redirectDelay)
+          })
+      )
+      .mockResolvedValueOnce(
+        new Response('ok', {
+          status: 200,
+          headers: { 'content-type': 'text/plain' },
+        })
+      )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const redirectPromise = fetchWithManualRedirect(
+      'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?step=1',
+      headers,
+      budget
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, redirectDelay + 1))
+    await redirectPromise
+
+    const remainingBudgetMs = budget.getRemainingMs()
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(remainingBudgetMs).toBeLessThan(300)
+    expect(remainingBudgetMs).toBeGreaterThan(0)
+
+    const response = new Response(
+      new ReadableStream({
+        pull() {
+          return new Promise(() => {})
+        },
+      }),
+      { status: 200 }
+    )
+    const bodyReadResult = readResponseTextWithTimeout(
+      response,
+      remainingBudgetMs
+    ).then(
+      (result) => ({ result }),
+      (error) => ({ error })
+    )
+
+    const settledBodyRead = await bodyReadResult
+
+    expect(settledBodyRead).toMatchObject({
+      error: { name: 'TimeoutError' },
+    })
+
+    vi.unstubAllGlobals()
   })
 
-  it('cancels response body when body read times out', async () => {
-    vi.useFakeTimers()
-    try {
-      const cancel = vi.fn().mockResolvedValue(undefined)
-      const response = {
-        body: {
-          cancel,
+  it('cancels a real response reader when body read times out', async () => {
+    const cancelSpy = vi.spyOn(ReadableStreamDefaultReader.prototype, 'cancel')
+    const response = new Response(
+      new ReadableStream({
+        pull() {
+          return new Promise(() => {})
         },
-      } as unknown as Response
+      }),
+      { status: 200 }
+    )
 
-      const bodyReadResult = readResponseBodyWithTimeout(
-        () => new Promise<string>(() => {}),
-        10,
-        { response }
-      ).then(
-        (result) => ({ result }),
-        (error) => ({ error })
-      )
+    const bodyReadResult = readResponseTextWithTimeout(response, 10).then(
+      (result) => ({ result }),
+      (error) => ({ error })
+    )
 
-      await vi.advanceTimersByTimeAsync(20)
+    const settledBodyRead = await bodyReadResult
 
-      const settledBodyRead = await bodyReadResult
-      expect(settledBodyRead).toMatchObject({
-        error: { name: 'TimeoutError' },
-      })
-      expect(cancel).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
-      vi.unstubAllGlobals()
-    }
+    expect(settledBodyRead).toMatchObject({
+      error: { name: 'TimeoutError' },
+    })
+    expect(cancelSpy).toHaveBeenCalledTimes(1)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('reads response body as array-buffer using stream chunks', async () => {
+    const encoder = new TextEncoder()
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('ab'))
+          controller.enqueue(encoder.encode('cd'))
+          controller.close()
+        },
+      }),
+      { status: 200 }
+    )
+
+    const arrayBuffer = await readResponseArrayBufferWithTimeout(response, 1000)
+    const result = new TextDecoder().decode(new Uint8Array(arrayBuffer))
+
+    expect(result).toBe('abcd')
   })
 })
