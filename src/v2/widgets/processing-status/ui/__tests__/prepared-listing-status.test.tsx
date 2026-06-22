@@ -95,6 +95,28 @@ describe('PreparedListingStatusPanel', () => {
     expect(html).toContain('사진 12/18')
   })
 
+  it('shows ZIP preparation copy instead of per-photo counts', () => {
+    const html = renderToStaticMarkup(
+      <PreparedListingStatusPanel
+        items={[
+          {
+            status: 'saving',
+            id: 'listing-2',
+            url: `${baseUrl}4`,
+            label: '기아 봉고 냉동탑차',
+            downloadedImages: 0,
+            totalImages: 0,
+            progress: 40,
+            saveProgressMode: 'zip_preparing',
+          },
+        ]}
+      />
+    )
+
+    expect(html).toContain('압축 파일 준비 중')
+    expect(html).not.toContain('사진 0/0')
+  })
+
   it('shows invalid and failed messages plainly', () => {
     const html = renderToStaticMarkup(
       <PreparedListingStatusPanel
@@ -265,6 +287,24 @@ describe('PreparedListingStatusPanel', () => {
     expect(html).toContain('대우 프리마 카고')
     expect(html).toContain('3대 저장 완료')
     expect(html).toContain('data-complete-summary="true"')
+  })
+
+  it('labels partial vehicle image saves without marking the card failed', () => {
+    const html = renderToStaticMarkup(
+      <PreparedListingStatusPanel
+        items={[
+          {
+            ...savedItem,
+            downloadedImages: 1,
+            totalImages: 2,
+            vehicleImageStatus: 'partial',
+          },
+        ]}
+      />
+    )
+
+    expect(html).toContain('저장 완료')
+    expect(html).toContain('차량 사진 일부 확인 필요')
   })
 
   it('renders a plain empty state', () => {

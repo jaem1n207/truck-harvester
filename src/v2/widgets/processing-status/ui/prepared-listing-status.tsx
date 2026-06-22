@@ -91,6 +91,10 @@ function PreparedListingStatusIcon({ item }: { item: PreparedListing }) {
 
 function PreparedListingMessage({ item }: { item: PreparedListing }) {
   if (item.status === 'saving') {
+    if (item.saveProgressMode === 'zip_preparing') {
+      return <p className="text-muted-foreground text-sm">압축 파일 준비 중</p>
+    }
+
     return (
       <p className="text-muted-foreground text-sm tabular-nums">
         사진 {item.downloadedImages}/{item.totalImages}
@@ -102,9 +106,28 @@ function PreparedListingMessage({ item }: { item: PreparedListing }) {
     return <p className="text-muted-foreground text-sm">{item.message}</p>
   }
 
-  if (item.status === 'saved' && item.performanceCheckStatus === 'missing') {
+  if (item.status === 'saved') {
+    const messages = [
+      item.vehicleImageStatus === 'partial'
+        ? '차량 사진 일부 확인 필요'
+        : undefined,
+      item.performanceCheckStatus === 'missing'
+        ? '성능점검기록부 확인 필요'
+        : undefined,
+    ].filter((message): message is string => Boolean(message))
+
+    if (messages.length === 0) {
+      return null
+    }
+
     return (
-      <p className="text-muted-foreground text-sm">성능점검기록부 확인 필요</p>
+      <>
+        {messages.map((message) => (
+          <p className="text-muted-foreground text-sm" key={message}>
+            {message}
+          </p>
+        ))}
+      </>
     )
   }
 
