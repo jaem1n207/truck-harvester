@@ -122,6 +122,7 @@ describe('GET /api/v2/checkpaper', () => {
       'text/html; charset=utf-8'
     )
     expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('x-checkpaper-final-url')).toBe(finalUrl)
     expect(response.headers.get('content-security-policy')).toContain(
       "form-action 'none'"
     )

@@ -84,6 +84,7 @@ export async function GET(request: Request) {
       headers: {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',
+        'x-checkpaper-final-url': finalUrl,
         'content-security-policy':
           "default-src 'none'; base-uri 'none'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self'; form-action 'none'; frame-ancestors 'self';",
       },
