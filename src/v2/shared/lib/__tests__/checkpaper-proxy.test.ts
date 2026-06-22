@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   isAllowedCheckPaperUrl,
+  rewriteCheckPaperCss,
   rewriteCheckPaperHtml,
   toCheckPaperAssetProxyUrl,
 } from '../checkpaper-proxy'
@@ -35,12 +36,38 @@ describe('checkpaper proxy helpers', () => {
     )
   })
 
-  it('rewrites stylesheet, script, image, and form asset URLs', () => {
+  it('sanitizes HTML by removing script tags and inline handlers', () => {
+    const html = `
+      <html>
+        <head>
+          <script src="/assets/vendor/jquery/jquery.min.js"></script>
+        </head>
+        <body>
+          <a id="link" href="javascript:alert(1)" onClick="alert(2)">링크</a>
+          <button id="button" onclick="alert(3)">버튼</button>
+          <img id="car_img_file_url_1" src="javascript:alert(1)">
+          <form id="form" action="javascript:alert(1)"></form>
+        </body>
+      </html>
+    `
+
+    const rewritten = rewriteCheckPaperHtml(html, finalUrl)
+
+    expect(rewritten).not.toContain('<script')
+    expect(rewritten).not.toContain('onclick')
+    expect(rewritten).not.toContain('onClick')
+    expect(rewritten).toContain('href="#"')
+    expect(rewritten).toContain('id="button"')
+    expect(rewritten).toContain('id="car_img_file_url_1"')
+    expect(rewritten).toContain('src="#"')
+    expect(rewritten).toContain('action="#"')
+  })
+
+  it('rewrites stylesheet, image, and action URLs', () => {
     const html = `
       <html>
         <head>
           <link href="/assets/css/style_v2.css" rel="stylesheet">
-          <script src="/assets/vendor/jquery/jquery.min.js"></script>
         </head>
         <body>
           <img id="car_img_file_url_1" src="/carimage/one.jpg">
@@ -59,14 +86,39 @@ describe('checkpaper proxy helpers', () => {
     )
     expect(rewritten).toContain(
       encodeURIComponent(
-        'https://checkpaper.jmenetworks.co.kr/assets/vendor/jquery/jquery.min.js'
-      )
-    )
-    expect(rewritten).toContain(
-      encodeURIComponent(
         'https://checkpaper.jmenetworks.co.kr/carimage/one.jpg'
       )
     )
     expect(rewritten).toContain('action="/Service/CheckPaper"')
+  })
+
+  it('rewrites CSS url() and @import references to the asset proxy', () => {
+    const css = `
+      .hero { background-image: url('/assets/bg.jpg'); }
+      @import url('./style.css');
+      @import "./sub.css" screen;
+      .skip { background: url('data:image/png;base64,iVBORw0KGgo='); }
+      .skip2 { background: url(about:blank); }
+      .skip3 { background: url(//cdn.example.com/img.png); }
+      .skip4 { background: url(http://example.com/img.png); }
+    `
+
+    const rewritten = rewriteCheckPaperCss(css, finalUrl)
+
+    expect(rewritten).toContain(
+      encodeURIComponent('https://checkpaper.jmenetworks.co.kr/assets/bg.jpg')
+    )
+    expect(rewritten).toContain(
+      encodeURIComponent(
+        'https://checkpaper.jmenetworks.co.kr/Service/style.css'
+      )
+    )
+    expect(rewritten).toContain(
+      encodeURIComponent('https://checkpaper.jmenetworks.co.kr/Service/sub.css')
+    )
+    expect(rewritten).toContain('data:image/png;base64,iVBORw0KGgo=')
+    expect(rewritten).toContain('about:blank')
+    expect(rewritten).toContain('//cdn.example.com/img.png')
+    expect(rewritten).toContain('http://example.com/img.png')
   })
 })
