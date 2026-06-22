@@ -154,14 +154,14 @@ async function fetchImageBlob(url: string, signal?: AbortSignal) {
 
 async function savePerformanceCheckImages({
   capturePerformanceCheckImages,
-  directory,
   performanceCheckUrl,
   signal,
+  vehicleDirectory,
 }: {
   capturePerformanceCheckImages: CapturePerformanceCheckImages
-  directory: WritableDirectoryHandle
   performanceCheckUrl?: string | null
   signal?: AbortSignal
+  vehicleDirectory: WritableDirectoryHandle
 }) {
   const trimmedUrl = performanceCheckUrl?.trim()
 
@@ -189,6 +189,11 @@ async function savePerformanceCheckImages({
         'performanceCheckImageCount' | 'performanceCheckStatus'
       >
     }
+
+    const directory = await vehicleDirectory.getDirectoryHandle(
+      buildPerformanceCheckFolderName(),
+      { create: true }
+    )
 
     for (const [index, imageBytes] of images.entries()) {
       assertNotAborted(signal)
@@ -245,10 +250,6 @@ export async function saveTruckToDirectory(
     buildVehicleImagesFolderName(),
     { create: true }
   )
-  const performanceCheckDirectory = await vehicleDirectory.getDirectoryHandle(
-    buildPerformanceCheckFolderName(),
-    { create: true }
-  )
   const manuscriptDirectory = await vehicleDirectory.getDirectoryHandle(
     buildManuscriptFolderName(),
     { create: true }
@@ -290,9 +291,9 @@ export async function saveTruckToDirectory(
 
   const performanceCheckResult = await savePerformanceCheckImages({
     capturePerformanceCheckImages,
-    directory: performanceCheckDirectory,
     performanceCheckUrl: truck.performanceCheckUrl,
     signal,
+    vehicleDirectory,
   })
 
   assertNotAborted(signal)

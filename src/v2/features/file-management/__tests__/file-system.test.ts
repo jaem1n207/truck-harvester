@@ -307,7 +307,7 @@ describe('v2 file-system', () => {
         return new Response('image', { status: 200 })
       }) as typeof fetch
     )
-    const { rootDirectory } = createDirectoryHandle()
+    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
 
     await expect(
       saveTruckToDirectory(rootDirectory, listing, {
@@ -317,6 +317,10 @@ describe('v2 file-system', () => {
       performanceCheckImageCount: 0,
       performanceCheckStatus: 'missing',
     })
+    expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
+      '성능점검기록부',
+      { create: true }
+    )
   })
 
   it('returns not_requested when listing has no performance check URL', async () => {
@@ -325,7 +329,7 @@ describe('v2 file-system', () => {
         return new Response('image', { status: 200 })
       }) as typeof fetch
     )
-    const { rootDirectory } = createDirectoryHandle()
+    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
     const capturePerformanceCheckImages = vi.fn(async () => [
       new Uint8Array([1]),
     ])
@@ -340,6 +344,10 @@ describe('v2 file-system', () => {
       performanceCheckImageCount: 0,
       performanceCheckStatus: 'not_requested',
     })
+    expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
+      '성능점검기록부',
+      { create: true }
+    )
     expect(capturePerformanceCheckImages).not.toHaveBeenCalled()
   })
 
@@ -349,7 +357,7 @@ describe('v2 file-system', () => {
         return new Response('image', { status: 200 })
       }) as typeof fetch
     )
-    const { manuscriptDirectory, rootDirectory, writables } =
+    const { manuscriptDirectory, rootDirectory, vehicleDirectory, writables } =
       createDirectoryHandle()
 
     await expect(
@@ -365,6 +373,10 @@ describe('v2 file-system', () => {
 
     expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith(
       '차량정보.txt',
+      { create: true }
+    )
+    expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
+      '성능점검기록부',
       { create: true }
     )
     await expect(
@@ -407,7 +419,7 @@ describe('v2 file-system', () => {
 
     expect(
       vehicleDirectory.getDirectoryHandle.mock.calls.map(([name]) => name)
-    ).toEqual(['차량 이미지', '성능점검기록부', '원고'])
+    ).toEqual(['차량 이미지', '원고', '성능점검기록부'])
   })
 
   it('does not create a vehicle folder when already aborted', async () => {
