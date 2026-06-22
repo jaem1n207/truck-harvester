@@ -99,6 +99,26 @@ describe('GET /api/v2/checkpaper/asset', () => {
     expect(returnedBody).toBe(body)
   })
 
+  it('forwards allowed printable PDF records as bytes', async () => {
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46])
+    const pdfUrl =
+      'https://checkpaper.jmenetworks.co.kr/view/record.do?check_id=41-00-029368'
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        status: 200,
+        headers: { 'content-type': 'application/pdf' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await GET(createRequest(pdfUrl))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('application/pdf')
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    await expect(response.arrayBuffer()).resolves.toEqual(pdfBytes.buffer)
+  })
+
   it('rewrites relative css references when serving css assets', async () => {
     const css = `
       .hero { background: url('/images/hero.png'); }
