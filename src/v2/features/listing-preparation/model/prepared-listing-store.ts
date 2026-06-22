@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import { type TruckListing } from '@/v2/entities/truck'
+import { type TruckSaveResult } from '@/v2/features/file-management'
 
 export type PreparedListingStatus =
   | 'checking'
@@ -61,6 +62,8 @@ export interface SavedPreparedListing {
   downloadedImages: number
   totalImages: number
   progress: 100
+  performanceCheckImageCount?: number
+  performanceCheckStatus?: TruckSaveResult['performanceCheckStatus']
 }
 
 export type PreparedListing =
@@ -93,7 +96,7 @@ export interface PreparedListingState {
   markFailed: (url: string, message: string) => void
   markFailedById: (id: string, message: string) => void
   markSaving: (id: string, progress: PreparedListingSaveProgress) => void
-  markSaved: (id: string) => void
+  markSaved: (id: string, result?: TruckSaveResult) => void
   remove: (id: string) => void
   reset: () => void
 }
@@ -118,6 +121,11 @@ const getSavedTotalImages = (item: PreparedListing) => {
 
   return getListing(item)?.images.length ?? 0
 }
+
+const getPerformanceCheckSaveDetails = (result?: TruckSaveResult) => ({
+  performanceCheckImageCount: result?.performanceCheckImageCount ?? 0,
+  performanceCheckStatus: result?.performanceCheckStatus ?? 'not_requested',
+})
 
 const updateByUrl = (
   items: PreparedListing[],
@@ -262,10 +270,11 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
           progress: progress.progress,
         })),
       })),
-    markSaved: (id) =>
+    markSaved: (id, result) =>
       set((state) => ({
         items: updateById(state.items, id, (item) => {
           const totalImages = getSavedTotalImages(item)
+          const performanceCheckDetails = getPerformanceCheckSaveDetails(result)
 
           return {
             status: 'saved',
@@ -276,6 +285,7 @@ export const createPreparedListingStore = (): StoreApi<PreparedListingState> =>
             downloadedImages: totalImages,
             totalImages,
             progress: 100,
+            ...performanceCheckDetails,
           }
         }),
       })),

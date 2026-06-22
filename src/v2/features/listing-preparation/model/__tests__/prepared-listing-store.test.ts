@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { type TruckListing } from '@/v2/entities/truck'
+import { type TruckSaveResult } from '@/v2/features/file-management'
 
 import {
   createPreparedListingStore,
@@ -29,6 +30,13 @@ const listing: TruckListing = {
   mileage: '150,000km',
   options: '냉동탑 / 후방카메라',
   images: ['https://img.example.com/one.jpg'],
+}
+
+const missingPerformanceCheckResult: TruckSaveResult = {
+  performanceCheckImageCount: 0,
+  performanceCheckStatus: 'missing',
+  vehicleFolderName: '서울01가1234',
+  vehicleNumber: '서울01가1234',
 }
 
 describe('prepared listing store', () => {
@@ -207,6 +215,27 @@ describe('prepared listing store', () => {
         downloadedImages: 3,
         totalImages: 3,
         progress: 100,
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'not_requested',
+      },
+    ])
+  })
+
+  it('preserves missing performance check status when marking an item saved', () => {
+    const store = createPreparedListingStore()
+    store.getState().addUrls([firstUrl])
+    store.getState().markReady(firstUrl, listing)
+
+    store.getState().markSaved('listing-1', missingPerformanceCheckResult)
+
+    expect(selectSavedPreparedListings(store.getState())).toMatchObject([
+      {
+        status: 'saved',
+        downloadedImages: 1,
+        totalImages: 1,
+        progress: 100,
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'missing',
       },
     ])
   })
