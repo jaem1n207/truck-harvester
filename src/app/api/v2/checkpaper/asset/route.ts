@@ -114,7 +114,8 @@ export async function GET(request: Request) {
     if (contentType?.includes('text/css')) {
       const css = await readResponseBodyWithTimeout(
         () => response.text(),
-        timeoutMs
+        timeoutMs,
+        { response }
       )
       const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
 
@@ -128,7 +129,8 @@ export async function GET(request: Request) {
 
     const fileBuffer = await readResponseBodyWithTimeout(
       () => response.arrayBuffer(),
-      timeoutMs
+      timeoutMs,
+      { response }
     )
 
     return new Response(fileBuffer, {
