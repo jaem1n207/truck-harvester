@@ -38,25 +38,34 @@ describe('GET /api/v2/checkpaper/asset', () => {
     })
   })
 
-  it('rejects HTML responses as active-document assets', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('<html><script>alert(1)</script></html>', {
-        status: 200,
-        headers: { 'content-type': 'text/html; charset=utf-8' },
+  it.each([
+    'text/html; charset=utf-8',
+    'application/xhtml+xml',
+    'image/svg+xml',
+    'application/xml; charset=utf-8',
+    'text/xml',
+  ])(
+    'rejects active-document MIME type %s as blocked assets',
+    async (contentType) => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response('<html><script>alert(1)</script></html>', {
+          status: 200,
+          headers: { 'content-type': contentType },
+        })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const response = await GET(createRequest(sourceUrl))
+      const body = await response.json()
+
+      expect(response.status).toBe(502)
+      expect(response.headers.get('cache-control')).toBe('no-store')
+      expect(body).toEqual({
+        success: false,
+        message: '성능점검기록부 파일을 불러오지 못했어요.',
       })
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const response = await GET(createRequest(sourceUrl))
-    const body = await response.json()
-
-    expect(response.status).toBe(502)
-    expect(response.headers.get('cache-control')).toBe('no-store')
-    expect(body).toEqual({
-      success: false,
-      message: '성능점검기록부 파일을 불러오지 못했어요.',
-    })
-  })
+    }
+  )
 
   it('forwards allowed CheckPaper assets as bytes with content-type', async () => {
     const body = 'asset-bytes'

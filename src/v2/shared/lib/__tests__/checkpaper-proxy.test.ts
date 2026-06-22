@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createTimeoutBudget,
+  fetchWithManualRedirect,
   isAllowedCheckPaperUrl,
+  readResponseBodyWithTimeout,
   rewriteCheckPaperCss,
   rewriteCheckPaperHtml,
   toCheckPaperAssetProxyUrl,
@@ -157,5 +159,82 @@ describe('checkpaper proxy helpers', () => {
     expect(after).toBe(0)
 
     vi.useRealTimers()
+  })
+
+  it('shares timeout budget between redirects and later body read attempts', async () => {
+    vi.useFakeTimers()
+    try {
+      const headers = {
+        'User-Agent': 'test',
+      }
+      const budget = createTimeoutBudget(300)
+      const redirectDelay = 120
+
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<Response>((resolve) => {
+              setTimeout(() => {
+                resolve(
+                  new Response(null, {
+                    status: 302,
+                    headers: {
+                      Location:
+                        'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?step=2',
+                    },
+                  })
+                )
+              }, redirectDelay)
+            })
+        )
+        .mockResolvedValueOnce(
+          new Response('ok', {
+            status: 200,
+            headers: { 'content-type': 'text/plain' },
+          })
+        )
+
+      vi.stubGlobal('fetch', fetchMock)
+
+      const redirectPromise = fetchWithManualRedirect(
+        'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?step=1',
+        headers,
+        budget
+      )
+
+      await vi.advanceTimersByTimeAsync(redirectDelay + 1)
+      await redirectPromise
+
+      const remainingBudgetMs = budget.getRemainingMs()
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(remainingBudgetMs).toBeLessThan(300)
+      expect(remainingBudgetMs).toBeGreaterThan(0)
+
+      const bodyReadDelayMs = remainingBudgetMs + 5
+      const bodyReadResult = readResponseBodyWithTimeout(
+        () =>
+          new Promise<string>((resolve) => {
+            setTimeout(() => {
+              resolve('body')
+            }, bodyReadDelayMs)
+          }),
+        remainingBudgetMs
+      ).then(
+        (result) => ({ result }),
+        (error) => ({ error })
+      )
+
+      await vi.advanceTimersByTimeAsync(bodyReadDelayMs)
+      const settledBodyRead = await bodyReadResult
+
+      expect(settledBodyRead).toMatchObject({
+        error: { name: 'TimeoutError' },
+      })
+    } finally {
+      vi.useRealTimers()
+      vi.unstubAllGlobals()
+    }
   })
 })

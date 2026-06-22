@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { CHECKPAPER_FETCH_TIMEOUT_MS } from '@/v2/shared/lib/checkpaper-proxy'
+
 import { GET, maxDuration } from '../route'
 
 const sourceUrl = 'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3'
@@ -35,6 +37,10 @@ describe('GET /api/v2/checkpaper', () => {
 
   it('keeps the route duration above the parse timeout', () => {
     expect(maxDuration).toBe(5)
+  })
+
+  it('uses a fetch timeout budget shorter than maxDuration', () => {
+    expect(CHECKPAPER_FETCH_TIMEOUT_MS).toBeLessThan(maxDuration * 1000)
   })
 
   it('rejects missing or unsupported URLs', async () => {
