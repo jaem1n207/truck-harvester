@@ -14,7 +14,7 @@ const sampleHtml = `
     </head>
     <body>
       <div id="print">print section</div>
-      <a href="https://www.adobe.com/get.adobe.com">adobe link</a>
+      <a id="adobe-link" href="https://www.adobe.com/get.adobe.com">adobe link</a>
       <a href="javascript:alert(1)" onclick="alert(1)">event</a>
       <img id="car_img_file_url_1" src="/carimage/one.jpg" />
       <form action="/Service/CheckPaper"></form>
@@ -116,6 +116,9 @@ describe('GET /api/v2/checkpaper', () => {
     )
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect(response.headers.get('content-security-policy')).toContain(
+      "form-action 'none'"
+    )
+    expect(response.headers.get('content-security-policy')).toContain(
       "script-src 'none'"
     )
     expect(body).toContain('/api/v2/checkpaper/asset?url=')
@@ -131,7 +134,8 @@ describe('GET /api/v2/checkpaper', () => {
     )
     expect(body).toContain('action="/Service/CheckPaper"')
     expect(body).not.toContain('id="print"')
-    expect(body).not.toContain('get.adobe.com')
+    expect(body).not.toContain('id="adobe-link"')
+    expect(body).not.toContain('adobe link')
     expect(body).not.toContain('<script')
     expect(body).not.toContain('onclick')
   })
@@ -179,6 +183,29 @@ describe('GET /api/v2/checkpaper', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const response = await GET(createRequest(sourceUrl))
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부를 불러오지 못했어요.',
+    })
+  })
+
+  it('maps timeout during body read to fetch failure', async () => {
+    vi.useFakeTimers()
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+      text: vi.fn(() => new Promise(() => {})),
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const responsePromise = GET(createRequest(sourceUrl))
+    await vi.advanceTimersByTimeAsync(5000)
+    const response = await responsePromise
+
+    vi.useRealTimers()
 
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({

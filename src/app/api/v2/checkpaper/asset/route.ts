@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import {
   CHECKPAPER_FETCH_TIMEOUT_MS,
   fetchWithManualRedirect,
+  readResponseBodyWithTimeout,
   isAllowedCheckPaperUrl,
   rewriteCheckPaperCss,
 } from '@/v2/shared/lib/checkpaper-proxy'
@@ -69,7 +70,10 @@ export async function GET(request: Request) {
 
     const contentType = response.headers.get('content-type')
     if (contentType?.includes('text/css')) {
-      const css = await response.text()
+      const css = await readResponseBodyWithTimeout(
+        () => response.text(),
+        CHECKPAPER_FETCH_TIMEOUT_MS
+      )
       const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
 
       return new Response(rewrittenCss, {
@@ -80,7 +84,10 @@ export async function GET(request: Request) {
       })
     }
 
-    const fileBuffer = await response.arrayBuffer()
+    const fileBuffer = await readResponseBodyWithTimeout(
+      () => response.arrayBuffer(),
+      CHECKPAPER_FETCH_TIMEOUT_MS
+    )
 
     return new Response(fileBuffer, {
       headers: {

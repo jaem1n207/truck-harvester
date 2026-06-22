@@ -196,4 +196,27 @@ describe('GET /api/v2/checkpaper/asset', () => {
       message: '성능점검기록부 파일을 불러오지 못했어요.',
     })
   })
+
+  it('maps timeout during body read to fetch failure', async () => {
+    vi.useFakeTimers()
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'text/plain' }),
+      arrayBuffer: vi.fn(() => new Promise(() => {})),
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const responsePromise = GET(createRequest(sourceUrl))
+    await vi.advanceTimersByTimeAsync(5000)
+    const response = await responsePromise
+
+    vi.useRealTimers()
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부 파일을 불러오지 못했어요.',
+    })
+  })
 })
