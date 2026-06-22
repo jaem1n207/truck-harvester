@@ -3,10 +3,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { type TruckListing } from '@/v2/entities/truck'
 
-import { createTruckZipBlob, downloadTruckZip } from '../zip-fallback'
+import {
+  createTruckZipArchive,
+  createTruckZipBlob,
+  downloadTruckZip,
+} from '../zip-fallback'
 
 const listing: TruckListing = {
   url: 'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3',
+  performanceCheckUrl: 'https://check.example.com/report',
   vname: '현대 마이티',
   vehicleName: '2020년 현대 마이티',
   vnumber: '12가/3456',
@@ -31,7 +36,7 @@ describe('createTruckZipBlob', () => {
     vi.restoreAllMocks()
   })
 
-  it('creates a vehicle folder with text and raw image files', async () => {
+  it('creates an archive with structured folders and save results', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
@@ -39,19 +44,102 @@ describe('createTruckZipBlob', () => {
       })
     )
 
-    const zipBlob = await createTruckZipBlob([listing])
-    const zip = await JSZip.loadAsync(zipBlob)
+    const { blob, results } = await createTruckZipArchive([listing], {
+      capturePerformanceCheckImages: vi.fn(async () => [
+        new Uint8Array([7, 8]),
+      ]),
+    })
+    const zip = await JSZip.loadAsync(blob)
 
-    expect(zip.file('12가_3456/12가_3456 원고.txt')).toBeTruthy()
-    expect(zip.file('12가_3456/K-001.jpg')).toBeTruthy()
-    expect(zip.file('12가_3456/K-002.jpg')).toBeTruthy()
+    expect(zip.file('12가_3456/원고/차량정보.txt')).toBeTruthy()
+    expect(zip.file('12가_3456/차량 이미지/사진_1.jpg')).toBeTruthy()
+    expect(zip.file('12가_3456/차량 이미지/사진_2.jpg')).toBeTruthy()
+    expect(
+      zip.file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')
+    ).toBeTruthy()
+    expect(results).toEqual([
+      {
+        performanceCheckImageCount: 1,
+        performanceCheckStatus: 'saved',
+        vehicleFolderName: '12가_3456',
+        vehicleNumber: '12가/3456',
+      },
+    ])
 
     await expect(
-      zip.file('12가_3456/12가_3456 원고.txt')!.async('string')
+      zip.file('12가_3456/원고/차량정보.txt')!.async('string')
     ).resolves.toContain('차량번호 :  12가/3456')
     await expect(
-      zip.file('12가_3456/K-001.jpg')!.async('string')
+      zip.file('12가_3456/차량 이미지/사진_1.jpg')!.async('string')
     ).resolves.toBe('image:https://img.example.com/one.jpg')
+    await expect(
+      zip
+        .file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')!
+        .async('uint8array')
+    ).resolves.toEqual(new Uint8Array([7, 8]))
+  })
+
+  it('keeps createTruckZipBlob as a blob-only compatibility wrapper', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('image-bytes', { status: 200 }))
+    )
+
+    await expect(
+      createTruckZipBlob([listing], {
+        capturePerformanceCheckImages: vi.fn(async () => []),
+      })
+    ).resolves.toBeInstanceOf(Blob)
+  })
+
+  it('reports missing when performance check capture fails without failing the archive', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('image-bytes', { status: 200 }))
+    )
+
+    const { blob, results } = await createTruckZipArchive([listing], {
+      capturePerformanceCheckImages: vi.fn(async () => {
+        throw new Error('capture failed')
+      }),
+    })
+    const zip = await JSZip.loadAsync(blob)
+
+    expect(zip.file('12가_3456/원고/차량정보.txt')).toBeTruthy()
+    expect(zip.file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')).toBeNull()
+    expect(results).toEqual([
+      {
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'missing',
+        vehicleFolderName: '12가_3456',
+        vehicleNumber: '12가/3456',
+      },
+    ])
+  })
+
+  it('reports not_requested when a listing has no performance check URL', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('image-bytes', { status: 200 }))
+    )
+    const capturePerformanceCheckImages = vi.fn(async () => [
+      new Uint8Array([1]),
+    ])
+
+    const { results } = await createTruckZipArchive(
+      [{ ...listing, performanceCheckUrl: undefined }],
+      { capturePerformanceCheckImages }
+    )
+
+    expect(results).toEqual([
+      {
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'not_requested',
+        vehicleFolderName: '12가_3456',
+        vehicleNumber: '12가/3456',
+      },
+    ])
+    expect(capturePerformanceCheckImages).not.toHaveBeenCalled()
   })
 
   it('reports progress after each truck is added', async () => {
@@ -61,9 +149,16 @@ describe('createTruckZipBlob', () => {
     )
     const progress: number[] = []
 
-    await createTruckZipBlob([listing, { ...listing, vnumber: '99다9999' }], {
-      onProgress: (value) => progress.push(value),
-    })
+    await createTruckZipBlob(
+      [
+        listing,
+        { ...listing, performanceCheckUrl: undefined, vnumber: '99다9999' },
+      ],
+      {
+        capturePerformanceCheckImages: vi.fn(async () => []),
+        onProgress: (value) => progress.push(value),
+      }
+    )
 
     expect(progress).toEqual([50, 100])
   })
@@ -130,7 +225,10 @@ describe('createTruckZipBlob', () => {
     })
 
     await expect(
-      downloadTruckZip([listing], { signal: controller.signal })
+      downloadTruckZip([listing], {
+        capturePerformanceCheckImages: vi.fn(async () => []),
+        signal: controller.signal,
+      })
     ).rejects.toThrow('다운로드가 취소되었습니다.')
 
     expect(URL.createObjectURL).not.toHaveBeenCalled()
@@ -166,6 +264,7 @@ describe('createTruckZipBlob', () => {
     })
 
     await downloadTruckZip([listing], {
+      capturePerformanceCheckImages: vi.fn(async () => []),
       date: new Date('2026-04-26T00:00:00Z'),
     })
 

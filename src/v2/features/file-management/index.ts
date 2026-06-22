@@ -1,7 +1,13 @@
 export {
+  buildManuscriptFileName,
+  buildManuscriptFolderName,
+  buildPerformanceCheckFolderName,
+  buildPerformanceCheckImageFileName,
   buildImageFileName,
   buildTextFileName,
   buildTruckFolderName,
+  buildVehicleImageFileName,
+  buildVehicleImagesFolderName,
 } from './filename'
 export {
   isFileSystemAccessAvailable,
@@ -16,4 +22,9 @@ export type {
   CapturePerformanceCheckImagesOptions,
   PerformanceCheckPageRenderer,
 } from './performance-check-capture'
-export { createTruckZipBlob, downloadTruckZip } from './zip-fallback'
+export type { PerformanceCheckSaveStatus, TruckSaveResult } from './save-result'
+export {
+  createTruckZipArchive,
+  createTruckZipBlob,
+  downloadTruckZip,
+} from './zip-fallback'

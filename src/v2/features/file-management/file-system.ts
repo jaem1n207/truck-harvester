@@ -1,14 +1,23 @@
 import { type TruckListing } from '@/v2/entities/truck'
 
 import {
-  buildImageFileName,
-  buildTextFileName,
+  buildManuscriptFileName,
+  buildManuscriptFolderName,
+  buildPerformanceCheckFolderName,
+  buildPerformanceCheckImageFileName,
   buildTruckFolderName,
+  buildVehicleImageFileName,
+  buildVehicleImagesFolderName,
 } from './filename'
+import {
+  capturePerformanceCheckImages as defaultCapturePerformanceCheckImages,
+  type CapturePerformanceCheckImagesOptions,
+} from './performance-check-capture'
+import { type TruckSaveResult } from './save-result'
 import { buildTruckTextContent } from './text-content'
 
 interface WritableFileStream {
-  write: (data: string | Uint8Array) => Promise<void>
+  write: (data: FileSystemWriteChunkType) => Promise<void>
   close: () => Promise<void>
 }
 
@@ -39,9 +48,15 @@ export interface WritableDirectoryHandle {
 }
 
 interface SaveTruckToDirectoryOptions {
+  capturePerformanceCheckImages?: CapturePerformanceCheckImages
   onProgress?: (progress: number, downloaded: number, total: number) => void
   signal?: AbortSignal
 }
+
+type CapturePerformanceCheckImages = (
+  performanceCheckUrl?: string | null,
+  options?: CapturePerformanceCheckImagesOptions
+) => Promise<Uint8Array[]>
 
 interface PickWritableDirectoryOptions {
   id?: string
@@ -118,7 +133,7 @@ const isAbortError = (error: unknown) =>
 async function writeFile(
   directory: WritableDirectoryHandle,
   name: string,
-  data: string | Uint8Array
+  data: FileSystemWriteChunkType
 ) {
   const fileHandle = await directory.getFileHandle(name, { create: true })
   const writable = await fileHandle.createWritable()
@@ -127,25 +142,115 @@ async function writeFile(
   await writable.close()
 }
 
-async function fetchImageBytes(url: string, signal?: AbortSignal) {
+async function fetchImageBlob(url: string, signal?: AbortSignal) {
   const response = await fetch(url, { signal })
 
   if (!response.ok) {
     throw new Error(`이미지를 불러오지 못했습니다: ${response.status}`)
   }
 
-  return new Uint8Array(await response.arrayBuffer())
+  return response.blob()
+}
+
+async function savePerformanceCheckImages({
+  capturePerformanceCheckImages,
+  directory,
+  performanceCheckUrl,
+  signal,
+}: {
+  capturePerformanceCheckImages: CapturePerformanceCheckImages
+  directory: WritableDirectoryHandle
+  performanceCheckUrl?: string | null
+  signal?: AbortSignal
+}) {
+  const trimmedUrl = performanceCheckUrl?.trim()
+
+  if (!trimmedUrl) {
+    return {
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'not_requested',
+    } satisfies Pick<
+      TruckSaveResult,
+      'performanceCheckImageCount' | 'performanceCheckStatus'
+    >
+  }
+
+  try {
+    const images = await capturePerformanceCheckImages(trimmedUrl, { signal })
+
+    assertNotAborted(signal)
+
+    if (images.length === 0) {
+      return {
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'missing',
+      } satisfies Pick<
+        TruckSaveResult,
+        'performanceCheckImageCount' | 'performanceCheckStatus'
+      >
+    }
+
+    for (const [index, imageBytes] of images.entries()) {
+      assertNotAborted(signal)
+      await writeFile(
+        directory,
+        buildPerformanceCheckImageFileName(index),
+        new Blob([imageBytes as Uint8Array<ArrayBuffer>], {
+          type: 'image/jpeg',
+        })
+      )
+    }
+
+    return {
+      performanceCheckImageCount: images.length,
+      performanceCheckStatus: 'saved',
+    } satisfies Pick<
+      TruckSaveResult,
+      'performanceCheckImageCount' | 'performanceCheckStatus'
+    >
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error
+    }
+
+    assertNotAborted(signal)
+
+    return {
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'missing',
+    } satisfies Pick<
+      TruckSaveResult,
+      'performanceCheckImageCount' | 'performanceCheckStatus'
+    >
+  }
 }
 
 export async function saveTruckToDirectory(
   rootDirectory: WritableDirectoryHandle,
   truck: TruckListing,
-  { onProgress, signal }: SaveTruckToDirectoryOptions = {}
-) {
+  {
+    capturePerformanceCheckImages = defaultCapturePerformanceCheckImages,
+    onProgress,
+    signal,
+  }: SaveTruckToDirectoryOptions = {}
+): Promise<TruckSaveResult> {
   assertNotAborted(signal)
 
+  const vehicleFolderName = buildTruckFolderName(truck.vnumber)
   const vehicleDirectory = await rootDirectory.getDirectoryHandle(
-    buildTruckFolderName(truck.vnumber),
+    vehicleFolderName,
+    { create: true }
+  )
+  const vehicleImagesDirectory = await vehicleDirectory.getDirectoryHandle(
+    buildVehicleImagesFolderName(),
+    { create: true }
+  )
+  const performanceCheckDirectory = await vehicleDirectory.getDirectoryHandle(
+    buildPerformanceCheckFolderName(),
+    { create: true }
+  )
+  const manuscriptDirectory = await vehicleDirectory.getDirectoryHandle(
+    buildManuscriptFolderName(),
     { create: true }
   )
 
@@ -158,10 +263,14 @@ export async function saveTruckToDirectory(
     assertNotAborted(signal)
 
     try {
-      const imageBytes = await fetchImageBytes(imageUrl, signal)
+      const imageBlob = await fetchImageBlob(imageUrl, signal)
 
       assertNotAborted(signal)
-      await writeFile(vehicleDirectory, buildImageFileName(index), imageBytes)
+      await writeFile(
+        vehicleImagesDirectory,
+        buildVehicleImageFileName(index),
+        imageBlob
+      )
       assertNotAborted(signal)
       downloadedImages += 1
       onProgress?.(
@@ -179,11 +288,24 @@ export async function saveTruckToDirectory(
     }
   }
 
+  const performanceCheckResult = await savePerformanceCheckImages({
+    capturePerformanceCheckImages,
+    directory: performanceCheckDirectory,
+    performanceCheckUrl: truck.performanceCheckUrl,
+    signal,
+  })
+
   assertNotAborted(signal)
   await writeFile(
-    vehicleDirectory,
-    buildTextFileName(truck.vnumber),
+    manuscriptDirectory,
+    buildManuscriptFileName(),
     buildTruckTextContent(truck)
   )
   assertNotAborted(signal)
+
+  return {
+    ...performanceCheckResult,
+    vehicleFolderName,
+    vehicleNumber: truck.vnumber,
+  }
 }

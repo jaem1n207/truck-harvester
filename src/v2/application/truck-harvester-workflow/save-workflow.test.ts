@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { type StoreApi } from 'zustand/vanilla'
 
 import { type TruckListing } from '@/v2/entities/truck'
-import { type WritableDirectoryHandle } from '@/v2/features/file-management'
+import {
+  type TruckSaveResult,
+  type WritableDirectoryHandle,
+} from '@/v2/features/file-management'
 import {
   createPreparedListingStore,
   type PreparedListingState,
@@ -36,6 +39,13 @@ const listing: TruckListing = {
 
 const saveFailureMessage =
   '저장하지 못했어요. 저장 폴더와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
+
+const directorySaveResult: TruckSaveResult = {
+  performanceCheckImageCount: 0,
+  performanceCheckStatus: 'not_requested',
+  vehicleFolderName: '서울12가3456',
+  vehicleNumber: '서울12가3456',
+}
 
 const createTracker = () =>
   ({
@@ -71,7 +81,7 @@ describe('runSaveWorkflow', () => {
     const store = createPreparedListingStore()
     const items = addReadyListings(store)
     const tracker = createTracker()
-    const saveTruckToDirectory = vi.fn(async () => undefined)
+    const saveTruckToDirectory = vi.fn(async () => directorySaveResult)
     const workflowItem = {
       id: 'listing-1',
       url: firstUrl,
