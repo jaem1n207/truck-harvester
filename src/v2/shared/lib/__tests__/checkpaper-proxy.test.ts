@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
+  createTimeoutBudget,
   isAllowedCheckPaperUrl,
   rewriteCheckPaperCss,
   rewriteCheckPaperHtml,
@@ -140,5 +141,21 @@ describe('checkpaper proxy helpers', () => {
     expect(rewritten).toContain('about:blank')
     expect(rewritten).toContain('//cdn.example.com/img.png')
     expect(rewritten).toContain('http://example.com/img.png')
+  })
+
+  it('exposes a total timeout budget with a deadline', () => {
+    vi.useFakeTimers()
+
+    const budget = createTimeoutBudget(250)
+    const before = budget.getRemainingMs()
+
+    vi.advanceTimersByTime(250)
+    const after = budget.getRemainingMs()
+
+    expect(before).toBeGreaterThan(0)
+    expect(before).toBeLessThanOrEqual(250)
+    expect(after).toBe(0)
+
+    vi.useRealTimers()
   })
 })

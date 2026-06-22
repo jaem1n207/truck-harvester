@@ -8,6 +8,22 @@ const allowedCheckPaperHosts = new Set([
 const MAX_CHECKPAPER_REDIRECTS = 4
 export const CHECKPAPER_FETCH_TIMEOUT_MS = 4500
 
+export type CheckPaperTimeoutBudget = {
+  getRemainingMs: () => number
+}
+
+export function createTimeoutBudget(
+  totalMs: number = CHECKPAPER_FETCH_TIMEOUT_MS
+): CheckPaperTimeoutBudget {
+  const deadline = Date.now() + totalMs
+
+  return {
+    getRemainingMs() {
+      return Math.max(0, deadline - Date.now())
+    },
+  }
+}
+
 export function isAllowedCheckPaperUrl(value: string) {
   try {
     const url = new URL(value)
@@ -258,7 +274,7 @@ export function rewriteCheckPaperCss(css: string, finalUrl: string) {
 }
 
 type RedirectError = Error & {
-  code: 'UNSAFE_REDIRECT' | 'REDIRECT_LIMIT_REACHED'
+  code: 'UNSAFE_REDIRECT' | 'REDIRECT_LIMIT_REACHED' | 'BUDGET_EXCEEDED'
 }
 
 function createRedirectError(code: RedirectError['code']) {
@@ -274,12 +290,17 @@ function createRedirectError(code: RedirectError['code']) {
 export async function fetchWithManualRedirect(
   initialUrl: string,
   headers: HeadersInit,
-  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS,
+  timeoutBudget: CheckPaperTimeoutBudget = createTimeoutBudget(),
   maxRedirects = MAX_CHECKPAPER_REDIRECTS
 ): Promise<{ response: Response; finalUrl: string }> {
   let currentUrl = new URL(initialUrl).toString()
 
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
+    const timeoutMs = timeoutBudget.getRemainingMs()
+    if (timeoutMs <= 0) {
+      throw createRedirectError('BUDGET_EXCEEDED')
+    }
+
     const controller = new AbortController()
     const timeout = setTimeout(() => {
       controller.abort()
