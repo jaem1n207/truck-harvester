@@ -4,7 +4,8 @@ import {
   CHECKPAPER_FETCH_TIMEOUT_MS,
   createTimeoutBudget,
   fetchWithManualRedirect,
-  readResponseBodyWithTimeout,
+  readResponseArrayBufferWithTimeout,
+  readResponseTextWithTimeout,
   isAllowedCheckPaperUrl,
   rewriteCheckPaperCss,
 } from '@/v2/shared/lib/checkpaper-proxy'
@@ -112,11 +113,7 @@ export async function GET(request: Request) {
     }
 
     if (contentType?.includes('text/css')) {
-      const css = await readResponseBodyWithTimeout(
-        () => response.text(),
-        timeoutMs,
-        { response }
-      )
+      const css = await readResponseTextWithTimeout(response, timeoutMs)
       const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
 
       return new Response(rewrittenCss, {
@@ -127,10 +124,9 @@ export async function GET(request: Request) {
       })
     }
 
-    const fileBuffer = await readResponseBodyWithTimeout(
-      () => response.arrayBuffer(),
-      timeoutMs,
-      { response }
+    const fileBuffer = await readResponseArrayBufferWithTimeout(
+      response,
+      timeoutMs
     )
 
     return new Response(fileBuffer, {

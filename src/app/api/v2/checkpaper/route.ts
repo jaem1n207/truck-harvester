@@ -5,7 +5,7 @@ import {
   createTimeoutBudget,
   fetchWithManualRedirect,
   isAllowedCheckPaperUrl,
-  readResponseBodyWithTimeout,
+  readResponseTextWithTimeout,
   rewriteCheckPaperHtml,
 } from '@/v2/shared/lib/checkpaper-proxy'
 
@@ -76,11 +76,7 @@ export async function GET(request: Request) {
       return createErrorResponse(502, '성능점검기록부를 불러오지 못했어요.')
     }
 
-    const html = await readResponseBodyWithTimeout(
-      () => response.text(),
-      timeoutMs,
-      { response }
-    )
+    const html = await readResponseTextWithTimeout(response, timeoutMs)
 
     const rewrittenHtml = rewriteCheckPaperHtml(html, finalUrl)
 
@@ -89,7 +85,7 @@ export async function GET(request: Request) {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',
         'content-security-policy':
-          "default-src 'none'; base-uri 'none'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self'; form-action 'none'; frame-ancestors 'none';",
+          "default-src 'none'; base-uri 'none'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self'; form-action 'none'; frame-ancestors 'self';",
       },
     })
   } catch (error) {

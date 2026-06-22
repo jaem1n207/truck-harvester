@@ -229,20 +229,22 @@ describe('GET /api/v2/checkpaper/asset', () => {
   })
 
   it('maps timeout during body read to fetch failure', async () => {
-    vi.useFakeTimers()
-
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: new Headers({ 'content-type': 'text/plain' }),
-      arrayBuffer: vi.fn(() => new Promise(() => {})),
-    } as unknown as Response)
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        new ReadableStream({
+          pull() {
+            return new Promise(() => {})
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'text/plain' },
+        }
+      )
+    )
     vi.stubGlobal('fetch', fetchMock)
 
-    const responsePromise = GET(createRequest(sourceUrl))
-    await vi.advanceTimersByTimeAsync(5000)
-    const response = await responsePromise
-
-    vi.useRealTimers()
+    const response = await GET(createRequest(sourceUrl))
 
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({

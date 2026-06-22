@@ -131,6 +131,9 @@ describe('GET /api/v2/checkpaper', () => {
     expect(response.headers.get('content-security-policy')).toContain(
       "style-src 'self' 'unsafe-inline'"
     )
+    expect(response.headers.get('content-security-policy')).toContain(
+      "frame-ancestors 'self'"
+    )
     expect(body).toContain('/api/v2/checkpaper/asset?url=')
     expect(body).toContain(
       encodeURIComponent(
@@ -203,20 +206,22 @@ describe('GET /api/v2/checkpaper', () => {
   })
 
   it('maps timeout during body read to fetch failure', async () => {
-    vi.useFakeTimers()
-
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
-      text: vi.fn(() => new Promise(() => {})),
-    } as unknown as Response)
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        new ReadableStream({
+          pull() {
+            return new Promise(() => {})
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }
+      )
+    )
     vi.stubGlobal('fetch', fetchMock)
 
-    const responsePromise = GET(createRequest(sourceUrl))
-    await vi.advanceTimersByTimeAsync(5000)
-    const response = await responsePromise
-
-    vi.useRealTimers()
+    const response = await GET(createRequest(sourceUrl))
 
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({
