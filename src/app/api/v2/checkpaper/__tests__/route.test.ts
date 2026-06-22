@@ -128,6 +128,9 @@ describe('GET /api/v2/checkpaper', () => {
     expect(response.headers.get('content-security-policy')).toContain(
       "script-src 'none'"
     )
+    expect(response.headers.get('content-security-policy')).toContain(
+      "style-src 'self' 'unsafe-inline'"
+    )
     expect(body).toContain('/api/v2/checkpaper/asset?url=')
     expect(body).toContain(
       encodeURIComponent(

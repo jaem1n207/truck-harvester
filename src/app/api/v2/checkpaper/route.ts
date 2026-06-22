@@ -78,7 +78,8 @@ export async function GET(request: Request) {
 
     const html = await readResponseBodyWithTimeout(
       () => response.text(),
-      timeoutMs
+      timeoutMs,
+      { response }
     )
 
     const rewrittenHtml = rewriteCheckPaperHtml(html, finalUrl)
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',
         'content-security-policy':
-          "default-src 'none'; base-uri 'none'; script-src 'none'; object-src 'none'; style-src 'self'; img-src 'self'; form-action 'none'; frame-ancestors 'none';",
+          "default-src 'none'; base-uri 'none'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self'; form-action 'none'; frame-ancestors 'none';",
       },
     })
   } catch (error) {
