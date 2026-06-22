@@ -173,7 +173,8 @@ async function fetchImageBlob(url: string, signal?: AbortSignal) {
 async function removeLegacyRootEntry(
   directory: WritableDirectoryHandle,
   name: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: { recursive?: boolean }
 ) {
   if (!directory.removeEntry) {
     return
@@ -182,12 +183,28 @@ async function removeLegacyRootEntry(
   assertNotAborted(signal)
 
   try {
-    await directory.removeEntry(name)
+    if (options) {
+      await directory.removeEntry(name, options)
+    } else {
+      await directory.removeEntry(name)
+    }
   } catch (error) {
     if (isAbortError(error)) {
       throw error
     }
   }
+}
+
+async function cleanupPerformanceCheckFolder(
+  vehicleDirectory: WritableDirectoryHandle,
+  signal?: AbortSignal
+) {
+  await removeLegacyRootEntry(
+    vehicleDirectory,
+    buildPerformanceCheckFolderName(),
+    signal,
+    { recursive: true }
+  )
 }
 
 async function cleanupLegacyRootFiles({
@@ -246,6 +263,8 @@ async function savePerformanceCheckImages({
   vehicleDirectory: WritableDirectoryHandle
   vehicleNumber: string
 }) {
+  await cleanupPerformanceCheckFolder(vehicleDirectory, signal)
+
   const trimmedUrl = performanceCheckUrl?.trim()
 
   if (!trimmedUrl) {

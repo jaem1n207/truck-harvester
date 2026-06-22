@@ -401,6 +401,12 @@ describe('v2 file-system', () => {
       '성능점검기록부',
       { create: true }
     )
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith(
+      '성능점검기록부',
+      {
+        recursive: true,
+      }
+    )
     await expect(
       writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
     ).toHaveBeenCalledWith(expect.stringContaining('차량번호 :  12가/3456'))
