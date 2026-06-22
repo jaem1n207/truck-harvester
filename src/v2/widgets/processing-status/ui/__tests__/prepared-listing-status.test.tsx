@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
 import { type TruckListing } from '@/v2/entities/truck'
-import { type PreparedListing } from '@/v2/features/listing-preparation'
+import {
+  type PreparedListing,
+  type SavedPreparedListing,
+} from '@/v2/features/listing-preparation'
 
 import { PreparedListingStatusPanel } from '../prepared-listing-status'
 
@@ -63,6 +66,8 @@ const items: PreparedListing[] = [
     },
   },
 ]
+
+const savedItem = items[0] as SavedPreparedListing
 
 describe('PreparedListingStatusPanel', () => {
   it('renders user-readable labels and completion summary without internal ids', () => {
@@ -214,6 +219,51 @@ describe('PreparedListingStatusPanel', () => {
     )
 
     expect(html).toContain('2대 저장 완료')
+    expect(html).toContain('data-complete-summary="true"')
+  })
+
+  it('shows one low-noise notice and labels only saved cards missing performance checks', () => {
+    const html = renderToStaticMarkup(
+      <PreparedListingStatusPanel
+        items={[
+          {
+            ...savedItem,
+            performanceCheckImageCount: 0,
+            performanceCheckStatus: 'missing',
+          },
+          {
+            status: 'saved',
+            id: 'listing-2',
+            url: `${baseUrl}4`,
+            label: '기아 봉고 냉동탑차',
+            downloadedImages: 18,
+            totalImages: 18,
+            progress: 100,
+            performanceCheckImageCount: 0,
+            performanceCheckStatus: 'missing',
+          },
+          {
+            status: 'saved',
+            id: 'listing-3',
+            url: `${baseUrl}5`,
+            label: '대우 프리마 카고',
+            downloadedImages: 18,
+            totalImages: 18,
+            progress: 100,
+            performanceCheckImageCount: 1,
+            performanceCheckStatus: 'saved',
+          },
+        ]}
+      />
+    )
+
+    expect(html).toContain(
+      '저장은 완료됐어요. 다만 성능점검기록부를 찾지 못한 차량이 2대 있어요. 스마트스토어에 올리기 전에 해당 차량 폴더를 한 번 확인해 주세요.'
+    )
+    expect(html.match(/저장은 완료됐어요/g)).toHaveLength(1)
+    expect(html.match(/성능점검기록부 확인 필요/g)).toHaveLength(2)
+    expect(html).toContain('대우 프리마 카고')
+    expect(html).toContain('3대 저장 완료')
     expect(html).toContain('data-complete-summary="true"')
   })
 

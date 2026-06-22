@@ -56,6 +56,15 @@ const getSummary = (items: readonly PreparedListing[]) => {
   }
 }
 
+const getMissingPerformanceCheckCount = (items: readonly PreparedListing[]) =>
+  items.filter(
+    (item) =>
+      item.status === 'saved' && item.performanceCheckStatus === 'missing'
+  ).length
+
+const getMissingPerformanceCheckNotice = (count: number) =>
+  `저장은 완료됐어요. 다만 성능점검기록부를 찾지 못한 차량이 ${count}대 있어요. 스마트스토어에 올리기 전에 해당 차량 폴더를 한 번 확인해 주세요.`
+
 function PreparedListingStatusIcon({ item }: { item: PreparedListing }) {
   if (item.status === 'checking' || item.status === 'saving') {
     return (
@@ -93,6 +102,12 @@ function PreparedListingMessage({ item }: { item: PreparedListing }) {
     return <p className="text-muted-foreground text-sm">{item.message}</p>
   }
 
+  if (item.status === 'saved' && item.performanceCheckStatus === 'missing') {
+    return (
+      <p className="text-muted-foreground text-sm">성능점검기록부 확인 필요</p>
+    )
+  }
+
   return null
 }
 
@@ -100,6 +115,7 @@ export function PreparedListingStatusPanel({
   items,
 }: PreparedListingStatusPanelProps) {
   const summary = getSummary(items)
+  const missingPerformanceCheckCount = getMissingPerformanceCheckCount(items)
 
   return (
     <section
@@ -125,6 +141,11 @@ export function PreparedListingStatusPanel({
         >
           {summary.text}
         </p>
+        {missingPerformanceCheckCount > 0 ? (
+          <p className="text-muted-foreground text-sm">
+            {getMissingPerformanceCheckNotice(missingPerformanceCheckCount)}
+          </p>
+        ) : null}
       </div>
 
       <div aria-live="polite">
