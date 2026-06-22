@@ -43,6 +43,42 @@ const fullHtml = `
 </html>
 `
 
+const lowercasePerformanceUrlHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <p class="vname">현대 파워트럭</p>
+    <p class="vnumber">56다5678</p>
+    <p class="vcash"><span class="red">2,900</span>만원</p>
+    <dl>
+      <dt>성능번호</dt>
+      <dd>
+        <a href="http://autocafe.co.kr/ASSO/carcheck_form_my.asp?OnCarNo=4" class="pc_btn_view"
+          >성능점검보기(클릭)</a
+        >
+      </dd>
+    </dl>
+  </body>
+</html>
+`
+
+const javascriptPerformanceUrlHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <p class="vname">대우 스카니아</p>
+    <p class="vnumber">78라1234</p>
+    <p class="vcash"><span class="red">1,200</span>만원</p>
+    <dl>
+      <dt>성능번호</dt>
+      <dd>
+        <a href="javascript:alert(1)">성능점검보기(클릭)</a>
+      </dd>
+    </dl>
+  </body>
+</html>
+`
+
 const sparseHtml = `
 <!DOCTYPE html>
 <html>
@@ -105,6 +141,20 @@ describe('parseTruckHtml', () => {
 
   it('leaves performanceCheckUrl empty when the listing has no check link', () => {
     const listing = parseTruckHtml(sparseHtml, detailUrl)
+
+    expect(listing.performanceCheckUrl).toBeUndefined()
+  })
+
+  it('matches performance check URLs case-insensitively from href', () => {
+    const listing = parseTruckHtml(lowercasePerformanceUrlHtml, detailUrl)
+
+    expect(listing.performanceCheckUrl).toBe(
+      'http://autocafe.co.kr/ASSO/carcheck_form_my.asp?OnCarNo=4'
+    )
+  })
+
+  it('does not extract javascript: URLs for performance check links', () => {
+    const listing = parseTruckHtml(javascriptPerformanceUrlHtml, detailUrl)
 
     expect(listing.performanceCheckUrl).toBeUndefined()
   })

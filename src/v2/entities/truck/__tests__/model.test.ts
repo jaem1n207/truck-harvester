@@ -47,6 +47,15 @@ describe('truckListingSchema', () => {
 
     expect(parsed.performanceCheckUrl).toBeUndefined()
   })
+
+  it('rejects non-web performance check URLs', () => {
+    expect(
+      truckListingSchema.safeParse({
+        ...listing,
+        performanceCheckUrl: 'javascript:alert(1)',
+      }).success
+    ).toBe(false)
+  })
 })
 
 describe('truckParseResultSchema', () => {

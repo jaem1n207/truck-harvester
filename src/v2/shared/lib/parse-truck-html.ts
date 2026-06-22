@@ -8,7 +8,13 @@ function normalizeOptionalUrl(href: string | undefined, baseUrl: string) {
   }
 
   try {
-    return new URL(href, baseUrl).toString()
+    const normalized = new URL(href, baseUrl)
+
+    if (!/^https?:$/.test(normalized.protocol)) {
+      return undefined
+    }
+
+    return normalized.toString()
   } catch {
     return undefined
   }
@@ -33,8 +39,8 @@ function extractPerformanceCheckUrl(
     .find(
       ({ href, text }) =>
         text.includes('성능점검보기') ||
-        href?.includes('CarCheck_Form') ||
-        href?.includes('CheckPaper')
+        href?.toLowerCase().includes('carcheck_form') ||
+        href?.toLowerCase().includes('checkpaper')
     )
 
   return normalizeOptionalUrl(candidate?.href, listingUrl)

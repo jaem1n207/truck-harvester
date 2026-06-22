@@ -1,5 +1,23 @@
 import { z } from 'zod'
 
+const webUrlSchema = z
+  .string()
+  .url()
+  .refine(
+    (value) => {
+      try {
+        const protocol = new URL(value).protocol
+
+        return protocol === 'http:' || protocol === 'https:'
+      } catch {
+        return false
+      }
+    },
+    {
+      message: '웹 URL만 허용됩니다.',
+    }
+  )
+
 export const truckPriceSchema = z.object({
   raw: z.number().int().min(0),
   rawWon: z.number().int().min(0),
@@ -9,7 +27,7 @@ export const truckPriceSchema = z.object({
 
 export const truckListingSchema = z.object({
   url: z.string().url(),
-  performanceCheckUrl: z.string().url().optional(),
+  performanceCheckUrl: webUrlSchema.optional(),
   vname: z.string().min(1),
   vehicleName: z.string().min(1),
   vnumber: z.string().min(1),
