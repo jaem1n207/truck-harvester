@@ -57,7 +57,9 @@ Expected before implementation: `git log --oneline HEAD..origin/main` prints no 
 - Create `src/v2/features/file-management/__tests__/performance-check-capture.test.ts`
   - Cover page capture helpers, missing page behavior, and abort behavior using injected renderers.
 - Modify `src/v2/features/file-management/filename.ts`
-  - Add folder names and file builders for `차량 이미지`, `성능점검기록부`, `원고`, `사진_1.jpg`, `성능점검기록부_1.jpg`, and `차량정보.txt`.
+  - Add folder names and file builders for `차량 이미지`, `성능점검기록부`,
+    `원고`, `K-001.jpg`, `{차량번호}_성능점검기록부_1.jpg`, and
+    `{차량번호} 원고.txt`.
 - Modify `src/v2/features/file-management/__tests__/filename.test.ts`
   - Cover the new names and Windows-safe vehicle folder sanitization.
 - Modify `src/v2/features/file-management/file-system.ts`
@@ -741,7 +743,7 @@ describe('performance check capture', () => {
     )
   })
 
-  it('captures each rendered page as named JPG bytes', async () => {
+  it('captures each rendered page as JPG byte arrays', async () => {
     const pages = [document.createElement('section'), document.createElement('section')]
     const renderPage = vi.fn(async (_page: HTMLElement, index: number) => {
       return new Blob([`jpg-${index}`], { type: 'image/jpeg' })
@@ -750,11 +752,8 @@ describe('performance check capture', () => {
     const images = await capturePerformanceCheckPages(pages, { renderPage })
 
     expect(images).toHaveLength(2)
-    expect(images[0]).toMatchObject({
-      fileName: '성능점검기록부_1.jpg',
-      contentType: 'image/jpeg',
-    })
-    await expect(new Blob([images[0].bytes]).text()).resolves.toBe('jpg-0')
+    expect(images[0]).toBeInstanceOf(Uint8Array)
+    await expect(new Blob([images[0]]).text()).resolves.toBe('jpg-0')
     expect(renderPage).toHaveBeenCalledTimes(2)
   })
 
@@ -1028,18 +1027,18 @@ Replace the legacy image file name test with:
 
 ```ts
 it('builds user-readable image and performance check file names', () => {
-  expect(buildImageFileName(0)).toBe('사진_1.jpg')
-  expect(buildImageFileName(8)).toBe('사진_9.jpg')
-  expect(buildImageFileName(99)).toBe('사진_100.jpg')
-  expect(buildPerformanceCheckFileName(0)).toBe('성능점검기록부_1.jpg')
-  expect(buildPerformanceCheckFileName(1)).toBe('성능점검기록부_2.jpg')
+  expect(buildImageFileName(0)).toBe('K-001.jpg')
+  expect(buildImageFileName(8)).toBe('K-009.jpg')
+  expect(buildImageFileName(99)).toBe('K-100.jpg')
+  expect(buildPerformanceCheckFileName('12가/3456', 0)).toBe('12가_3456_성능점검기록부_1.jpg')
+  expect(buildPerformanceCheckFileName('12가/3456', 1)).toBe('12가_3456_성능점검기록부_2.jpg')
 })
 ```
 
 Update the text filename assertion:
 
 ```ts
-expect(buildTextFileName('12가/3456:*?')).toBe('차량정보.txt')
+expect(buildTextFileName('12가/3456:*?')).toBe('12가_3456___ 원고.txt')
 ```
 
 Add:
@@ -1062,7 +1061,8 @@ Run:
 bun run test -- --run src/v2/features/file-management/__tests__/filename.test.ts
 ```
 
-Expected: FAIL because filenames still use `K-001.jpg` and `차량번호 원고.txt`.
+Expected: PASS because filenames keep the existing image convention and include
+the vehicle number in manuscript and performance-check files.
 
 - [ ] **Step 3: Implement filename builders**
 
@@ -1079,11 +1079,11 @@ export const fileManagementFolderNames = {
 } as const
 
 export function buildImageFileName(index: number) {
-  return `사진_${index + 1}.jpg`
+  return `K-${String(index + 1).padStart(3, '0')}.jpg`
 }
 
-export function buildPerformanceCheckFileName(index: number) {
-  return `성능점검기록부_${index + 1}.jpg`
+export function buildPerformanceCheckFileName(vehicleNumber: string, index: number) {
+  return `${buildTruckFolderName(vehicleNumber)}_성능점검기록부_${index + 1}.jpg`
 }
 
 export function buildTruckFolderName(vehicleNumber: string) {
@@ -1091,8 +1091,8 @@ export function buildTruckFolderName(vehicleNumber: string) {
   return sanitized || emptyVehicleNumberFallback
 }
 
-export function buildTextFileName(_vehicleNumber: string) {
-  return '차량정보.txt'
+export function buildTextFileName(vehicleNumber: string) {
+  return `${buildTruckFolderName(vehicleNumber)} 원고.txt`
 }
 ```
 
@@ -1108,7 +1108,7 @@ Expected: filename tests PASS. File-system tests FAIL because the folder structu
 
 - [ ] **Step 5: Update text content image references**
 
-In `src/v2/features/file-management/text-content.ts`, no function signature changes are needed. Keep using `buildImageFileName(index)` so the text content now references `#사진:사진_1.jpg`, `#사진:사진_2.jpg`, and so on.
+In `src/v2/features/file-management/text-content.ts`, no function signature changes are needed. Keep using `buildImageFileName(index)` so the text content now references `#사진:K-001.jpg`, `#사진:K-002.jpg`, and so on.
 
 - [ ] **Step 6: Update directory save tests**
 
@@ -1163,16 +1163,16 @@ expect(vehicleDirectory.getDirectoryHandle).toHaveBeenCalledWith('원고', {
   create: true,
 })
 expect(vehicleDirectory.getDirectoryHandle).toHaveBeenCalledWith('성능점검기록부', { create: true })
-expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith('사진_1.jpg', {
+expect(vehicleImagesDirectory.getFileHandle).toHaveBeenCalledWith('K-001.jpg', {
   create: true,
 })
-expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith('사진_2.jpg', {
+expect(vehicleImagesDirectory.getFileHandle).toHaveBeenCalledWith('K-002.jpg', {
   create: true,
 })
-expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith('차량정보.txt', {
+expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith('12가_3456 원고.txt', {
   create: true,
 })
-expect(writables.get('차량정보.txt')!.write).toHaveBeenCalledWith(
+expect(writables.get('12가_3456/원고/12가_3456 원고.txt')!.write).toHaveBeenCalledWith(
   expect.stringContaining('차량번호 :  12가/3456')
 )
 ```
@@ -1187,7 +1187,7 @@ it('saves performance check images when they can be captured', async () => {
   }
   const capturePerformanceCheckImages = vi.fn(async () => [
     {
-      fileName: '성능점검기록부_1.jpg',
+      fileName: '12가_3456_성능점검기록부_1.jpg',
       bytes: new Uint8Array(await new Response('check-1').arrayBuffer()),
       contentType: 'image/jpeg' as const,
     },
@@ -1207,12 +1207,13 @@ it('saves performance check images when they can be captured', async () => {
     listingWithCheck.performanceCheckUrl,
     expect.objectContaining({ signal: undefined })
   )
-  expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith('성능점검기록부_1.jpg', {
-    create: true,
-  })
-  await expect(writables.get('성능점검기록부_1.jpg')!.write).toHaveBeenCalledWith(
-    new Uint8Array(await new Response('check-1').arrayBuffer())
+  expect(performanceCheckDirectory.getFileHandle).toHaveBeenCalledWith(
+    '12가_3456_성능점검기록부_1.jpg',
+    { create: true }
   )
+  await expect(
+    writables.get('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')!.write
+  ).toHaveBeenCalledWith(new Uint8Array(await new Response('check-1').arrayBuffer()))
 })
 ```
 
@@ -1237,7 +1238,7 @@ it('keeps vehicle save successful when performance check capture fails', async (
     performanceCheckStatus: 'missing',
     performanceCheckImageCount: 0,
   })
-  expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith('차량정보.txt', {
+  expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith('12가_3456 원고.txt', {
     create: true,
   })
 })
@@ -1379,9 +1380,9 @@ Expected: PASS.
 In `src/v2/features/file-management/__tests__/zip-fallback.test.ts`, update the first test expected files:
 
 ```ts
-expect(zip.file('12가_3456/원고/차량정보.txt')).toBeTruthy()
-expect(zip.file('12가_3456/차량 이미지/사진_1.jpg')).toBeTruthy()
-expect(zip.file('12가_3456/차량 이미지/사진_2.jpg')).toBeTruthy()
+expect(zip.file('12가_3456/원고/12가_3456 원고.txt')).toBeTruthy()
+expect(zip.file('12가_3456/차량 이미지/K-001.jpg')).toBeTruthy()
+expect(zip.file('12가_3456/차량 이미지/K-002.jpg')).toBeTruthy()
 ```
 
 Add this test:
@@ -1403,7 +1404,7 @@ it('adds captured performance check images to each truck folder', async () => {
     {
       capturePerformanceCheckImages: vi.fn(async () => [
         {
-          fileName: '성능점검기록부_1.jpg',
+          fileName: '12가_3456_성능점검기록부_1.jpg',
           bytes: new Uint8Array(await new Response('check-1').arrayBuffer()),
           contentType: 'image/jpeg' as const,
         },
@@ -1419,7 +1420,7 @@ it('adds captured performance check images to each truck folder', async () => {
     },
   ])
   await expect(
-    zip.file('12가_3456/성능점검기록부/성능점검기록부_1.jpg')!.async('string')
+    zip.file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')!.async('string')
   ).resolves.toBe('check-1')
 })
 ```
@@ -1847,7 +1848,7 @@ Render this below the summary paragraph:
 ```tsx
 {
   missingPerformanceCheckCount > 0 ? (
-    <p className="text-muted-foreground text-sm">
+    <p className="text-sm text-muted-foreground">
       다만 성능점검기록부를 찾지 못한 차량이 {missingPerformanceCheckCount}대 있어요. 스마트스토어에
       올리기 전에 해당 차량 폴더를 한 번 확인해 주세요.
     </p>
@@ -1859,7 +1860,7 @@ Update `PreparedListingMessage()`:
 
 ```tsx
 if (item.status === 'saved' && item.performanceCheckStatus === 'missing') {
-  return <p className="text-muted-foreground text-sm">성능점검기록부 확인 필요</p>
+  return <p className="text-sm text-muted-foreground">성능점검기록부 확인 필요</p>
 }
 ```
 
@@ -1971,11 +1972,11 @@ Expected folder shape:
 ```text
 차량번호/
   차량 이미지/
-    사진_1.jpg
+    K-001.jpg
   성능점검기록부/
-    성능점검기록부_1.jpg
+    차량번호_성능점검기록부_1.jpg
   원고/
-    차량정보.txt
+    차량번호 원고.txt
 ```
 
 If the performance check cannot be created, expected UI copy:
