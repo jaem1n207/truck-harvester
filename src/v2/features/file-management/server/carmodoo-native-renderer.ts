@@ -8,9 +8,17 @@ export const CARMODOO_RENDER_VIEWPORT = {
 const DEFAULT_CARMODOO_RENDER_TIMEOUT_MS = 15_000
 const CARMODOO_RENDER_SCALE = 2
 const CARMODOO_RENDER_JPEG_QUALITY = 92
+const CARMODOO_RENDER_TIMEOUT_MESSAGE =
+  '성능점검기록부 이미지를 만드는 시간이 초과되었습니다.'
+const CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE =
+  '성능점검기록부 주소를 확인하지 못했습니다.'
 
 type ScreenshotElement = {
-  screenshot: (options: { quality: number; type: 'jpeg' }) => Promise<Buffer>
+  screenshot: (options: {
+    quality: number
+    timeout: number
+    type: 'jpeg'
+  }) => Promise<Buffer>
 }
 
 type RendererPage = {
@@ -44,6 +52,66 @@ type RendererBrowser = {
     locale: string
     viewport: typeof CARMODOO_RENDER_VIEWPORT
   }) => Promise<RendererContext>
+}
+
+type LaunchedRendererBrowser = RendererBrowser & {
+  close: () => Promise<unknown>
+}
+
+type RendererLauncher = {
+  launch: (options: { headless: true }) => Promise<LaunchedRendererBrowser>
+}
+
+function createRenderTimeoutBudget(totalMs: number) {
+  const deadlineMs = Date.now() + totalMs
+
+  return {
+    getRemainingMs() {
+      const remainingMs = deadlineMs - Date.now()
+
+      if (remainingMs <= 0) {
+        throw new Error(CARMODOO_RENDER_TIMEOUT_MESSAGE)
+      }
+
+      return remainingMs
+    },
+  }
+}
+
+function getAllowedProductionOrigin() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+
+  if (!appUrl) {
+    return undefined
+  }
+
+  try {
+    return new URL(appUrl).origin
+  } catch {
+    return undefined
+  }
+}
+
+function assertTrustedRenderOrigin(origin: string) {
+  let parsedOrigin: URL
+
+  try {
+    parsedOrigin = new URL(origin)
+  } catch {
+    throw new Error(CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE)
+  }
+
+  const isLocalDevOrigin =
+    parsedOrigin.protocol === 'http:' &&
+    (parsedOrigin.hostname === 'localhost' ||
+      parsedOrigin.hostname === '127.0.0.1')
+  const productionOrigin = getAllowedProductionOrigin()
+  const isProductionOrigin =
+    productionOrigin !== undefined && parsedOrigin.origin === productionOrigin
+
+  if (!isLocalDevOrigin && !isProductionOrigin) {
+    throw new Error(CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE)
+  }
 }
 
 function buildProxiedCarmodooUrl(sourceUrl: string, origin: string) {
@@ -89,6 +157,9 @@ export async function renderCarmodooNativeImagesWithBrowser(
     timeoutMs?: number
   }
 ) {
+  assertTrustedRenderOrigin(origin)
+
+  const timeoutBudget = createRenderTimeoutBudget(timeoutMs)
   const context = await browser.newContext({
     deviceScaleFactor: CARMODOO_RENDER_SCALE,
     locale: 'ko-KR',
@@ -100,14 +171,16 @@ export async function renderCarmodooNativeImagesWithBrowser(
 
     await page.setViewportSize(CARMODOO_RENDER_VIEWPORT)
     await page.goto(buildProxiedCarmodooUrl(sourceUrl, origin), {
-      timeout: timeoutMs,
+      timeout: timeoutBudget.getRemainingMs(),
       waitUntil: 'networkidle',
     })
     await page.addStyleTag({ content: getCarmodooNativeStyle() })
-    await page.waitForLoadState('networkidle', { timeout: timeoutMs })
+    await page.waitForLoadState('networkidle', {
+      timeout: timeoutBudget.getRemainingMs(),
+    })
     await page.waitForSelector('.repaircheck_box .page_wrap', {
       state: 'attached',
-      timeout: timeoutMs,
+      timeout: timeoutBudget.getRemainingMs(),
     })
 
     const sheets = await page.$$('.repaircheck_box .page_wrap')
@@ -121,8 +194,14 @@ export async function renderCarmodooNativeImagesWithBrowser(
     for (const sheet of sheets) {
       const buffer = await sheet.screenshot({
         quality: CARMODOO_RENDER_JPEG_QUALITY,
+        timeout: timeoutBudget.getRemainingMs(),
         type: 'jpeg',
       })
+
+      if (buffer.byteLength === 0) {
+        throw new Error('성능점검기록부 이미지를 만들지 못했습니다.')
+      }
+
       images.push(new Uint8Array(buffer))
     }
 
@@ -132,12 +211,12 @@ export async function renderCarmodooNativeImagesWithBrowser(
   }
 }
 
-export async function renderCarmodooNativeImages(
+export async function renderCarmodooNativeImagesWithLauncher(
+  launcher: RendererLauncher,
   sourceUrl: string,
   options: { origin: string }
 ) {
-  const { chromium } = await import('playwright')
-  const browser = await chromium.launch({
+  const browser = await launcher.launch({
     headless: true,
   })
 
@@ -150,4 +229,13 @@ export async function renderCarmodooNativeImages(
   } finally {
     await browser.close()
   }
+}
+
+export async function renderCarmodooNativeImages(
+  sourceUrl: string,
+  options: { origin: string }
+) {
+  const { chromium } = await import('playwright')
+
+  return renderCarmodooNativeImagesWithLauncher(chromium, sourceUrl, options)
 }
