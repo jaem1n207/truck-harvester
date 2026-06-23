@@ -146,6 +146,35 @@ const partialVehicleInfoHtml = `
 </html>
 `
 
+const multilineVehicleInfoHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <p class="vname">기아 봉고3</p>
+    <p class="vnumber">90로1234</p>
+    <p class="vcash"><span class="red">4,300</span>만원</p>
+    <div class="car-detail">
+      <dl>
+        <dt>년형 | 등록</dt>
+        <dd><strong class="number">2023</strong>년형 | <span class="number">20230210</span> 최초등록</dd>
+        <dt>주행거리</dt>
+        <dd><strong class="red number">91,000</strong>km</dd>
+      </dl>
+    </div>
+    <div class="vcontent">
+      ▶ 상세설명 ::
+      <p><span>· 차명: 봉고3 1톤930바가지차</span></p>
+      <p><span>· 상부: 동해930, 인버터,유/무선리모컨, 작업다이, 공구함</span></p>
+      <p><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;동해기계항공 용인 서비스센터에서 점검 완료</span></p>
+      <p><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;작업 높이: 8.9m, 작업 반경: 6.4m</span></p>
+      <p><span>· 하부: 오토미션, 133마력, 요소수 타입, 실내클리닝 완료</span></p>
+      <p><span>- - - - - - - - - - - - - - - - - - - - -</span></p>
+      <p><span>안녕하세요. 트럭판매왕입니다.</span></p>
+    </div>
+  </body>
+</html>
+`
+
 const invalidRegistrationHtml = `
 <!DOCTYPE html>
 <html>
@@ -252,6 +281,17 @@ describe('parseTruckHtml', () => {
       vehicleNumber: '88다8888',
       upperInfo: '냉동탑',
       lowerInfo: '정보 없음',
+      hasVehicleInfo: true,
+    })
+  })
+
+  it('keeps continuation paragraphs inside upper and lower vehicle info fields', () => {
+    const listing = parseTruckHtml(multilineVehicleInfoHtml, detailUrl)
+
+    expect(listing.smartStoreTable).toMatchObject({
+      upperInfo:
+        '동해930, 인버터,유/무선리모컨, 작업다이, 공구함\n동해기계항공 용인 서비스센터에서 점검 완료\n작업 높이: 8.9m, 작업 반경: 6.4m',
+      lowerInfo: '오토미션, 133마력, 요소수 타입, 실내클리닝 완료',
       hasVehicleInfo: true,
     })
   })

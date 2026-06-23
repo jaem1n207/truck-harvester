@@ -101,17 +101,51 @@ function formatInitialRegistrationLabel(value: string | undefined) {
   return `${year}년 ${month}월 등록`
 }
 
+const vcontentFieldPattern = /^(차명|상부|하부)\s*:\s*(.*)$/
+
+function isVcontentDescriptionEnd(text: string) {
+  const withoutSpaces = text.replace(/\s/g, '')
+
+  return (
+    /^-{8,}$/.test(withoutSpaces) ||
+    text.startsWith('안녕하세요') ||
+    text.includes('트럭판매왕') ||
+    text.startsWith('<최원호') ||
+    text.startsWith('-사무실 주소')
+  )
+}
+
 function extractVcontentField($: ReturnType<typeof load>, label: string) {
-  const fieldPattern = new RegExp(`^${label}\\s*:\\s*(.*)$`)
+  const paragraphs = $('.vcontent p').toArray()
 
-  for (const element of $('.vcontent p').toArray()) {
+  for (const [index, element] of paragraphs.entries()) {
     const normalizedText = normalizeContentText($(element).text())
-    const match = normalizedText.match(fieldPattern)
-    const value = normalizeContentText(match?.[1] ?? '')
+    const match = normalizedText.match(vcontentFieldPattern)
 
-    if (value) {
-      return value
+    if (match?.[1] !== label) {
+      continue
     }
+
+    const values = [normalizeContentText(match[2] ?? '')].filter(Boolean)
+
+    for (const nextElement of paragraphs.slice(index + 1)) {
+      const nextText = normalizeContentText($(nextElement).text())
+
+      if (!nextText) {
+        continue
+      }
+
+      if (
+        vcontentFieldPattern.test(nextText) ||
+        isVcontentDescriptionEnd(nextText)
+      ) {
+        break
+      }
+
+      values.push(nextText)
+    }
+
+    return values.length > 0 ? values.join('\n') : undefined
   }
 
   return undefined
