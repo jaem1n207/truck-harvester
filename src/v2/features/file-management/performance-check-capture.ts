@@ -9,6 +9,11 @@ const DEFAULT_TIMEOUT_MS = 15_000
 const DEFAULT_PDF_RENDER_SCALE = 2
 const CARMODOO_CHECKBOX_ICON_URL =
   'https://ck.carmodoo.com/images/input_checkbox.png'
+const CARMODOO_PRINT_SHEET_WIDTH = 1440
+const CARMODOO_PRINT_SHEET_HEIGHT = 1020
+const CARMODOO_PRINT_CONTENT_WIDTH = 1400
+const CARMODOO_PRINT_CONTENT_HEIGHT = 950
+const CARMODOO_PRINT_CONTENT_SCALE = 0.964
 
 export type PerformanceCheckPageRenderer = (
   page: HTMLElement
@@ -614,6 +619,72 @@ function replaceCarmodooCheckboxes(frameDocument: Document) {
     })
 }
 
+function formatCarmodooPrintDate(date = new Date()) {
+  const year = String(date.getFullYear()).slice(-2)
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const hours = date.getHours()
+  const period = hours < 12 ? '오전' : '오후'
+  const hour = hours % 12 || 12
+  const minute = String(date.getMinutes()).padStart(2, '0')
+
+  return `${year}. ${month}. ${day}. ${period} ${hour}:${minute}`
+}
+
+function createCarmodooPrintSheets(frameDocument: Document, sourceUrl: string) {
+  if (
+    frameDocument.querySelector('[data-performance-check-sheets="carmodoo"]')
+  ) {
+    return
+  }
+
+  const pageWraps = Array.from(
+    frameDocument.querySelectorAll<HTMLElement>('.repaircheck_box .page_wrap')
+  )
+
+  if (pageWraps.length === 0) {
+    return
+  }
+
+  const sheetList = frameDocument.createElement('div')
+  sheetList.dataset.performanceCheckSheets = 'carmodoo'
+  const title = frameDocument.title.trim()
+  const capturedAt = formatCarmodooPrintDate()
+
+  pageWraps.forEach((pageWrap, index) => {
+    const sheet = frameDocument.createElement('section')
+    sheet.dataset.performanceCheckSheet = 'carmodoo'
+
+    const header = frameDocument.createElement('div')
+    header.className = 'carmodoo-print-browser-header'
+
+    const headerDate = frameDocument.createElement('span')
+    headerDate.textContent = capturedAt
+    const headerTitle = frameDocument.createElement('span')
+    headerTitle.textContent = title
+    const headerSpacer = frameDocument.createElement('span')
+    header.append(headerDate, headerTitle, headerSpacer)
+
+    const content = frameDocument.createElement('div')
+    content.className = 'carmodoo-print-content repaircheck_box'
+    content.append(pageWrap)
+
+    const footer = frameDocument.createElement('div')
+    footer.className = 'carmodoo-print-browser-footer'
+
+    const footerUrl = frameDocument.createElement('span')
+    footerUrl.textContent = sourceUrl
+    const footerPage = frameDocument.createElement('span')
+    footerPage.textContent = `${index + 1}/${pageWraps.length}`
+    footer.append(footerUrl, footerPage)
+
+    sheet.append(header, content, footer)
+    sheetList.append(sheet)
+  })
+
+  frameDocument.body.append(sheetList)
+}
+
 function injectCarmodooPrintLayout(
   frameDocument: Document,
   checkboxIconUrl: string
@@ -637,6 +708,70 @@ function injectCarmodooPrintLayout(
     .repaircheck_box {
       margin: 0 !important;
       width: 1400px !important;
+    }
+    [data-performance-check-sheets='carmodoo'] {
+      background: #fff !important;
+      color: #000 !important;
+      display: block !important;
+      font-family: Dotum, 돋움, Arial, sans-serif !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: ${CARMODOO_PRINT_SHEET_WIDTH}px !important;
+    }
+    [data-performance-check-sheet='carmodoo'] {
+      background: #fff !important;
+      box-sizing: border-box !important;
+      color: #000 !important;
+      display: block !important;
+      height: ${CARMODOO_PRINT_SHEET_HEIGHT}px !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+      position: relative !important;
+      width: ${CARMODOO_PRINT_SHEET_WIDTH}px !important;
+    }
+    .carmodoo-print-browser-header,
+    .carmodoo-print-browser-footer {
+      box-sizing: border-box !important;
+      color: #000 !important;
+      display: grid !important;
+      font-family: Dotum, 돋움, Arial, sans-serif !important;
+      font-size: 12px !important;
+      font-weight: 400 !important;
+      left: 45px !important;
+      letter-spacing: 0 !important;
+      line-height: 1.2 !important;
+      position: absolute !important;
+      right: 45px !important;
+      z-index: 2 !important;
+    }
+    .carmodoo-print-browser-header {
+      grid-template-columns: 1fr auto 1fr !important;
+      top: 26px !important;
+    }
+    .carmodoo-print-browser-header span:nth-child(2) {
+      text-align: center !important;
+    }
+    .carmodoo-print-browser-footer {
+      bottom: 22px !important;
+      grid-template-columns: 1fr auto !important;
+    }
+    .carmodoo-print-browser-footer span:first-child {
+      overflow: hidden !important;
+      padding-right: 20px !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+    .carmodoo-print-content.repaircheck_box {
+      height: ${CARMODOO_PRINT_CONTENT_HEIGHT}px !important;
+      left: 45px !important;
+      margin: 0 !important;
+      overflow: visible !important;
+      position: absolute !important;
+      top: 66px !important;
+      transform: scale(${CARMODOO_PRINT_CONTENT_SCALE}) !important;
+      transform-origin: top left !important;
+      width: ${CARMODOO_PRINT_CONTENT_WIDTH}px !important;
     }
     .repaircheck_box input[type='checkbox'] {
       height: 8pt !important;
@@ -850,13 +985,15 @@ function injectCarmodooPrintLayout(
 
 function prepareCarmodooFrameDocument(
   frameDocument: Document,
-  assetProxyPath: string
+  assetProxyPath: string,
+  sourceUrl: string
 ) {
   injectCarmodooPrintLayout(
     frameDocument,
     buildProxiedCheckPaperUrl(CARMODOO_CHECKBOX_ICON_URL, assetProxyPath)
   )
   replaceCarmodooCheckboxes(frameDocument)
+  createCarmodooPrintSheets(frameDocument, sourceUrl)
 }
 
 const checkpaperPdfProvider: PerformanceCheckCaptureProvider = {
@@ -893,9 +1030,13 @@ const carmodooHtmlProvider: PerformanceCheckCaptureProvider = {
     return captureHtmlPageImages({
       jpegQuality: context.jpegQuality,
       ownerDocument: context.ownerDocument,
-      pageSelector: '.repaircheck_box .page_wrap',
+      pageSelector: '[data-performance-check-sheet="carmodoo"]',
       prepareFrameDocument: (frameDocument) =>
-        prepareCarmodooFrameDocument(frameDocument, context.assetProxyPath),
+        prepareCarmodooFrameDocument(
+          frameDocument,
+          context.assetProxyPath,
+          url.toString()
+        ),
       proxyPath: context.proxyPath,
       renderPage: context.renderPage,
       signal: context.signal,

@@ -179,13 +179,13 @@ describe('capturePerformanceCheckImages', () => {
     expect(document.querySelector('iframe')).toBeNull()
   })
 
-  it('captures Carmodoo page_wrap elements with injected print layout', async () => {
+  it('captures Carmodoo print preview sheets with injected print layout', async () => {
     const firstCanvas = createCanvas([11, 12])
     const secondCanvas = createCanvas([13, 14])
     const renderPage = vi
       .fn<PerformanceCheckPageRenderer>()
       .mockImplementationOnce(async (page) => {
-        expect(page.classList.contains('page_wrap')).toBe(true)
+        expect(page.dataset.performanceCheckSheet).toBe('carmodoo')
         expect(
           page.ownerDocument.querySelector(
             'style[data-performance-check-provider="carmodoo-html"]'
@@ -200,7 +200,10 @@ describe('capturePerformanceCheckImages', () => {
           page.ownerDocument.querySelector(
             'style[data-performance-check-provider="carmodoo-html"]'
           )?.textContent
-        ).toContain('background: none')
+        ).toContain('transform: scale(0.964)')
+        expect(page.querySelector('.page_wrap')?.id).toBe('spread-one')
+        expect(page.textContent).toContain(carmodooSourceUrl)
+        expect(page.textContent).toContain('1/2')
         expect(page.querySelectorAll('input[type="checkbox"]')).toHaveLength(0)
         const checkboxes = page.querySelectorAll(
           '[data-performance-check-checkbox="carmodoo"]'
@@ -211,7 +214,9 @@ describe('capturePerformanceCheckImages', () => {
         return firstCanvas
       })
       .mockImplementationOnce(async (page) => {
-        expect(page.classList.contains('page_wrap')).toBe(true)
+        expect(page.dataset.performanceCheckSheet).toBe('carmodoo')
+        expect(page.querySelector('.page_wrap')?.id).toBe('spread-two')
+        expect(page.textContent).toContain('2/2')
         return secondCanvas
       })
     const fetchPdf = vi.fn()
