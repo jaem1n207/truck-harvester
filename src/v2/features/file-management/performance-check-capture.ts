@@ -844,12 +844,13 @@ function injectCarmodooPrintLayout(
       color: #333 !important;
       font-size: 7.5pt !important;
     }
+    /* html2canvas renders Carmodoo's Korean fallback font taller than Chrome's print preview. */
     .repaircheck_box .repair_position {
       padding: 4.5pt 0 !important;
     }
     .repaircheck_box table thead th {
-      font-size: 15px !important;
-      line-height: 1 !important;
+      font-size: 14px !important;
+      line-height: 1.05 !important;
       padding: 3.5pt 0 !important;
       text-align: center !important;
     }
@@ -870,10 +871,10 @@ function injectCarmodooPrintLayout(
     }
     .repaircheck_box table tbody th {
       box-sizing: border-box !important;
-      font-size: 13px !important;
+      font-size: 12px !important;
       font-weight: normal !important;
       letter-spacing: -2px !important;
-      line-height: 1.1 !important;
+      line-height: 1.05 !important;
       padding: 0 3px !important;
       word-break: normal !important;
       word-wrap: break-word !important;
@@ -887,13 +888,13 @@ function injectCarmodooPrintLayout(
     }
     .repaircheck_box td {
       box-sizing: border-box !important;
-      font-size: 14px !important;
+      font-size: 13px !important;
       letter-spacing: -1px !important;
-      line-height: 1.1 !important;
+      line-height: 1.05 !important;
       padding: 1px 3px !important;
     }
     .repaircheck_box td.mark {
-      font-size: 12px !important;
+      font-size: 11px !important;
     }
     .repaircheck_box td label {
       line-height: 1 !important;
@@ -902,7 +903,7 @@ function injectCarmodooPrintLayout(
       padding: 1px 3px !important;
     }
     .repaircheck_box table.td_padd tbody th {
-      font-size: 14px !important;
+      font-size: 13px !important;
       letter-spacing: -2px !important;
       padding: 0 3px !important;
     }

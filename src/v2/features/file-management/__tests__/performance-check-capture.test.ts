@@ -201,6 +201,11 @@ describe('capturePerformanceCheckImages', () => {
             'style[data-performance-check-provider="carmodoo-html"]'
           )?.textContent
         ).toContain('transform: scale(0.964)')
+        expect(
+          page.ownerDocument.querySelector(
+            'style[data-performance-check-provider="carmodoo-html"]'
+          )?.textContent
+        ).toContain('font-size: 12px')
         expect(page.querySelector('.page_wrap')?.id).toBe('spread-one')
         expect(page.textContent).toContain(carmodooSourceUrl)
         expect(page.textContent).toContain('1/2')
