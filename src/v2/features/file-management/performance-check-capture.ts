@@ -13,7 +13,14 @@ const CARMODOO_PRINT_SHEET_WIDTH = 1440
 const CARMODOO_PRINT_SHEET_HEIGHT = 1020
 const CARMODOO_PRINT_CONTENT_WIDTH = 1400
 const CARMODOO_PRINT_CONTENT_HEIGHT = 950
+const CARMODOO_PRINT_CONTENT_LEFT = 45
+const CARMODOO_PRINT_CONTENT_TOP = 66
 const CARMODOO_PRINT_CONTENT_SCALE = 0.964
+const CARMODOO_PRINT_HEADER_TOP = 26
+const CARMODOO_PRINT_FOOTER_TOP = 984
+const CARMODOO_PRINT_BROWSER_TEXT_LEFT = 45
+const CARMODOO_PRINT_BROWSER_TEXT_RIGHT = 45
+const CARMODOO_PRINT_BROWSER_TEXT_SIZE = 12
 
 export type PerformanceCheckPageRenderer = (
   page: HTMLElement
@@ -353,10 +360,14 @@ function canvasToJpegBytes(
   })
 }
 
+function getPageRenderScale() {
+  return Math.max(1, Math.min(window.devicePixelRatio || 1, 2))
+}
+
 const renderPageWithHtml2Canvas: PerformanceCheckPageRenderer = (page) =>
   html2canvas(page, {
     backgroundColor: '#ffffff',
-    scale: Math.max(1, Math.min(window.devicePixelRatio || 1, 2)),
+    scale: getPageRenderScale(),
   })
 
 function escapeCssString(value: string) {
@@ -586,6 +597,201 @@ async function captureHtmlPageImages({
 
       const canvas = await withAbort(
         withImageTimeout(renderPage(page), timeoutMs),
+        signal
+      )
+      assertNotAborted(signal)
+
+      images.push(
+        await withAbort(
+          canvasToJpegBytes(canvas, jpegQuality, timeoutMs),
+          signal
+        )
+      )
+    }
+
+    return images
+  } finally {
+    iframe.remove()
+  }
+}
+
+function restoreStyleProperty(
+  element: HTMLElement,
+  property: string,
+  value: string,
+  priority: string
+) {
+  if (value) {
+    element.style.setProperty(property, value, priority)
+    return
+  }
+
+  element.style.removeProperty(property)
+}
+
+function drawCarmodooPrintBrowserText(
+  context: CanvasRenderingContext2D,
+  sheet: HTMLElement
+) {
+  const header = sheet.querySelector<HTMLElement>(
+    '.carmodoo-print-browser-header'
+  )
+  const footer = sheet.querySelector<HTMLElement>(
+    '.carmodoo-print-browser-footer'
+  )
+  const headerDate = header?.children.item(0)?.textContent ?? ''
+  const headerTitle = header?.children.item(1)?.textContent ?? ''
+  const footerUrl = footer?.children.item(0)?.textContent ?? ''
+  const footerPage = footer?.children.item(1)?.textContent ?? ''
+  const rightEdge =
+    CARMODOO_PRINT_SHEET_WIDTH - CARMODOO_PRINT_BROWSER_TEXT_RIGHT
+
+  context.fillStyle = '#000'
+  context.font = `${CARMODOO_PRINT_BROWSER_TEXT_SIZE}px Dotum, Arial, sans-serif`
+  context.textBaseline = 'top'
+  context.fillText(
+    headerDate,
+    CARMODOO_PRINT_BROWSER_TEXT_LEFT,
+    CARMODOO_PRINT_HEADER_TOP
+  )
+  context.fillText(
+    headerTitle,
+    CARMODOO_PRINT_SHEET_WIDTH / 2 - context.measureText(headerTitle).width / 2,
+    CARMODOO_PRINT_HEADER_TOP
+  )
+  context.fillText(
+    footerUrl,
+    CARMODOO_PRINT_BROWSER_TEXT_LEFT,
+    CARMODOO_PRINT_FOOTER_TOP
+  )
+  context.fillText(
+    footerPage,
+    rightEdge - context.measureText(footerPage).width,
+    CARMODOO_PRINT_FOOTER_TOP
+  )
+}
+
+async function renderCarmodooPrintSheet({
+  renderContent,
+  sheet,
+}: {
+  renderContent: PerformanceCheckPageRenderer
+  sheet: HTMLElement
+}) {
+  const ownerDocument = sheet.ownerDocument
+  const canvas = ownerDocument.createElement('canvas')
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    throw new Error('성능점검기록부 이미지를 만들 수 없습니다.')
+  }
+
+  const renderScale = getPageRenderScale()
+  canvas.width = Math.ceil(CARMODOO_PRINT_SHEET_WIDTH * renderScale)
+  canvas.height = Math.ceil(CARMODOO_PRINT_SHEET_HEIGHT * renderScale)
+
+  const content = sheet.querySelector<HTMLElement>('.carmodoo-print-content')
+  const pageWrap = sheet.querySelector<HTMLElement>('.page_wrap')
+
+  if (!content || !pageWrap) {
+    throw new Error('성능점검기록부 페이지를 찾지 못했습니다.')
+  }
+
+  const previousTransform = content.style.getPropertyValue('transform')
+  const previousTransformPriority =
+    content.style.getPropertyPriority('transform')
+
+  content.style.setProperty('transform', 'none', 'important')
+
+  try {
+    const contentCanvas = await renderContent(pageWrap)
+
+    context.save()
+    context.scale(renderScale, renderScale)
+    context.fillStyle = '#ffffff'
+    context.fillRect(
+      0,
+      0,
+      CARMODOO_PRINT_SHEET_WIDTH,
+      CARMODOO_PRINT_SHEET_HEIGHT
+    )
+    context.drawImage(
+      contentCanvas,
+      CARMODOO_PRINT_CONTENT_LEFT,
+      CARMODOO_PRINT_CONTENT_TOP,
+      CARMODOO_PRINT_CONTENT_WIDTH * CARMODOO_PRINT_CONTENT_SCALE,
+      CARMODOO_PRINT_CONTENT_HEIGHT * CARMODOO_PRINT_CONTENT_SCALE
+    )
+    drawCarmodooPrintBrowserText(context, sheet)
+    context.restore()
+
+    return canvas
+  } finally {
+    restoreStyleProperty(
+      content,
+      'transform',
+      previousTransform,
+      previousTransformPriority
+    )
+  }
+}
+
+async function captureCarmodooHtmlImages({
+  assetProxyPath,
+  jpegQuality,
+  ownerDocument,
+  proxyPath,
+  renderPage,
+  signal,
+  timeoutMs,
+  url,
+}: {
+  assetProxyPath: string
+  jpegQuality: number
+  ownerDocument: Document
+  proxyPath: string
+  renderPage: PerformanceCheckPageRenderer
+  signal?: AbortSignal
+  timeoutMs: number
+  url: string
+}) {
+  const iframe = createCaptureFrame(
+    ownerDocument,
+    buildProxiedCheckPaperUrl(url, proxyPath)
+  )
+
+  try {
+    const frameDocument = await waitForFrameDocument({
+      iframe,
+      signal,
+      timeoutMs,
+    })
+    assertNotAborted(signal)
+    prepareCarmodooFrameDocument(frameDocument, assetProxyPath, url)
+
+    const sheets = Array.from(
+      frameDocument.querySelectorAll<HTMLElement>(
+        '[data-performance-check-sheet="carmodoo"]'
+      )
+    )
+
+    if (sheets.length === 0) {
+      throw new Error('성능점검기록부 페이지를 찾지 못했습니다.')
+    }
+
+    const images: Uint8Array[] = []
+
+    for (const sheet of sheets) {
+      assertNotAborted(signal)
+
+      const canvas = await withAbort(
+        withImageTimeout(
+          renderCarmodooPrintSheet({
+            renderContent: renderPage,
+            sheet,
+          }),
+          timeoutMs
+        ),
         signal
       )
       assertNotAborted(signal)
@@ -844,13 +1050,12 @@ function injectCarmodooPrintLayout(
       color: #333 !important;
       font-size: 7.5pt !important;
     }
-    /* html2canvas renders Carmodoo's Korean fallback font taller than Chrome's print preview. */
     .repaircheck_box .repair_position {
       padding: 4.5pt 0 !important;
     }
     .repaircheck_box table thead th {
-      font-size: 14px !important;
-      line-height: 1.05 !important;
+      font-size: 15px !important;
+      line-height: 1 !important;
       padding: 3.5pt 0 !important;
       text-align: center !important;
     }
@@ -871,10 +1076,10 @@ function injectCarmodooPrintLayout(
     }
     .repaircheck_box table tbody th {
       box-sizing: border-box !important;
-      font-size: 12px !important;
+      font-size: 13px !important;
       font-weight: normal !important;
       letter-spacing: -2px !important;
-      line-height: 1.05 !important;
+      line-height: 1.1 !important;
       padding: 0 3px !important;
       word-break: normal !important;
       word-wrap: break-word !important;
@@ -888,13 +1093,13 @@ function injectCarmodooPrintLayout(
     }
     .repaircheck_box td {
       box-sizing: border-box !important;
-      font-size: 13px !important;
+      font-size: 14px !important;
       letter-spacing: -1px !important;
-      line-height: 1.05 !important;
+      line-height: 1.1 !important;
       padding: 1px 3px !important;
     }
     .repaircheck_box td.mark {
-      font-size: 11px !important;
+      font-size: 12px !important;
     }
     .repaircheck_box td label {
       line-height: 1 !important;
@@ -903,7 +1108,7 @@ function injectCarmodooPrintLayout(
       padding: 1px 3px !important;
     }
     .repaircheck_box table.td_padd tbody th {
-      font-size: 13px !important;
+      font-size: 14px !important;
       letter-spacing: -2px !important;
       padding: 0 3px !important;
     }
@@ -1028,16 +1233,10 @@ const carmodooHtmlProvider: PerformanceCheckCaptureProvider = {
   id: 'carmodoo-html',
   canHandle: isCarmodooPrintUrl,
   capture(url, context) {
-    return captureHtmlPageImages({
+    return captureCarmodooHtmlImages({
+      assetProxyPath: context.assetProxyPath,
       jpegQuality: context.jpegQuality,
       ownerDocument: context.ownerDocument,
-      pageSelector: '[data-performance-check-sheet="carmodoo"]',
-      prepareFrameDocument: (frameDocument) =>
-        prepareCarmodooFrameDocument(
-          frameDocument,
-          context.assetProxyPath,
-          url.toString()
-        ),
       proxyPath: context.proxyPath,
       renderPage: context.renderPage,
       signal: context.signal,

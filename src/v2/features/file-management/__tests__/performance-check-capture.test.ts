@@ -180,12 +180,37 @@ describe('capturePerformanceCheckImages', () => {
   })
 
   it('captures Carmodoo print preview sheets with injected print layout', async () => {
-    const firstCanvas = createCanvas([11, 12])
-    const secondCanvas = createCanvas([13, 14])
+    const firstContentCanvas = { height: 950, width: 1400 } as HTMLCanvasElement
+    const secondContentCanvas = {
+      height: 950,
+      width: 1400,
+    } as HTMLCanvasElement
+    const createContext = () => ({
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 24 })),
+      restore: vi.fn(),
+      save: vi.fn(),
+      scale: vi.fn(),
+      set fillStyle(_value: string) {},
+      set font(_value: string) {},
+      set textBaseline(_value: CanvasTextBaseline) {},
+    })
+    const firstContext = createContext()
+    const secondContext = createContext()
+    const firstCanvas = Object.assign(createCanvas([11, 12]), {
+      getContext: vi.fn(() => firstContext),
+    })
+    const secondCanvas = Object.assign(createCanvas([13, 14]), {
+      getContext: vi.fn(() => secondContext),
+    })
+    const outputCanvases = [firstCanvas, secondCanvas]
+
     const renderPage = vi
       .fn<PerformanceCheckPageRenderer>()
       .mockImplementationOnce(async (page) => {
-        expect(page.dataset.performanceCheckSheet).toBe('carmodoo')
+        expect(page.id).toBe('spread-one')
         expect(
           page.ownerDocument.querySelector(
             'style[data-performance-check-provider="carmodoo-html"]'
@@ -202,13 +227,13 @@ describe('capturePerformanceCheckImages', () => {
           )?.textContent
         ).toContain('transform: scale(0.964)')
         expect(
-          page.ownerDocument.querySelector(
-            'style[data-performance-check-provider="carmodoo-html"]'
-          )?.textContent
-        ).toContain('font-size: 12px')
-        expect(page.querySelector('.page_wrap')?.id).toBe('spread-one')
-        expect(page.textContent).toContain(carmodooSourceUrl)
-        expect(page.textContent).toContain('1/2')
+          page
+            .closest<HTMLElement>('.carmodoo-print-content')
+            ?.style.getPropertyValue('transform')
+        ).toBe('none')
+        expect(
+          page.closest('[data-performance-check-sheet="carmodoo"]')?.textContent
+        ).toContain(carmodooSourceUrl)
         expect(page.querySelectorAll('input[type="checkbox"]')).toHaveLength(0)
         const checkboxes = page.querySelectorAll(
           '[data-performance-check-checkbox="carmodoo"]'
@@ -216,13 +241,14 @@ describe('capturePerformanceCheckImages', () => {
         expect(checkboxes).toHaveLength(2)
         expect(checkboxes[0].getAttribute('data-checked')).toBe('true')
         expect(checkboxes[1].getAttribute('data-checked')).toBe('false')
-        return firstCanvas
+        return firstContentCanvas
       })
       .mockImplementationOnce(async (page) => {
-        expect(page.dataset.performanceCheckSheet).toBe('carmodoo')
-        expect(page.querySelector('.page_wrap')?.id).toBe('spread-two')
-        expect(page.textContent).toContain('2/2')
-        return secondCanvas
+        expect(page.id).toBe('spread-two')
+        expect(
+          page.closest('[data-performance-check-sheet="carmodoo"]')?.textContent
+        ).toContain('2/2')
+        return secondContentCanvas
       })
     const fetchPdf = vi.fn()
     const renderPdfPages = vi.fn()
@@ -237,6 +263,28 @@ describe('capturePerformanceCheckImages', () => {
 
     const iframe = document.querySelector('iframe') as HTMLIFrameElement
     expect(iframe.getAttribute('src')).toBe(proxiedCarmodooSourceUrl)
+    const frameDocument = iframe.contentDocument
+
+    if (!frameDocument) {
+      throw new Error('iframe document was not created')
+    }
+
+    const originalCreateElement =
+      frameDocument.createElement.bind(frameDocument)
+    vi.spyOn(frameDocument, 'createElement').mockImplementation(
+      (tagName, options) => {
+        if (tagName === 'canvas') {
+          const canvas = outputCanvases.shift()
+          if (!canvas) {
+            throw new Error('Unexpected canvas creation')
+          }
+
+          return canvas
+        }
+
+        return originalCreateElement(tagName, options)
+      }
+    )
 
     addPagesToIframe(`
       <div class="repaircheck_box">
@@ -257,15 +305,43 @@ describe('capturePerformanceCheckImages', () => {
     expect(fetchPdf).not.toHaveBeenCalled()
     expect(renderPdfPages).not.toHaveBeenCalled()
     expect(renderPage).toHaveBeenCalledTimes(2)
+    expect(firstContext.drawImage).toHaveBeenCalledWith(
+      firstContentCanvas,
+      45,
+      66,
+      1349.6,
+      915.8
+    )
+    expect(secondContext.drawImage).toHaveBeenCalledWith(
+      secondContentCanvas,
+      45,
+      66,
+      1349.6,
+      915.8
+    )
     expect(document.querySelector('iframe')).toBeNull()
   })
 
   it('uses the Carmodoo provider after resolving an autocafe URL', async () => {
-    const canvas = createCanvas([21])
+    const contentCanvas = { height: 950, width: 1400 } as HTMLCanvasElement
+    const outputCanvas = Object.assign(createCanvas([21]), {
+      getContext: vi.fn(() => ({
+        drawImage: vi.fn(),
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+        measureText: vi.fn(() => ({ width: 24 })),
+        restore: vi.fn(),
+        save: vi.fn(),
+        scale: vi.fn(),
+        set fillStyle(_value: string) {},
+        set font(_value: string) {},
+        set textBaseline(_value: CanvasTextBaseline) {},
+      })),
+    })
     const resolvePrintableUrl = vi.fn(async () => carmodooSourceUrl)
     const renderPage = vi
       .fn<PerformanceCheckPageRenderer>()
-      .mockResolvedValue(canvas)
+      .mockResolvedValue(contentCanvas)
     const fetchPdf = vi.fn()
 
     const capturePromise = capturePerformanceCheckImages(autocafeSourceUrl, {
@@ -278,6 +354,23 @@ describe('capturePerformanceCheckImages', () => {
 
     const iframe = document.querySelector('iframe') as HTMLIFrameElement
     expect(iframe.getAttribute('src')).toBe(proxiedCarmodooSourceUrl)
+    const frameDocument = iframe.contentDocument
+
+    if (!frameDocument) {
+      throw new Error('iframe document was not created')
+    }
+
+    const originalCreateElement =
+      frameDocument.createElement.bind(frameDocument)
+    vi.spyOn(frameDocument, 'createElement').mockImplementation(
+      (tagName, options) => {
+        if (tagName === 'canvas') {
+          return outputCanvas
+        }
+
+        return originalCreateElement(tagName, options)
+      }
+    )
 
     addPagesToIframe(
       '<div class="repaircheck_box"><section class="page_wrap"></section></div>'
