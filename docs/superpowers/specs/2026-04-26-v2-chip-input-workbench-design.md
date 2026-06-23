@@ -54,7 +54,7 @@ Truck Harvester v2의 주 사용자는 인터넷 사용에 익숙하지 않은 4
 
 - 제목: `매물 주소 넣기`
 - 안내 문구: `복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다.`
-- placeholder: `예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798`
+- placeholder: `예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3`
 - 입력 영역은 textarea처럼 보이지만 내부에 칩이 쌓이는 tag input 형태다.
 - 사용자는 여러 줄, 띄어쓰기, 문장이 섞인 내용을 붙여넣을 수 있다.
 - 칩 상태:

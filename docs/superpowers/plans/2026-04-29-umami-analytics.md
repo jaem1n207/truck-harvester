@@ -637,7 +637,7 @@ it('tracks batch and preview completion without success listing identifiers', as
   })
 
   const textarea = container.querySelector(
-    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798"]'
+    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3"]'
   )
 
   if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -887,7 +887,7 @@ it('tracks preview failures with listing url but without vehicle identifiers', a
   })
 
   const textarea = container.querySelector(
-    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798"]'
+    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3"]'
   )
 
   if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -973,7 +973,7 @@ it('tracks invalid listing identity as an invalid_url failure', async () => {
   })
 
   const textarea = container.querySelector(
-    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798"]'
+    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3"]'
   )
 
   if (!(textarea instanceof HTMLTextAreaElement)) {
@@ -1176,7 +1176,7 @@ it('tracks save failures with vehicle identifiers for parsed listings', async ()
   })
 
   const textarea = container.querySelector(
-    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798"]'
+    'textarea[placeholder="예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3"]'
   )
 
   if (!(textarea instanceof HTMLTextAreaElement)) {
