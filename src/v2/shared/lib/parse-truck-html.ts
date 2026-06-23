@@ -1,6 +1,7 @@
 import { load } from 'cheerio'
 
 import { truckListingSchema, type TruckListing } from '@/v2/entities/truck'
+import type { SmartStoreTable } from '@/v2/entities/truck/model'
 
 function normalizeOptionalUrl(href: string | undefined, baseUrl: string) {
   if (!href || href.trim().length === 0) {
@@ -44,6 +45,102 @@ function extractPerformanceCheckUrl(
     )
 
   return normalizeOptionalUrl(candidate?.href, listingUrl)
+}
+
+const missingSmartStoreInfoLabel = '정보 없음'
+
+function normalizeContentText(value: string) {
+  return value
+    .replace(/\u00a0/g, ' ')
+    .replace(/^[\s·•]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getCarDetailText($: ReturnType<typeof load>, label: string) {
+  let detailText: string | undefined
+
+  $('.car-detail dl dt').each((_, element) => {
+    if (detailText) {
+      return
+    }
+
+    const term = normalizeContentText($(element).text())
+
+    if (term === label) {
+      detailText = normalizeContentText($(element).next('dd').text())
+    }
+  })
+
+  return detailText
+}
+
+function formatInitialRegistrationLabel(value: string | undefined) {
+  const compactDate = value?.match(/(\d{8})\s*최초등록/)?.[1]
+
+  if (!compactDate) {
+    return undefined
+  }
+
+  const year = Number.parseInt(compactDate.slice(0, 4), 10)
+  const month = Number.parseInt(compactDate.slice(4, 6), 10)
+  const day = Number.parseInt(compactDate.slice(6, 8), 10)
+  const parsedDate = new Date(year, month - 1, day)
+
+  if (
+    parsedDate.getFullYear() !== year ||
+    parsedDate.getMonth() !== month - 1 ||
+    parsedDate.getDate() !== day
+  ) {
+    return undefined
+  }
+
+  return `${year}년 ${month}월 등록`
+}
+
+function extractVcontentField($: ReturnType<typeof load>, label: string) {
+  const fieldPattern = new RegExp(`^${label}\\s*:\\s*(.*)$`)
+
+  for (const element of $('.vcontent p').toArray()) {
+    const normalizedText = normalizeContentText($(element).text())
+    const match = normalizedText.match(fieldPattern)
+    const value = normalizeContentText(match?.[1] ?? '')
+
+    if (value) {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+function buildSmartStoreTable({
+  $,
+  fallbackMileage,
+  fallbackVehicleName,
+  fallbackVehicleNumber,
+  fallbackYear,
+}: {
+  $: ReturnType<typeof load>
+  fallbackMileage: string
+  fallbackVehicleName: string
+  fallbackVehicleNumber: string
+  fallbackYear: string
+}): SmartStoreTable {
+  const upperInfo = extractVcontentField($, '상부')
+  const lowerInfo = extractVcontentField($, '하부')
+
+  return {
+    vehicleName: extractVcontentField($, '차명') ?? fallbackVehicleName,
+    registrationLabel:
+      formatInitialRegistrationLabel(getCarDetailText($, '년형 | 등록')) ??
+      fallbackYear,
+    mileage: fallbackMileage,
+    vehicleNumber: fallbackVehicleNumber,
+    upperInfo: upperInfo ?? missingSmartStoreInfoLabel,
+    lowerInfo: lowerInfo ?? missingSmartStoreInfoLabel,
+    hasVehicleInfo: Boolean(upperInfo || lowerInfo),
+  }
 }
 
 function buildCompactPriceLabel(priceRaw: number) {
@@ -109,14 +206,7 @@ export function parseTruckHtml(html: string, url: string): TruckListing {
     }
   })
 
-  let extractedVehicleName = ''
-  $('.vcontent p font span b span').each((_, element) => {
-    const spanText = $(element).text().trim()
-
-    if (spanText.startsWith('차명:') && !extractedVehicleName) {
-      extractedVehicleName = spanText.replace('차명:', '').trim()
-    }
-  })
+  const extractedVehicleName = extractVcontentField($, '차명')
 
   let options = '기타사항 정보 없음'
   const vcontentHtml = $('.vcontent').html()
@@ -162,6 +252,13 @@ export function parseTruckHtml(html: string, url: string): TruckListing {
     year,
     mileage,
     options,
+    smartStoreTable: buildSmartStoreTable({
+      $,
+      fallbackMileage: mileage,
+      fallbackVehicleName: extractedVehicleName || vname,
+      fallbackVehicleNumber: vnumber,
+      fallbackYear: year,
+    }),
     images: Array.from(new Set(images)),
   })
 }
