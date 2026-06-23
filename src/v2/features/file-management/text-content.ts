@@ -1,8 +1,47 @@
-import { type TruckListing } from '@/v2/entities/truck'
+import { type SmartStoreTable, type TruckListing } from '@/v2/entities/truck'
 
 import { buildVehicleImageFileName } from './filename'
 
+const missingSmartStoreInfoLabel = '정보 없음'
+
+function buildFallbackSmartStoreTable(truck: TruckListing): SmartStoreTable {
+  return {
+    vehicleName: truck.vehicleName,
+    registrationLabel: truck.year,
+    mileage: truck.mileage,
+    vehicleNumber: truck.vnumber,
+    upperInfo: missingSmartStoreInfoLabel,
+    lowerInfo: missingSmartStoreInfoLabel,
+    hasVehicleInfo: false,
+  }
+}
+
+function buildSmartStoreTableDetails(table: SmartStoreTable) {
+  const baseRows = [
+    `  차명 : ${table.vehicleName}`,
+    `  연식 : ${table.registrationLabel}`,
+    `  주행거리 : ${table.mileage}`,
+    `  차량번호 : ${table.vehicleNumber}`,
+  ]
+
+  if (!table.hasVehicleInfo) {
+    return [...baseRows, `  차량정보 : ${missingSmartStoreInfoLabel}`].join(
+      '\n'
+    )
+  }
+
+  return [
+    ...baseRows,
+    '  차량정보 :',
+    `    상부 : ${table.upperInfo}`,
+    `    하부 : ${table.lowerInfo}`,
+  ].join('\n')
+}
+
 export function buildTruckTextContent(truck: TruckListing) {
+  const smartStoreDetails = buildSmartStoreTableDetails(
+    truck.smartStoreTable ?? buildFallbackSmartStoreTable(truck)
+  )
   const imageUrls =
     truck.images.length > 0
       ? truck.images
@@ -28,7 +67,8 @@ ${truck.vname} 매매 가격 시세
 
 주행거리 :  ${truck.mileage}
 
-기타사항 :  ${truck.options}
+기타사항 :
+${smartStoreDetails}
 
 
 
