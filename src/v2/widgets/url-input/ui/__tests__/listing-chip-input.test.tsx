@@ -19,7 +19,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
 
 const listingUrlPlaceholder =
-  '예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=30195108&MemberNo=1000294965&OnCarNo=2026300060798'
+  '예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3'
 const listingUrlPlaceholderHtml = listingUrlPlaceholder.replaceAll('&', '&amp;')
 
 let root: Root | null = null
