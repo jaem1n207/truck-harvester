@@ -4,6 +4,8 @@
 
 **Goal:** Save manuscript files whose `기타사항` block contains the exact SmartStore table fields staff need: `차명`, `연식`, `주행거리`, `차량번호`, and `차량정보`.
 
+**Status:** Completed and PR-updated on 2026-06-23. The shipped behavior also preserves continuation paragraphs under `상부` and `하부`, then indents continuation lines in the saved manuscript.
+
 **Architecture:** Add a SmartStore table value object to the truck entity schema while keeping it optional at the API boundary for existing mocks and backward-compatible parsed payloads. The live truck-no1 HTML parser will always populate the value object from `년형 | 등록` and `상세설명`, and the file-management text generator will render only that value object, with a local fallback for old listing objects that do not carry it yet.
 
 **Tech Stack:** Next.js App Router, TypeScript strict mode, Zod, Cheerio, Vitest, JSZip, File System Access API test doubles.
@@ -21,9 +23,10 @@
   - Extracts `최초등록`, `차명`, `상부`, and `하부` from truck-no1 HTML.
   - Produces a `smartStoreTable` value on every live parsed listing.
 - Modify `src/v2/shared/lib/__tests__/parse-truck-html.test.ts`
-  - Covers the 822수2698 full-detail case, empty `차명/상부/하부`, one-sided `상부/하부`, and invalid registration fallback.
+  - Covers the 822수2698 full-detail case, empty `차명/상부/하부`, one-sided `상부/하부`, multiline `상부/하부` continuation paragraphs, and invalid registration fallback.
 - Modify `src/v2/features/file-management/text-content.ts`
   - Renders the new indented `기타사항` block.
+  - Indents continuation lines inside multiline `상부` and `하부` values.
   - Builds a safe fallback table if a listing lacks `smartStoreTable`.
 - Create `src/v2/features/file-management/__tests__/text-content.test.ts`
   - Tests the manuscript text directly without file-system mocks.
@@ -876,11 +879,19 @@ feat: 스마트스토어 원고 표 계약 추가
 - Spec coverage:
   - `smartStoreTable` contract is covered by Task 1.
   - `최초등록` date extraction and `yyyy년 m월 등록` formatting are covered by Task 2.
-  - Empty `차명/상부/하부` fallback and one-sided `상부/하부` behavior are covered by Task 2 and Task 3.
-  - Indented `기타사항` rendering is covered by Task 3.
+  - Empty `차명/상부/하부` fallback, one-sided `상부/하부` behavior, and multiline continuation paragraph preservation are covered by Task 2 and Task 3.
+  - Indented `기타사항` rendering and multiline continuation indentation are covered by Task 3.
   - Directory and ZIP saved manuscripts are covered by Task 4.
 - Ambiguity scan:
   - The plan has no vague markers or unspecified implementation step.
   - Verification steps have concrete commands and expected results.
 - Type consistency:
   - The plan consistently uses `SmartStoreTable`, `smartStoreTable`, `vehicleName`, `registrationLabel`, `mileage`, `vehicleNumber`, `upperInfo`, `lowerInfo`, and `hasVehicleInfo`.
+
+## Completion Evidence
+
+- `bun run test -- --run src/v2/shared/lib/__tests__/parse-truck-html.test.ts src/v2/features/file-management/__tests__/text-content.test.ts`
+- `bun run test -- --run`
+- `bun run typecheck`
+- `bun run lint`
+- `bun run format:check`
