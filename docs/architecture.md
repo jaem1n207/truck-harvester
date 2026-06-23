@@ -142,22 +142,20 @@ folder before SmartStore registration.
 `POST /api/v2/parse-truck` returns `performanceCheckUrl` when the listing page
 contains a `성능점검보기` link. During save, the client asks the same-origin
 CheckPaper routes to resolve the record and then chooses the supported renderer:
-existing CheckPaper `record.do` PDF pages are rendered as JPGs, and Carmodoo
-`carmodooPrint.do?checkNum=...` HTML records are captured from their 2-up
-print layout as JPGs. Carmodoo records are first wrapped in a landscape
-print-preview sheet with the same browser-style page margins, header, footer,
-and fitted content scale. The Carmodoo table content is rasterized before that
-scale is applied, then composited onto the final sheet so html2canvas does not
-reinterpret a transformed table layout.
+existing CheckPaper `record.do` PDF pages are rendered as JPGs in the browser,
+and Carmodoo `carmodooPrint.do?checkNum=7126000658` HTML records are rendered
+through a same-origin native browser renderer API so the saved JPGs match the
+browser layout.
 
 - `GET /api/v2/checkpaper` fetches supported CheckPaper or intermediate pages,
   follows redirects, and rewrites assets to same-origin URLs.
 - `GET /api/v2/checkpaper/asset` proxies supported CSS, image, script, and
   printable record assets.
+- `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs and
+  returns the rendered JPG pages for the save flow.
 
-The browser renders the supported record pages and converts each output page to
-a JPG image. The app does not upload these records anywhere; it only saves them
-into the user's selected folder or ZIP file.
+The app does not upload these records anywhere; it only saves them into the
+user's selected folder or ZIP file. Performance-check saving remains non-fatal.
 
 ## Layer Responsibilities
 
