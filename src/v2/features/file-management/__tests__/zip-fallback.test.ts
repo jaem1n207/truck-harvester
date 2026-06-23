@@ -24,6 +24,15 @@ const listing: TruckListing = {
   year: '2020',
   mileage: '150,000km',
   options: '냉동탑 / 후방카메라',
+  smartStoreTable: {
+    vehicleName: '2020년 현대 마이티',
+    registrationLabel: '2020년 6월 등록',
+    mileage: '150,000km',
+    vehicleNumber: '12가/3456',
+    upperInfo: '냉동탑',
+    lowerInfo: '후방카메라',
+    hasVehicleInfo: true,
+  },
   images: [
     'https://img.example.com/one.jpg',
     'https://img.example.com/two.jpg',
@@ -74,6 +83,15 @@ describe('createTruckZipBlob', () => {
     await expect(
       zip.file('12가_3456/원고/12가_3456 원고.txt')!.async('string')
     ).resolves.toContain('차량번호 :  12가/3456')
+    await expect(zip.file('12가_3456/원고/12가_3456 원고.txt')!.async('string'))
+      .resolves.toContain(`기타사항 :
+  차명 : 2020년 현대 마이티
+  연식 : 2020년 6월 등록
+  주행거리 : 150,000km
+  차량번호 : 12가/3456
+  차량정보 :
+    상부 : 냉동탑
+    하부 : 후방카메라`)
     await expect(
       zip.file('12가_3456/원고/12가_3456 원고.txt')!.async('string')
     ).resolves.toContain('#사진:K-001.jpg')

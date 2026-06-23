@@ -46,6 +46,15 @@ export const buildTruckListing = (url: string, index: number) => ({
   year: `20${19 + index}`,
   mileage: `${80_000 + index * 12_500}km`,
   options: '냉동탑 / 후방카메라 / 블랙박스',
+  smartStoreTable: {
+    vehicleName: `현대 메가트럭 냉동탑 ${index}`,
+    registrationLabel: `20${19 + index}년 등록`,
+    mileage: `${80_000 + index * 12_500}km`,
+    vehicleNumber: `서울${String(index).padStart(2, '0')}가${1234 + index}`,
+    upperInfo: '냉동탑',
+    lowerInfo: '후방카메라',
+    hasVehicleInfo: true,
+  },
   images: [],
 })
 
