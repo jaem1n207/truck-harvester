@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GET } from '../route'
 
 const sourceUrl = 'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'
+const carmodooCssUrl = 'https://ck.carmodoo.com/css/print_repair.css?ver=2'
 
 function createRequest(url: string) {
   return new Request(
@@ -147,6 +148,32 @@ describe('GET /api/v2/checkpaper/asset', () => {
       )
     )
     expect(rewritten).toContain('data:image/png;base64,abc')
+  })
+
+  it('rewrites relative Carmodoo css references when serving css assets', async () => {
+    const css = `
+      .repaircheck_box input:checked { background-image: url(/images/input_checkbox.png); }
+      .photo { background: url('../images/check/icon_w.png'); }
+    `
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(css, {
+        status: 200,
+        headers: { 'content-type': 'text/css; charset=utf-8' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await GET(createRequest(carmodooCssUrl))
+    const rewritten = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('text/css; charset=utf-8')
+    expect(rewritten).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/images/input_checkbox.png')
+    )
+    expect(rewritten).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/images/check/icon_w.png')
+    )
   })
 
   it('handles redirect to allowed host and rewrites using the final URL', async () => {
