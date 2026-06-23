@@ -16,6 +16,18 @@ function buildFallbackSmartStoreTable(truck: TruckListing): SmartStoreTable {
   }
 }
 
+function buildVehicleInfoRow(label: string, value: string) {
+  const [firstLine = missingSmartStoreInfoLabel, ...restLines] = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  return [
+    `    ${label} : ${firstLine}`,
+    ...restLines.map((line) => `      ${line}`),
+  ].join('\n')
+}
+
 function buildSmartStoreTableDetails(table: SmartStoreTable) {
   const baseRows = [
     `  차명 : ${table.vehicleName}`,
@@ -33,8 +45,8 @@ function buildSmartStoreTableDetails(table: SmartStoreTable) {
   return [
     ...baseRows,
     '  차량정보 :',
-    `    상부 : ${table.upperInfo}`,
-    `    하부 : ${table.lowerInfo}`,
+    buildVehicleInfoRow('상부', table.upperInfo),
+    buildVehicleInfoRow('하부', table.lowerInfo),
   ].join('\n')
 }
 

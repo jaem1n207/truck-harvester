@@ -88,6 +88,30 @@ describe('buildTruckTextContent', () => {
     하부 : 정보 없음`)
   })
 
+  it('keeps multiline upper and lower values readable in the smart store block', () => {
+    const content = buildTruckTextContent({
+      ...listing,
+      smartStoreTable: {
+        vehicleName: '봉고3 1톤930바가지차',
+        registrationLabel: '2023년 2월 등록',
+        mileage: '91,000km',
+        vehicleNumber: '90로1234',
+        upperInfo:
+          '동해930, 인버터,유/무선리모컨, 작업다이, 공구함\n동해기계항공 용인 서비스센터에서 점검 완료\n작업 높이: 8.9m, 작업 반경: 6.4m',
+        lowerInfo:
+          '오토미션, 133마력, 요소수 타입, 실내클리닝 완료\n하부 추가 점검 완료',
+        hasVehicleInfo: true,
+      },
+    })
+
+    expect(content).toContain(`  차량정보 :
+    상부 : 동해930, 인버터,유/무선리모컨, 작업다이, 공구함
+      동해기계항공 용인 서비스센터에서 점검 완료
+      작업 높이: 8.9m, 작업 반경: 6.4m
+    하부 : 오토미션, 133마력, 요소수 타입, 실내클리닝 완료
+      하부 추가 점검 완료`)
+  })
+
   it('builds a safe table fallback when a legacy listing lacks smartStoreTable', () => {
     const { smartStoreTable: _unused, ...legacyListing } = listing
     const content = buildTruckTextContent(legacyListing)
