@@ -59,7 +59,10 @@ type LaunchedRendererBrowser = RendererBrowser & {
 }
 
 type RendererLauncher = {
-  launch: (options: { headless: true }) => Promise<LaunchedRendererBrowser>
+  launch: (options: {
+    headless: true
+    timeout: number
+  }) => Promise<LaunchedRendererBrowser>
 }
 
 function createRenderTimeoutBudget(totalMs: number) {
@@ -78,7 +81,30 @@ function createRenderTimeoutBudget(totalMs: number) {
   }
 }
 
-type RenderTimeoutBudget = ReturnType<typeof createRenderTimeoutBudget>
+export type RenderTimeoutBudget = ReturnType<typeof createRenderTimeoutBudget>
+
+export async function withRenderTimeout<T>(
+  promise: Promise<T>,
+  timeoutBudget: RenderTimeoutBudget
+) {
+  const timeoutMs = timeoutBudget.getRemainingMs()
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(CARMODOO_RENDER_TIMEOUT_MESSAGE))
+        }, timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
 
 function getAllowedProductionOrigin() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
@@ -103,8 +129,7 @@ function assertTrustedRenderOrigin(origin: string) {
     throw new Error(CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE)
   }
 
-  const allowsLocalDevOrigins =
-    process.env.NODE_ENV !== 'production' || process.env.VITEST !== undefined
+  const allowsLocalDevOrigins = process.env.NODE_ENV !== 'production'
   const isLocalDevOrigin =
     allowsLocalDevOrigins &&
     parsedOrigin.protocol === 'http:' &&
@@ -235,31 +260,53 @@ export async function renderCarmodooNativeImagesWithLauncher(
   sourceUrl: string,
   {
     origin,
+    timeoutBudget,
     timeoutMs = DEFAULT_CARMODOO_RENDER_TIMEOUT_MS,
-  }: { origin: string; timeoutMs?: number }
+  }: { origin: string; timeoutBudget?: RenderTimeoutBudget; timeoutMs?: number }
 ) {
-  const timeoutBudget = createRenderTimeoutBudget(timeoutMs)
-  timeoutBudget.getRemainingMs()
+  const renderTimeoutBudget =
+    timeoutBudget ?? createRenderTimeoutBudget(timeoutMs)
+  renderTimeoutBudget.getRemainingMs()
   const browser = await launcher.launch({
     headless: true,
+    timeout: renderTimeoutBudget.getRemainingMs(),
   })
 
   try {
-    timeoutBudget.getRemainingMs()
+    renderTimeoutBudget.getRemainingMs()
     return await renderCarmodooNativeImagesWithBrowser(browser, sourceUrl, {
       origin,
-      timeoutBudget,
+      timeoutBudget: renderTimeoutBudget,
     })
   } finally {
     await browser.close()
   }
 }
 
+export async function renderCarmodooNativeImagesWithPlaywrightImport(
+  loadPlaywright: () => Promise<{ chromium: RendererLauncher }>,
+  sourceUrl: string,
+  {
+    origin,
+    timeoutMs = DEFAULT_CARMODOO_RENDER_TIMEOUT_MS,
+  }: { origin: string; timeoutMs?: number }
+) {
+  const timeoutBudget = createRenderTimeoutBudget(timeoutMs)
+  const { chromium } = await withRenderTimeout(loadPlaywright(), timeoutBudget)
+
+  return renderCarmodooNativeImagesWithLauncher(chromium, sourceUrl, {
+    origin,
+    timeoutBudget,
+  })
+}
+
 export async function renderCarmodooNativeImages(
   sourceUrl: string,
   options: { origin: string }
 ) {
-  const { chromium } = await import('playwright')
-
-  return renderCarmodooNativeImagesWithLauncher(chromium, sourceUrl, options)
+  return renderCarmodooNativeImagesWithPlaywrightImport(
+    () => import('playwright'),
+    sourceUrl,
+    options
+  )
 }

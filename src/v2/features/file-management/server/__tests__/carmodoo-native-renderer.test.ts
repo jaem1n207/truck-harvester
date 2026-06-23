@@ -4,6 +4,8 @@ import {
   CARMODOO_RENDER_VIEWPORT,
   renderCarmodooNativeImagesWithBrowser,
   renderCarmodooNativeImagesWithLauncher,
+  renderCarmodooNativeImagesWithPlaywrightImport,
+  withRenderTimeout,
 } from '../carmodoo-native-renderer'
 
 const carmodooUrl =
@@ -197,6 +199,21 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
     expect(browser.newContext).not.toHaveBeenCalled()
   })
 
+  it('rejects localhost origins in production even when Vitest is set', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', 'true')
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://truck.example')
+    const { browser } = createRendererBrowser()
+
+    await expect(
+      renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+        origin: 'http://localhost:3000',
+        timeoutMs: 15_000,
+      })
+    ).rejects.toThrow('성능점검기록부 주소를 확인하지 못했습니다.')
+    expect(browser.newContext).not.toHaveBeenCalled()
+  })
+
   it('accepts the configured app URL origin in production', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('VITEST', undefined)
@@ -344,6 +361,7 @@ describe('renderCarmodooNativeImagesWithLauncher', () => {
 
     expect(launcher.launch).toHaveBeenCalledWith({
       headless: true,
+      timeout: expect.any(Number),
     })
     expect(browser.close).toHaveBeenCalledTimes(1)
   })
@@ -364,6 +382,60 @@ describe('renderCarmodooNativeImagesWithLauncher', () => {
       origin: 'http://localhost',
     })
 
+    expect(launcher.launch).toHaveBeenCalledWith({
+      headless: true,
+      timeout: 12_000,
+    })
     expect(page.goto.mock.calls[0]?.[1]?.timeout).toBe(9_000)
+  })
+})
+
+describe('renderCarmodooNativeImagesWithPlaywrightImport', () => {
+  it('starts the default render budget before importing Playwright and launching Chromium', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000)
+
+    const { browser, page } = createRendererBrowser()
+    const launcher = {
+      launch: vi.fn(async () => {
+        vi.setSystemTime(4_000)
+        return browser
+      }),
+    }
+    const loadPlaywright = vi.fn(async () => {
+      vi.setSystemTime(3_000)
+
+      return {
+        chromium: launcher,
+      }
+    })
+
+    await renderCarmodooNativeImagesWithPlaywrightImport(
+      loadPlaywright,
+      carmodooUrl,
+      {
+        origin: 'http://localhost',
+      }
+    )
+
+    expect(launcher.launch).toHaveBeenCalledWith({
+      headless: true,
+      timeout: 10_000,
+    })
+    expect(page.goto.mock.calls[0]?.[1]?.timeout).toBe(9_000)
+  })
+})
+
+describe('withRenderTimeout', () => {
+  it('rejects when the shared render budget is exhausted', async () => {
+    await expect(
+      withRenderTimeout(Promise.resolve('late'), {
+        getRemainingMs() {
+          throw new Error(
+            '성능점검기록부 이미지를 만드는 시간이 초과되었습니다.'
+          )
+        },
+      })
+    ).rejects.toThrow('성능점검기록부 이미지를 만드는 시간이 초과되었습니다.')
   })
 })
