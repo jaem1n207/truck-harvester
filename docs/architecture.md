@@ -5,7 +5,9 @@ The rebuilt app is served from `/`. The implementation still lives under
 separate `/v2` route. The old `/v2` URL redirects to `/` for compatibility.
 
 The runtime has no external error-monitoring SDK or image-stamping pipeline.
-Images are fetched and saved directly, and the current parse API is
+Vehicle images are fetched and saved directly. Performance check records are
+resolved from the listing's `성능점검보기` link, rendered from the printable
+CheckPaper record, and saved as JPG files. The current parse API is
 `POST /api/v2/parse-truck`.
 
 ## Runtime Flow
@@ -16,11 +18,14 @@ flowchart LR
   B --> C["Prepared listing store adds checking chips"]
   C --> D["Preview runner schedules parse jobs with concurrency 5"]
   D --> E["POST /api/v2/parse-truck once per address"]
-  E --> F["Pure Cheerio parser returns truck listing data"]
+  E --> F["Pure Cheerio parser returns truck listing data and optional performance-check link"]
   F --> G["Prepared listing store marks chips ready or failed"]
   G --> H["User starts saving ready listings"]
   H --> I["File System Access API saves per-truck folders"]
   H --> J["ZIP fallback downloads archive when folder saving is unavailable"]
+  H --> N["CheckPaper proxy renders printable performance-check pages as JPG"]
+  N --> I
+  N --> J
   I --> K["Prepared status panel shows saved labels and completion summary"]
   J --> K
   K --> L["Optional desktop notification"]
@@ -59,6 +64,7 @@ sequenceDiagram
   participant API as /api/v2/parse-truck
   participant Store as prepared listing store
   participant Save as file management
+  participant Check as CheckPaper proxy
   participant Notify as desktop notification
 
   User->>Page: Paste copied chat text
@@ -66,11 +72,13 @@ sequenceDiagram
   Page->>Prep: Start preview jobs with concurrency 5
   loop Each listing address
     Prep->>API: POST one address
-    API-->>Prep: parsed listing or typed failure
+    API-->>Prep: parsed listing, optional performanceCheckUrl, or typed failure
     Prep->>Store: markReady or markFailed by chip id
   end
   User->>Page: Click 확인된 N대 저장 시작
   Page->>Save: Save ready listings
+  Save->>Check: Fetch printable record when performanceCheckUrl exists
+  Check-->>Save: JPG byte arrays or missing status
   Save-->>Store: markSaving, markSaved, or markFailed
   Store-->>Page: render readable progress and completion summary
   Page-->>Notify: optional completion notification
@@ -91,6 +99,49 @@ The app does not use IndexedDB for save-folder persistence and does not restore
 a saved handle after reloads or new browser sessions. After a reload or reopen,
 users choose the save folder again.
 
+## Saved File Structure
+
+Each saved listing gets a vehicle-number folder. The directory save path and
+ZIP fallback use the same layout:
+
+```text
+선택한 저장 폴더/
+└─ 서울80바1234/
+   ├─ 차량 이미지/
+   │  ├─ K-001.jpg
+   │  └─ K-002.jpg
+   ├─ 성능점검기록부/
+   │  ├─ 서울80바1234_성능점검기록부_1.jpg
+   │  └─ 서울80바1234_성능점검기록부_2.jpg
+   └─ 원고/
+      └─ 서울80바1234 원고.txt
+```
+
+Vehicle image files keep the existing `K-001.jpg` naming convention. Manuscript
+and performance-check file names include the sanitized vehicle number so users
+can identify files after moving them between folders.
+
+Performance-check saving is non-fatal. If the listing has no usable
+performance-check record or the printable record cannot be rendered, the
+vehicle images and manuscript still save successfully. The completion summary
+shows one quiet Korean notice asking the user to check the affected vehicle
+folder before SmartStore registration.
+
+## CheckPaper Integration
+
+`POST /api/v2/parse-truck` returns `performanceCheckUrl` when the listing page
+contains a `성능점검보기` link. During save, the client asks the same-origin
+CheckPaper routes to resolve and fetch the printable record:
+
+- `GET /api/v2/checkpaper` fetches supported CheckPaper or intermediate pages,
+  follows redirects, and rewrites assets to same-origin URLs.
+- `GET /api/v2/checkpaper/asset` proxies supported CSS, image, script, and
+  printable record assets.
+
+The browser renders the printable record pages and converts each page to a JPG
+image. The app does not upload these records anywhere; it only saves them into
+the user's selected folder or ZIP file.
+
 ## Layer Responsibilities
 
 - `src/app`: root route composition, page layout, and widget wiring.
@@ -99,7 +150,8 @@ users choose the save folder again.
 - `src/v2/widgets`: user-facing blocks that compose features and shared
   selectors.
 - `src/v2/features`: capabilities such as listing preparation, parsing,
-  saving, completion notifications, and onboarding.
+  saving, performance-check rendering, completion notifications, and
+  onboarding.
 - `src/v2/entities`: pure schemas and state contracts.
 - `src/v2/shared`: utilities, stores, selectors, analytics transport, and
   low-level UI.
