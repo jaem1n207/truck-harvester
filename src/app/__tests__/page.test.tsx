@@ -164,7 +164,7 @@ describe('HomePage', () => {
     })
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     expect(textarea).toBeInstanceOf(HTMLTextAreaElement)
@@ -240,7 +240,7 @@ describe('HomePage', () => {
     })
 
     const textarea = container.querySelector(
-      'textarea[placeholder="복사한 내용을 여기에 붙여넣으세요"]'
+      'textarea#listing-chip-input-textarea'
     )
 
     expect(textarea).toBeInstanceOf(HTMLTextAreaElement)

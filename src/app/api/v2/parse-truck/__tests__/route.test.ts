@@ -27,6 +27,14 @@ const listingHtml = `
         <li><img onmouseover="changeImg('https://img.example.com/one.jpg')" src="https://img.example.com/one_TH.jpg" /></li>
       </ul>
     </div>
+    <dl>
+      <dt>성능번호</dt>
+      <dd>
+        <a href="http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3" class="pc_btn_view"
+          >성능점검보기(클릭)</a
+        >
+      </dd>
+    </dl>
   </body>
 </html>
 `
@@ -77,6 +85,8 @@ describe('POST /api/v2/parse-truck', () => {
         vname: '현대 마이티',
         vehicleName: '2020년 현대 마이티',
         vnumber: '12가3456',
+        performanceCheckUrl:
+          'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3',
         images: ['https://img.example.com/one.jpg'],
       }),
     })

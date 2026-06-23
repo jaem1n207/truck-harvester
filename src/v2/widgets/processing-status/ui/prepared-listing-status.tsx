@@ -25,6 +25,11 @@ const saveRelevantStatuses = new Set<PreparedListing['status']>([
 const isSaveRelevant = (item: PreparedListing) =>
   saveRelevantStatuses.has(item.status)
 
+const needsPerformanceCheckReview = (item: PreparedListing) =>
+  item.status === 'saved' &&
+  (item.performanceCheckStatus === 'missing' ||
+    item.performanceCheckStatus === 'not_requested')
+
 const getSummary = (items: readonly PreparedListing[]) => {
   const saveRelevantItems = items.filter(isSaveRelevant)
   const totalCount = saveRelevantItems.length
@@ -56,6 +61,12 @@ const getSummary = (items: readonly PreparedListing[]) => {
   }
 }
 
+const getMissingPerformanceCheckCount = (items: readonly PreparedListing[]) =>
+  items.filter(needsPerformanceCheckReview).length
+
+const getMissingPerformanceCheckNotice = (count: number) =>
+  `저장은 완료됐어요. 다만 성능점검기록부를 찾지 못한 차량이 ${count}대 있어요. 스마트스토어에 올리기 전에 해당 차량 폴더를 한 번 확인해 주세요.`
+
 function PreparedListingStatusIcon({ item }: { item: PreparedListing }) {
   if (item.status === 'checking' || item.status === 'saving') {
     return (
@@ -82,6 +93,10 @@ function PreparedListingStatusIcon({ item }: { item: PreparedListing }) {
 
 function PreparedListingMessage({ item }: { item: PreparedListing }) {
   if (item.status === 'saving') {
+    if (item.saveProgressMode === 'zip_preparing') {
+      return <p className="text-muted-foreground text-sm">압축 파일 준비 중</p>
+    }
+
     return (
       <p className="text-muted-foreground text-sm tabular-nums">
         사진 {item.downloadedImages}/{item.totalImages}
@@ -93,6 +108,31 @@ function PreparedListingMessage({ item }: { item: PreparedListing }) {
     return <p className="text-muted-foreground text-sm">{item.message}</p>
   }
 
+  if (item.status === 'saved') {
+    const messages = [
+      item.vehicleImageStatus === 'partial'
+        ? '차량 사진 일부 확인 필요'
+        : undefined,
+      needsPerformanceCheckReview(item)
+        ? '성능점검기록부 확인 필요'
+        : undefined,
+    ].filter((message): message is string => Boolean(message))
+
+    if (messages.length === 0) {
+      return null
+    }
+
+    return (
+      <>
+        {messages.map((message) => (
+          <p className="text-muted-foreground text-sm" key={message}>
+            {message}
+          </p>
+        ))}
+      </>
+    )
+  }
+
   return null
 }
 
@@ -100,6 +140,7 @@ export function PreparedListingStatusPanel({
   items,
 }: PreparedListingStatusPanelProps) {
   const summary = getSummary(items)
+  const missingPerformanceCheckCount = getMissingPerformanceCheckCount(items)
 
   return (
     <section
@@ -125,6 +166,11 @@ export function PreparedListingStatusPanel({
         >
           {summary.text}
         </p>
+        {missingPerformanceCheckCount > 0 ? (
+          <p className="text-muted-foreground text-sm">
+            {getMissingPerformanceCheckNotice(missingPerformanceCheckCount)}
+          </p>
+        ) : null}
       </div>
 
       <div aria-live="polite">

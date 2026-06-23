@@ -230,7 +230,7 @@ describe('TourExampleCard', () => {
     expect(html).toContain('저장 폴더 고르기')
     expect(html).toContain('truck-test')
     expect(html).toContain('서울80바1234')
-    expect(html).toContain('차량정보.txt')
+    expect(html).toContain('서울80바1234 원고.txt')
   })
 
   it('shows saving, saved, and optional notification examples', () => {
@@ -285,10 +285,10 @@ interface ExampleShellProps {
 const ExampleShell = ({ label, icon: Icon, children }: ExampleShellProps) => (
   <div
     aria-label={label}
-    className="bg-muted/40 border-border mt-4 rounded-lg border p-3"
+    className="mt-4 rounded-lg border border-border bg-muted/40 p-3"
     data-tour-example={label}
   >
-    <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
+    <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
       <Icon aria-hidden="true" className="size-4" />
       <span>{label}</span>
     </div>
@@ -300,16 +300,16 @@ const UrlExample = () => (
   <ExampleShell icon={CheckCircle2} label="주소 예시">
     <div className="grid gap-2 text-sm">
       <div>
-        <p className="text-foreground font-medium">주소창 전체 복사</p>
-        <p className="text-muted-foreground font-mono text-xs break-all">
+        <p className="font-medium text-foreground">주소창 전체 복사</p>
+        <p className="break-all font-mono text-xs text-muted-foreground">
           https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=...
         </p>
       </div>
-      <div className="border-border bg-background rounded-md border px-3 py-2">
-        <p className="text-foreground font-medium">덤프 메가트럭 4.5톤</p>
+      <div className="rounded-md border border-border bg-background px-3 py-2">
+        <p className="font-medium text-foreground">덤프 메가트럭 4.5톤</p>
         <p className="text-xs font-medium text-emerald-700">확인 완료</p>
       </div>
-      <p className="text-muted-foreground text-xs">
+      <p className="text-xs text-muted-foreground">
         DetailView.asp?...처럼 앞부분이 빠진 주소는 찾지 못할 수 있어요.
       </p>
     </div>
@@ -319,19 +319,24 @@ const UrlExample = () => (
 const FolderExample = () => (
   <ExampleShell icon={FolderOpen} label="저장 예시">
     <div className="grid gap-2 text-sm">
-      <div className="border-border bg-background flex items-center gap-2 rounded-md border px-3 py-2">
-        <FolderOpen aria-hidden="true" className="text-primary size-4" />
+      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
+        <FolderOpen aria-hidden="true" className="size-4 text-primary" />
         <div>
-          <p className="text-muted-foreground text-xs">저장 폴더 고르기</p>
-          <p className="text-foreground font-medium">truck-test</p>
+          <p className="text-xs text-muted-foreground">저장 폴더 고르기</p>
+          <p className="font-medium text-foreground">truck-test</p>
         </div>
       </div>
-      <pre className="text-muted-foreground overflow-x-auto rounded-md text-xs leading-relaxed">
+      <pre className="overflow-x-auto rounded-md text-xs leading-relaxed text-muted-foreground">
         {`truck-test
 └─ 서울80바1234
-   ├─ 사진 1
-   ├─ 사진 2
-   └─ 차량정보.txt`}
+   ├─ 차량 이미지
+   │  ├─ K-001.jpg
+   │  └─ K-002.jpg
+   ├─ 성능점검기록부
+   │  ├─ 서울80바1234_성능점검기록부_1.jpg
+   │  └─ 서울80바1234_성능점검기록부_2.jpg
+   └─ 원고
+      └─ 서울80바1234 원고.txt`}
       </pre>
     </div>
   </ExampleShell>
@@ -340,15 +345,15 @@ const FolderExample = () => (
 const ProgressExample = () => (
   <ExampleShell icon={LoaderCircle} label="진행 예시">
     <div className="grid gap-2 text-sm">
-      <div className="border-border bg-background flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-        <span className="text-foreground font-medium">덤프 메가트럭 4.5톤</span>
-        <span className="text-muted-foreground text-xs font-medium">저장 중</span>
+      <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+        <span className="font-medium text-foreground">덤프 메가트럭 4.5톤</span>
+        <span className="text-xs font-medium text-muted-foreground">저장 중</span>
       </div>
-      <div className="border-border bg-background flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-        <span className="text-foreground font-medium">카고 마이티</span>
+      <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+        <span className="font-medium text-foreground">카고 마이티</span>
         <span className="text-xs font-medium text-emerald-700">저장 완료</span>
       </div>
-      <p className="text-muted-foreground flex items-center gap-2 text-xs">
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
         <Bell aria-hidden="true" className="size-4" />
         완료 알림도 원하면 켤 수 있어요.
       </p>

@@ -20,6 +20,9 @@ Keep the Playwright matrix broad enough to cover the app's real staff workflow:
   start flow and does not persist folder handles after reload.
 - ZIP fallback: browsers without File System Access show compressed-file copy
   and download `truck-data-YYYY-MM-DD.zip`.
+- Performance-check save: saved folders or ZIP files include
+  `성능점검기록부/` JPG files when the mocked listing has a performance-check
+  record, and show the quiet completion notice when the record is missing.
 - Reduced motion: first-visit tour card and highlight stay visible without
   transform motion.
 - A11y: root flow and onboarding overlay have no critical axe violations.

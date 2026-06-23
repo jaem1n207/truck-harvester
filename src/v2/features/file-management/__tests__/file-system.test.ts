@@ -15,6 +15,7 @@ const originalFetch = globalThis.fetch
 
 const listing: TruckListing = {
   url: 'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3',
+  performanceCheckUrl: 'https://check.example.com/report',
   vname: '현대 마이티',
   vehicleName: '2020년 현대 마이티',
   vnumber: '12가/3456',
@@ -35,30 +36,79 @@ const listing: TruckListing = {
 
 function createWritable() {
   return {
-    write: vi.fn(async () => undefined),
+    write: vi.fn(async (_data: FileSystemWriteChunkType) => undefined),
     close: vi.fn(async () => undefined),
   }
 }
 
 function createDirectoryHandle() {
   const writables = new Map<string, ReturnType<typeof createWritable>>()
-  const getFileHandle = vi.fn(async (name: string) => {
-    const writable = createWritable()
-    writables.set(name, writable)
+  const directories = new Map<string, WritableDirectoryHandle>()
+
+  function createMockDirectory(path = '') {
     return {
-      createWritable: vi.fn(async () => writable),
+      removeEntry: vi.fn(async (_name: string) => undefined),
+      getDirectoryHandle: vi.fn(async (name: string) => {
+        const nextPath = path ? `${path}/${name}` : name
+        const existing = directories.get(nextPath)
+
+        if (existing) {
+          return existing
+        }
+
+        const directory = createMockDirectory(nextPath)
+
+        directories.set(
+          nextPath,
+          directory as unknown as WritableDirectoryHandle
+        )
+
+        return directory
+      }),
+      getFileHandle: vi.fn(async (name: string) => {
+        const filePath = path ? `${path}/${name}` : name
+        const writable = createWritable()
+
+        writables.set(filePath, writable)
+
+        return {
+          createWritable: vi.fn(async () => writable),
+        }
+      }),
     }
-  })
-  const vehicleDirectory = {
-    getFileHandle,
   }
-  const rootDirectory = {
-    getDirectoryHandle: vi.fn(async () => vehicleDirectory),
-  }
+
+  const rootDirectory = createMockDirectory()
+  const vehicleDirectory = createMockDirectory('12가_3456')
+  const vehicleImagesDirectory = createMockDirectory('12가_3456/차량 이미지')
+  const performanceCheckDirectory =
+    createMockDirectory('12가_3456/성능점검기록부')
+  const manuscriptDirectory = createMockDirectory('12가_3456/원고')
+
+  directories.set(
+    '12가_3456',
+    vehicleDirectory as unknown as WritableDirectoryHandle
+  )
+  directories.set(
+    '12가_3456/차량 이미지',
+    vehicleImagesDirectory as unknown as WritableDirectoryHandle
+  )
+  directories.set(
+    '12가_3456/성능점검기록부',
+    performanceCheckDirectory as unknown as WritableDirectoryHandle
+  )
+  directories.set(
+    '12가_3456/원고',
+    manuscriptDirectory as unknown as WritableDirectoryHandle
+  )
 
   return {
     rootDirectory: rootDirectory as unknown as WritableDirectoryHandle,
+    directories,
+    manuscriptDirectory,
+    performanceCheckDirectory,
     vehicleDirectory,
+    vehicleImagesDirectory,
     writables,
   }
 }
@@ -86,6 +136,16 @@ function restoreGlobals() {
     configurable: true,
     value: originalFetch,
   })
+}
+
+function getWrittenBlob(
+  writable: ReturnType<typeof createWritable> | undefined
+) {
+  const [blob] = writable!.write.mock.calls[0]
+
+  expect(blob).toBeInstanceOf(Blob)
+
+  return blob as Blob
 }
 
 describe('v2 file-system', () => {
@@ -146,45 +206,104 @@ describe('v2 file-system', () => {
     )
   })
 
-  it('saves text and raw image files into a vehicle folder', async () => {
+  it('saves vehicle images, performance check images, and manuscript into structured folders', async () => {
     stubFetch(
       vi.fn(async (url: string) => {
         return new Response(`image:${url}`, { status: 200 })
       }) as typeof fetch
     )
-    const { rootDirectory, vehicleDirectory, writables } =
-      createDirectoryHandle()
+    const {
+      manuscriptDirectory,
+      performanceCheckDirectory,
+      rootDirectory,
+      vehicleDirectory,
+      vehicleImagesDirectory,
+      writables,
+    } = createDirectoryHandle()
     const progress: Array<[number, number, number]> = []
+    const capturePerformanceCheckImages = vi.fn(async () => [
+      new Uint8Array([7, 8]),
+      new Uint8Array([9]),
+    ])
 
-    await saveTruckToDirectory(rootDirectory, listing, {
-      onProgress: (progressValue, downloaded, total) =>
-        progress.push([progressValue, downloaded, total]),
+    await expect(
+      saveTruckToDirectory(rootDirectory, listing, {
+        capturePerformanceCheckImages,
+        onProgress: (progressValue, downloaded, total) =>
+          progress.push([progressValue, downloaded, total]),
+      })
+    ).resolves.toEqual({
+      performanceCheckImageCount: 2,
+      performanceCheckStatus: 'saved',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
+      vehicleFolderName: '12가_3456',
+      vehicleNumber: '12가/3456',
     })
 
     expect(rootDirectory.getDirectoryHandle).toHaveBeenCalledWith('12가_3456', {
       create: true,
     })
-    expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith(
+    expect(vehicleDirectory.getDirectoryHandle).toHaveBeenCalledWith(
+      '차량 이미지',
+      { create: true }
+    )
+    expect(vehicleDirectory.getDirectoryHandle).toHaveBeenCalledWith(
+      '성능점검기록부',
+      { create: true }
+    )
+    expect(vehicleDirectory.getDirectoryHandle).toHaveBeenCalledWith('원고', {
+      create: true,
+    })
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith(
+      '12가_3456 원고.txt'
+    )
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith('K-001.jpg')
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith('K-002.jpg')
+    expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith(
       '12가_3456 원고.txt',
       { create: true }
     )
-    expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith('K-001.jpg', {
-      create: true,
-    })
-    expect(vehicleDirectory.getFileHandle).toHaveBeenCalledWith('K-002.jpg', {
-      create: true,
-    })
+    expect(vehicleImagesDirectory.getFileHandle).toHaveBeenCalledWith(
+      'K-001.jpg',
+      { create: true }
+    )
+    expect(vehicleImagesDirectory.getFileHandle).toHaveBeenCalledWith(
+      'K-002.jpg',
+      { create: true }
+    )
+    expect(performanceCheckDirectory.getFileHandle).toHaveBeenCalledWith(
+      '12가_3456_성능점검기록부_1.jpg',
+      { create: true }
+    )
+    expect(performanceCheckDirectory.getFileHandle).toHaveBeenCalledWith(
+      '12가_3456_성능점검기록부_2.jpg',
+      { create: true }
+    )
+    expect(capturePerformanceCheckImages).toHaveBeenCalledWith(
+      'https://check.example.com/report',
+      { signal: undefined }
+    )
 
     await expect(
-      writables.get('12가_3456 원고.txt')!.write
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
     ).toHaveBeenCalledWith(expect.stringContaining('차량번호 :  12가/3456'))
-    await expect(writables.get('K-001.jpg')!.write).toHaveBeenCalledWith(
-      new Uint8Array(
-        await new Response(
-          'image:https://img.example.com/one.jpg'
-        ).arrayBuffer()
-      )
-    )
+    await expect(
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
+    ).toHaveBeenCalledWith(expect.stringContaining('#사진:K-001.jpg'))
+    await expect(
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
+    ).not.toHaveBeenCalledWith(expect.stringContaining('#사진:사진_1.jpg'))
+    await expect(
+      getWrittenBlob(writables.get('12가_3456/차량 이미지/K-001.jpg')).text()
+    ).resolves.toBe('image:https://img.example.com/one.jpg')
+    await expect(
+      getWrittenBlob(
+        writables.get('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')
+      ).arrayBuffer()
+    ).resolves.toEqual(new Uint8Array([7, 8]).buffer)
     expect(progress).toEqual([
       [0, 0, 2],
       [50, 1, 2],
@@ -192,7 +311,163 @@ describe('v2 file-system', () => {
     ])
   })
 
-  it('writes the text file after image files so modified-date sorting keeps it at the edge', async () => {
+  it('returns missing when performance check capture returns no images', async () => {
+    stubFetch(
+      vi.fn(async () => {
+        return new Response('image', { status: 200 })
+      }) as typeof fetch
+    )
+    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
+
+    await expect(
+      saveTruckToDirectory(rootDirectory, listing, {
+        capturePerformanceCheckImages: vi.fn(async () => []),
+      })
+    ).resolves.toMatchObject({
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'missing',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
+    })
+    expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
+      '성능점검기록부',
+      { create: true }
+    )
+  })
+
+  it('returns missing when listing has no performance check URL', async () => {
+    stubFetch(
+      vi.fn(async () => {
+        return new Response('image', { status: 200 })
+      }) as typeof fetch
+    )
+    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
+    const capturePerformanceCheckImages = vi.fn(async () => [
+      new Uint8Array([1]),
+    ])
+
+    await expect(
+      saveTruckToDirectory(
+        rootDirectory,
+        { ...listing, performanceCheckUrl: undefined },
+        { capturePerformanceCheckImages }
+      )
+    ).resolves.toMatchObject({
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'missing',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
+    })
+    expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
+      '성능점검기록부',
+      { create: true }
+    )
+    expect(capturePerformanceCheckImages).not.toHaveBeenCalled()
+  })
+
+  it('treats performance check capture failure as non-fatal and still writes manuscript', async () => {
+    stubFetch(
+      vi.fn(async () => {
+        return new Response('image', { status: 200 })
+      }) as typeof fetch
+    )
+    const { manuscriptDirectory, rootDirectory, vehicleDirectory, writables } =
+      createDirectoryHandle()
+
+    await expect(
+      saveTruckToDirectory(rootDirectory, listing, {
+        capturePerformanceCheckImages: vi.fn(async () => {
+          throw new Error('capture failed')
+        }),
+      })
+    ).resolves.toMatchObject({
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'missing',
+      sourceUrl: listing.url,
+      vehicleImageCount: 2,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 2,
+    })
+
+    expect(manuscriptDirectory.getFileHandle).toHaveBeenCalledWith(
+      '12가_3456 원고.txt',
+      { create: true }
+    )
+    expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
+      '성능점검기록부',
+      { create: true }
+    )
+    expect(vehicleDirectory.removeEntry).toHaveBeenCalledWith(
+      '성능점검기록부',
+      {
+        recursive: true,
+      }
+    )
+    await expect(
+      writables.get('12가_3456/원고/12가_3456 원고.txt')!.write
+    ).toHaveBeenCalledWith(expect.stringContaining('차량번호 :  12가/3456'))
+  })
+
+  it('preserves vehicle image progress semantics', async () => {
+    stubFetch(
+      vi.fn(async (url: string) => {
+        return new Response(`image:${url}`, { status: 200 })
+      }) as typeof fetch
+    )
+    const { rootDirectory } = createDirectoryHandle()
+    const progress: Array<[number, number, number]> = []
+
+    await saveTruckToDirectory(rootDirectory, listing, {
+      capturePerformanceCheckImages: vi.fn(async () => [new Uint8Array([7])]),
+      onProgress: (progressValue, downloaded, total) =>
+        progress.push([progressValue, downloaded, total]),
+    })
+    expect(progress).toEqual([
+      [0, 0, 2],
+      [50, 1, 2],
+      [100, 2, 2],
+    ])
+  })
+
+  it('reports partial vehicle image results when some image fetches fail', async () => {
+    stubFetch(
+      vi.fn(async (url: string) => {
+        if (url.includes('two.jpg')) {
+          return new Response('missing', { status: 404 })
+        }
+
+        return new Response(`image:${url}`, { status: 200 })
+      }) as typeof fetch
+    )
+    const { rootDirectory, writables } = createDirectoryHandle()
+    const progress: Array<[number, number, number]> = []
+
+    await expect(
+      saveTruckToDirectory(rootDirectory, listing, {
+        capturePerformanceCheckImages: vi.fn(async () => []),
+        onProgress: (progressValue, downloaded, total) =>
+          progress.push([progressValue, downloaded, total]),
+      })
+    ).resolves.toMatchObject({
+      sourceUrl: listing.url,
+      vehicleImageCount: 1,
+      vehicleImageStatus: 'partial',
+      vehicleImageTotalCount: 2,
+    })
+
+    expect(writables.has('12가_3456/차량 이미지/K-001.jpg')).toBe(true)
+    expect(writables.has('12가_3456/차량 이미지/K-002.jpg')).toBe(false)
+    expect(progress).toEqual([
+      [0, 0, 2],
+      [50, 1, 2],
+    ])
+  })
+
+  it('creates structured subfolders before writing files', async () => {
     stubFetch(
       vi.fn(async (url: string) => {
         return new Response(`image:${url}`, { status: 200 })
@@ -200,11 +475,13 @@ describe('v2 file-system', () => {
     )
     const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
 
-    await saveTruckToDirectory(rootDirectory, listing)
+    await saveTruckToDirectory(rootDirectory, listing, {
+      capturePerformanceCheckImages: vi.fn(async () => [new Uint8Array([7])]),
+    })
 
     expect(
-      vehicleDirectory.getFileHandle.mock.calls.map(([name]) => name)
-    ).toEqual(['K-001.jpg', 'K-002.jpg', '12가_3456 원고.txt'])
+      vehicleDirectory.getDirectoryHandle.mock.calls.map(([name]) => name)
+    ).toEqual(['차량 이미지', '원고', '성능점검기록부'])
   })
 
   it('does not create a vehicle folder when already aborted', async () => {
@@ -231,7 +508,7 @@ describe('v2 file-system', () => {
         throw new DOMException('다운로드가 취소되었습니다.', 'AbortError')
       }) as typeof fetch
     )
-    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
+    const { manuscriptDirectory, rootDirectory } = createDirectoryHandle()
     const progress: Array<[number, number, number]> = []
 
     const savePromise = saveTruckToDirectory(
@@ -245,7 +522,7 @@ describe('v2 file-system', () => {
     )
 
     await expect(savePromise).rejects.toThrow('다운로드가 취소되었습니다.')
-    expect(vehicleDirectory.getFileHandle).not.toHaveBeenCalledWith(
+    expect(manuscriptDirectory.getFileHandle).not.toHaveBeenCalledWith(
       '12가_3456 원고.txt',
       { create: true }
     )

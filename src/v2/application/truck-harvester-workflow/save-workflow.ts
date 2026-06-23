@@ -3,6 +3,7 @@ import { type StoreApi } from 'zustand/vanilla'
 import {
   downloadTruckZip as defaultDownloadTruckZip,
   saveTruckToDirectory as defaultSaveTruckToDirectory,
+  type TruckSaveResult,
   type WritableDirectoryHandle,
 } from '@/v2/features/file-management'
 import {
@@ -51,6 +52,17 @@ const getInitialProgress = (
 
 const isAborted = (signal?: AbortSignal) => signal?.aborted === true
 
+const matchZipSaveResults = (
+  items: readonly ReadyPreparedListing[],
+  results: readonly TruckSaveResult[]
+) => {
+  const resultsBySourceUrl = new Map(
+    results.map((result) => [result.sourceUrl, result])
+  )
+
+  return items.map((item) => resultsBySourceUrl.get(item.listing.url))
+}
+
 export async function runSaveWorkflow({
   directory,
   downloadTruckZip = defaultDownloadTruckZip,
@@ -83,7 +95,7 @@ export async function runSaveWorkflow({
       store.getState().markSaving(item.id, getInitialProgress(item))
 
       try {
-        await saveTruckToDirectory(directory, item.listing, {
+        const saveResult = await saveTruckToDirectory(directory, item.listing, {
           signal,
           onProgress: (progress, downloadedImages, totalImages) => {
             if (isAborted(signal)) {
@@ -102,7 +114,7 @@ export async function runSaveWorkflow({
           return { savedCount }
         }
 
-        store.getState().markSaved(item.id)
+        store.getState().markSaved(item.id, saveResult)
         savedItemIds.add(item.id)
         savedCount += 1
       } catch {
@@ -119,11 +131,16 @@ export async function runSaveWorkflow({
     }
   } else {
     items.forEach((item) => {
-      store.getState().markSaving(item.id, getInitialProgress(item))
+      store.getState().markSaving(item.id, {
+        downloadedImages: 0,
+        progress: 0,
+        saveProgressMode: 'zip_preparing',
+        totalImages: 0,
+      })
     })
 
     try {
-      await downloadTruckZip(
+      const saveResults = await downloadTruckZip(
         items.map((item) => item.listing),
         {
           signal,
@@ -135,8 +152,9 @@ export async function runSaveWorkflow({
             items.forEach((item) => {
               store.getState().markSaving(item.id, {
                 downloadedImages: 0,
-                totalImages: item.listing.images.length,
                 progress,
+                saveProgressMode: 'zip_preparing',
+                totalImages: 0,
               })
             })
           },
@@ -147,11 +165,24 @@ export async function runSaveWorkflow({
         return { savedCount }
       }
 
-      items.forEach((item) => {
-        store.getState().markSaved(item.id)
+      const matchedResults = matchZipSaveResults(items, saveResults)
+
+      items.forEach((item, index) => {
+        const saveResult = matchedResults[index]
+
+        if (!saveResult) {
+          tracker.saveListingFailed({
+            item: workflowItems[index],
+            message: saveFailureMessage,
+          })
+          store.getState().markFailed(item.url, saveFailureMessage)
+          return
+        }
+
+        store.getState().markSaved(item.id, saveResult)
         savedItemIds.add(item.id)
+        savedCount += 1
       })
-      savedCount = items.length
     } catch {
       if (isAborted(signal)) {
         return { savedCount }

@@ -29,7 +29,12 @@ describe('TourExampleCard', () => {
     expect(html).toContain('저장 폴더 고르기')
     expect(html).toContain('truck-test')
     expect(html).toContain('서울80바1234')
-    expect(html).toContain('차량정보.txt')
+    expect(html).toContain('차량 이미지')
+    expect(html).toContain('K-001.jpg')
+    expect(html).toContain('성능점검기록부')
+    expect(html).toContain('서울80바1234_성능점검기록부_1.jpg')
+    expect(html).toContain('원고')
+    expect(html).toContain('서울80바1234 원고.txt')
   })
 
   it('shows saving, saved, and optional notification examples', () => {

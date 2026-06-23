@@ -12,6 +12,7 @@ const eslintConfig = [
       'build/**',
       'dist/**',
       'coverage/**',
+      '.worktrees/**',
       'next-env.d.ts',
       '*.config.*',
     ],

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { type TruckListing } from '@/v2/entities/truck'
+import { type TruckSaveResult } from '@/v2/features/file-management'
 
 import {
   createPreparedListingStore,
@@ -29,6 +30,25 @@ const listing: TruckListing = {
   mileage: '150,000km',
   options: '냉동탑 / 후방카메라',
   images: ['https://img.example.com/one.jpg'],
+}
+
+const missingPerformanceCheckResult: TruckSaveResult = {
+  performanceCheckImageCount: 0,
+  performanceCheckStatus: 'missing',
+  sourceUrl: firstUrl,
+  vehicleImageCount: 1,
+  vehicleImageStatus: 'complete',
+  vehicleImageTotalCount: 1,
+  vehicleFolderName: '서울01가1234',
+  vehicleNumber: '서울01가1234',
+}
+
+const partialVehicleImageResult: TruckSaveResult = {
+  ...missingPerformanceCheckResult,
+  performanceCheckStatus: 'not_requested',
+  vehicleImageCount: 1,
+  vehicleImageStatus: 'partial',
+  vehicleImageTotalCount: 3,
 }
 
 describe('prepared listing store', () => {
@@ -207,6 +227,45 @@ describe('prepared listing store', () => {
         downloadedImages: 3,
         totalImages: 3,
         progress: 100,
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'not_requested',
+      },
+    ])
+  })
+
+  it('preserves missing performance check status when marking an item saved', () => {
+    const store = createPreparedListingStore()
+    store.getState().addUrls([firstUrl])
+    store.getState().markReady(firstUrl, listing)
+
+    store.getState().markSaved('listing-1', missingPerformanceCheckResult)
+
+    expect(selectSavedPreparedListings(store.getState())).toMatchObject([
+      {
+        status: 'saved',
+        downloadedImages: 1,
+        totalImages: 1,
+        progress: 100,
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'missing',
+      },
+    ])
+  })
+
+  it('uses actual vehicle image counts from save results', () => {
+    const store = createPreparedListingStore()
+    store.getState().addUrls([firstUrl])
+    store.getState().markReady(firstUrl, listing)
+
+    store.getState().markSaved('listing-1', partialVehicleImageResult)
+
+    expect(selectSavedPreparedListings(store.getState())).toMatchObject([
+      {
+        status: 'saved',
+        downloadedImages: 1,
+        totalImages: 3,
+        progress: 100,
+        vehicleImageStatus: 'partial',
       },
     ])
   })

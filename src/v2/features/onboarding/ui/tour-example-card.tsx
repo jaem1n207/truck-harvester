@@ -69,9 +69,14 @@ const FolderExample = () => (
       <pre className="text-muted-foreground overflow-x-auto rounded-md text-xs leading-relaxed tabular-nums">
         {`truck-test
 └─ 서울80바1234
-   ├─ 사진 1
-   ├─ 사진 2
-   └─ 차량정보.txt`}
+   ├─ 차량 이미지
+   │  ├─ K-001.jpg
+   │  └─ K-002.jpg
+   ├─ 성능점검기록부
+   │  ├─ 서울80바1234_성능점검기록부_1.jpg
+   │  └─ 서울80바1234_성능점검기록부_2.jpg
+   └─ 원고
+      └─ 서울80바1234 원고.txt`}
       </pre>
     </div>
   </ExampleShell>
