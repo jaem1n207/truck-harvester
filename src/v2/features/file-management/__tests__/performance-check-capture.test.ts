@@ -191,6 +191,16 @@ describe('capturePerformanceCheckImages', () => {
             'style[data-performance-check-provider="carmodoo-html"]'
           )?.textContent
         ).toContain('.repaircheck_box')
+        expect(
+          page.ownerDocument.querySelector(
+            'style[data-performance-check-provider="carmodoo-html"]'
+          )?.textContent
+        ).toContain('height: 8pt')
+        expect(
+          page.ownerDocument.querySelector(
+            'style[data-performance-check-provider="carmodoo-html"]'
+          )?.textContent
+        ).toContain('background: none')
         return firstCanvas
       })
       .mockImplementationOnce(async (page) => {

@@ -605,12 +605,27 @@ function injectCarmodooPrintLayout(frameDocument: Document) {
   const style = frameDocument.createElement('style')
   style.dataset.performanceCheckProvider = 'carmodoo-html'
   style.textContent = `
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     .repaircheck_box {
       margin: 0 !important;
       width: 1400px !important;
     }
+    .repaircheck_box input[type='checkbox'] {
+      height: 8pt !important;
+      line-height: 1 !important;
+      margin-bottom: 0 !important;
+      margin-right: 2px !important;
+      width: 8pt !important;
+    }
     .repaircheck_box .btn_box {
       display: none !important;
+    }
+    .repaircheck_box .header {
+      display: block !important;
+      height: 11pt !important;
     }
     .repaircheck_box .page_wrap {
       clear: both;
@@ -628,8 +643,162 @@ function injectCarmodooPrintLayout(frameDocument: Document) {
       float: right;
       width: 49%;
     }
+    .repaircheck_box .fuc_normal {
+      display: none !important;
+    }
     .repaircheck_box .fuc_print {
       display: block !important;
+    }
+    .repaircheck_box h1 {
+      background: none !important;
+      color: #000 !important;
+      font-size: 9pt !important;
+      line-height: 1 !important;
+      padding: 4px !important;
+    }
+    .repaircheck_box h1 strong {
+      font-size: 12pt !important;
+    }
+    .repaircheck_box h1 strong + br {
+      display: none !important;
+    }
+    .repaircheck_box h1 .txt_small {
+      color: #333 !important;
+      font-size: 7.5pt !important;
+    }
+    .repaircheck_box .repair_position {
+      padding: 4.5pt 0 !important;
+    }
+    .repaircheck_box table thead th {
+      font-size: 15px !important;
+      line-height: 1 !important;
+      padding: 3.5pt 0 !important;
+      text-align: center !important;
+    }
+    .repaircheck_box table thead th span {
+      font-size: 7pt !important;
+      font-weight: normal !important;
+      line-height: 1 !important;
+    }
+    .repaircheck_box table thead th strong {
+      letter-spacing: -2px !important;
+      line-height: 1 !important;
+    }
+    .repaircheck_box table thead th strong + br {
+      display: none !important;
+    }
+    .repaircheck_box table thead th.border_box strong + br {
+      display: inline-block !important;
+    }
+    .repaircheck_box table tbody th {
+      box-sizing: border-box !important;
+      font-size: 13px !important;
+      font-weight: normal !important;
+      letter-spacing: -2px !important;
+      line-height: 1.1 !important;
+      padding: 0 3px !important;
+      word-break: normal !important;
+      word-wrap: break-word !important;
+    }
+    .repaircheck_box table tbody th.full {
+      padding: 3px !important;
+    }
+    .repaircheck_box table tbody th.th2 {
+      font-size: 11px !important;
+      padding: 2px 7px !important;
+    }
+    .repaircheck_box td {
+      box-sizing: border-box !important;
+      font-size: 14px !important;
+      letter-spacing: -1px !important;
+      line-height: 1.1 !important;
+      padding: 1px 3px !important;
+    }
+    .repaircheck_box td.mark {
+      font-size: 12px !important;
+    }
+    .repaircheck_box td label {
+      line-height: 1 !important;
+    }
+    .repaircheck_box table.td_padd td {
+      padding: 1px 3px !important;
+    }
+    .repaircheck_box table.td_padd tbody th {
+      font-size: 14px !important;
+      letter-spacing: -2px !important;
+      padding: 0 3px !important;
+    }
+    .repaircheck_box td .km {
+      font-size: 10pt !important;
+    }
+    .repaircheck_box table.height_set {
+      height: 760px !important;
+    }
+    .repaircheck_box table.height_set tbody td {
+      padding: 0 12px !important;
+    }
+    .repaircheck_box table.height_set2 {
+      height: 753px !important;
+    }
+    .repaircheck_box table.height_set3 {
+      height: 500px !important;
+    }
+    .repaircheck_box table.height_set4 {
+      height: 333px !important;
+    }
+    .repaircheck_box td ol li {
+      font-size: 8pt !important;
+      line-height: 1.2 !important;
+      padding-bottom: 2pt !important;
+    }
+    .repaircheck_box td li li {
+      padding-bottom: 2pt !important;
+    }
+    .repaircheck_box .line_box {
+      font-size: 7.5pt !important;
+      margin-top: 0 !important;
+      padding-bottom: 5pt !important;
+    }
+    .repaircheck_box .line_box .tit {
+      font-size: 10pt !important;
+      left: -1px !important;
+      margin: 0 !important;
+      padding: 3pt 10px !important;
+      top: -1px !important;
+    }
+    .repaircheck_box td .title_end {
+      display: inline-block !important;
+      padding-bottom: 10px !important;
+    }
+    .repaircheck_box .name1 {
+      display: inline-block !important;
+      text-align: left !important;
+      width: 200px !important;
+    }
+    .repaircheck_box .name2 {
+      display: inline-block !important;
+      position: relative !important;
+      text-align: right !important;
+      width: 240px !important;
+    }
+    .repaircheck_box .name2 div {
+      right: -57px !important;
+    }
+    .repaircheck_box table.ex td {
+      line-height: 1.1 !important;
+      padding: 4pt 20px 4pt 35px !important;
+    }
+    .repaircheck_box td.title {
+      font-size: 10pt !important;
+    }
+    .repaircheck_box table thead th.th_guide {
+      font-size: 9pt !important;
+      height: 17px !important;
+    }
+    .repaircheck_box td .ar {
+      display: inline-block !important;
+      text-align: right !important;
+      width: 29% !important;
     }
   `
 
