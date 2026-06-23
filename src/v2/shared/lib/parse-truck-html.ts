@@ -1,7 +1,10 @@
 import { load } from 'cheerio'
 
-import { truckListingSchema, type TruckListing } from '@/v2/entities/truck'
-import type { SmartStoreTable } from '@/v2/entities/truck/model'
+import {
+  truckListingSchema,
+  type SmartStoreTable,
+  type TruckListing,
+} from '@/v2/entities/truck'
 
 function normalizeOptionalUrl(href: string | undefined, baseUrl: string) {
   if (!href || href.trim().length === 0) {
