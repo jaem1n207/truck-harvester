@@ -7,6 +7,8 @@ const allowedCheckPaperHosts = new Set([
 ])
 
 const MAX_CHECKPAPER_REDIRECTS = 4
+const CHECKPAPER_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
+const SAME_ORIGIN_PROXY_URL_BASE = 'https://truck-harvester.local'
 export const CHECKPAPER_FETCH_TIMEOUT_MS = 4500
 
 export type CheckPaperTimeoutBudget = {
@@ -41,7 +43,7 @@ export function isAllowedCheckPaperUrl(value: string) {
 export function toCheckPaperAssetProxyUrl(
   assetUrl: string,
   baseUrl: string,
-  proxyPath = '/api/v2/checkpaper/asset'
+  proxyPath = CHECKPAPER_ASSET_PROXY_PATH
 ) {
   const absoluteUrl = new URL(assetUrl, baseUrl).toString()
 
@@ -52,6 +54,39 @@ function isDisallowedUrlScheme(value: string) {
   return /^(javascript:|data:|blob:|about:)/i.test(value.trim())
 }
 
+function getSafeAlreadyProxiedAssetUrl(value: string) {
+  const trimmed = value.trim()
+
+  if (!trimmed.includes(CHECKPAPER_ASSET_PROXY_PATH)) {
+    return { kind: 'not-proxy' as const }
+  }
+
+  if (!trimmed.startsWith(`${CHECKPAPER_ASSET_PROXY_PATH}?`)) {
+    return { kind: 'invalid-proxy' as const }
+  }
+
+  try {
+    const proxyUrl = new URL(trimmed, SAME_ORIGIN_PROXY_URL_BASE)
+
+    if (
+      proxyUrl.origin !== SAME_ORIGIN_PROXY_URL_BASE ||
+      proxyUrl.pathname !== CHECKPAPER_ASSET_PROXY_PATH
+    ) {
+      return { kind: 'invalid-proxy' as const }
+    }
+
+    const wrappedUrl = proxyUrl.searchParams.get('url')
+
+    if (!wrappedUrl || !isAllowedCheckPaperUrl(wrappedUrl)) {
+      return { kind: 'invalid-proxy' as const }
+    }
+
+    return { kind: 'safe-proxy' as const, url: trimmed }
+  } catch {
+    return { kind: 'invalid-proxy' as const }
+  }
+}
+
 function toProxiedAssetUrl(rawUrl: string, baseUrl: string) {
   const trimmed = rawUrl.trim()
 
@@ -59,8 +94,12 @@ function toProxiedAssetUrl(rawUrl: string, baseUrl: string) {
     return '#'
   }
 
-  if (trimmed.includes('/api/v2/checkpaper/asset?url=')) {
-    return trimmed
+  const alreadyProxied = getSafeAlreadyProxiedAssetUrl(trimmed)
+  if (alreadyProxied.kind === 'safe-proxy') {
+    return alreadyProxied.url
+  }
+  if (alreadyProxied.kind === 'invalid-proxy') {
+    return null
   }
 
   try {
@@ -126,6 +165,14 @@ function parseJsonObjectLiteral(value: string): Record<string, string> {
   }
 }
 
+function isDigitFragment(value: string) {
+  return /^\d+$/.test(value.trim())
+}
+
+function isSingleAlphabeticMarker(value: string) {
+  return /^[a-z]$/i.test(value.trim())
+}
+
 function extractCarmodooSetData(
   scriptText: string,
   prefix: string
@@ -164,11 +211,21 @@ function applyCarmodooCheckboxData(
   values: Record<string, string>
 ) {
   Object.entries(values).forEach(([key, value]) => {
-    if (!value || value === '0') {
+    const normalizedKey = key.trim()
+    const normalizedValue = value.trim()
+
+    if (
+      !isDigitFragment(normalizedKey) ||
+      !isDigitFragment(normalizedValue) ||
+      normalizedValue === '0'
+    ) {
       return
     }
 
-    $(`#${prefix}_${key}_${value}`).attr('checked', 'checked')
+    $(`#${prefix}_${normalizedKey}_${normalizedValue}`).attr(
+      'checked',
+      'checked'
+    )
   })
 }
 
@@ -184,9 +241,10 @@ function applyCarmodooImageMarkerData({
   values: Record<string, string>
 }) {
   Object.entries(values).forEach(([key, value]) => {
+    const normalizedKey = key.trim()
     const marker = value.trim().toLowerCase()
 
-    if (!marker || !/^[a-z0-9_-]+$/.test(marker)) {
+    if (!isDigitFragment(normalizedKey) || !isSingleAlphabeticMarker(marker)) {
       return
     }
 
@@ -194,7 +252,7 @@ function applyCarmodooImageMarkerData({
       `/images/check/icon_${marker}.png`,
       baseUrl
     )
-    const node = $(`${selectorPrefix}${key}`)
+    const node = $(`${selectorPrefix}${normalizedKey}`)
 
     if (node.is('img')) {
       node.attr('src', proxiedIconUrl)
@@ -419,8 +477,12 @@ function toProxiedCssAsset(rawUrl: string, finalUrl: string) {
     return null
   }
 
-  if (trimmed.includes('/api/v2/checkpaper/asset?url=')) {
-    return null
+  const alreadyProxied = getSafeAlreadyProxiedAssetUrl(trimmed)
+  if (alreadyProxied.kind === 'safe-proxy') {
+    return alreadyProxied.url
+  }
+  if (alreadyProxied.kind === 'invalid-proxy') {
+    return '#'
   }
 
   if (/^\/\//.test(trimmed) || /^(?!https?:)\w+:/.test(trimmed)) {
