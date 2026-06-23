@@ -95,6 +95,7 @@ describe('checkpaper proxy helpers', () => {
     const html = `
       <html>
         <head>
+          <base href="https://checkpaper.jmenetworks.co.kr/">
           <link href="/assets/css/style_v2.css" rel="stylesheet">
         </head>
         <body>
@@ -105,8 +106,14 @@ describe('checkpaper proxy helpers', () => {
     `
 
     const rewritten = rewriteCheckPaperHtml(html, finalUrl)
+    const $ = load(rewritten)
 
     expect(rewritten).toContain('/api/v2/checkpaper/asset?url=')
+    expect($('base')).toHaveLength(0)
+    expect($('link').attr('href')).toMatch(/^\/api\/v2\/checkpaper\/asset\?/)
+    expect($('#car_img_file_url_1').attr('src')).toMatch(
+      /^\/api\/v2\/checkpaper\/asset\?/
+    )
     expect(rewritten).toContain(
       encodeURIComponent(
         'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'

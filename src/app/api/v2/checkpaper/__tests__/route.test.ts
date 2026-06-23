@@ -138,6 +138,7 @@ describe('GET /api/v2/checkpaper', () => {
       "frame-ancestors 'self'"
     )
     expect(body).toContain('/api/v2/checkpaper/asset?url=')
+    expect(body).not.toContain('<base')
     expect(body).toContain(
       encodeURIComponent(
         'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'
@@ -195,6 +196,7 @@ describe('GET /api/v2/checkpaper', () => {
     )
     expect(response.headers.get('x-checkpaper-final-url')).toBe(carmodooUrl)
     expect(body).toContain('/api/v2/checkpaper/asset?url=')
+    expect(body).not.toContain('<base')
     expect(body).toContain(
       encodeURIComponent('https://ck.carmodoo.com/css/print_repair.css?ver=2')
     )

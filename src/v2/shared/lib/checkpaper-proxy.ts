@@ -456,13 +456,6 @@ export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
 
   $('base').remove()
 
-  const base = $('<base>')
-  base.attr('href', baseUrl)
-  const head = $('head')
-  if (head.length > 0) {
-    head.prepend(base)
-  }
-
   return $.html()
 }
 
