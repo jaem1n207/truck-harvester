@@ -49,6 +49,14 @@ function toBase64(bytes: Uint8Array) {
   return Buffer.from(bytes).toString('base64')
 }
 
+function isSupportedCarmodooRenderUrl(url: URL) {
+  return url.protocol === 'https:' && isCarmodooPrintUrl(url)
+}
+
+function hasRenderableImageBytes(images: Uint8Array[]) {
+  return images.every((image) => image.byteLength > 0)
+}
+
 export function createPostHandler({ render }: { render: CarmodooRenderer }) {
   return async function POST(request: Request) {
     const url = await readRequestUrl(request)
@@ -60,7 +68,7 @@ export function createPostHandler({ render }: { render: CarmodooRenderer }) {
       parsedUrl = undefined
     }
 
-    if (!url || !parsedUrl || !isCarmodooPrintUrl(parsedUrl)) {
+    if (!url || !parsedUrl || !isSupportedCarmodooRenderUrl(parsedUrl)) {
       return createErrorResponse(
         400,
         '성능점검기록부 주소를 확인하지 못했어요.'
@@ -73,7 +81,8 @@ export function createPostHandler({ render }: { render: CarmodooRenderer }) {
 
       if (
         images.length === 0 ||
-        images.length > CARMODOO_RENDER_MAX_PAGE_COUNT
+        images.length > CARMODOO_RENDER_MAX_PAGE_COUNT ||
+        !hasRenderableImageBytes(images)
       ) {
         return createErrorResponse(502, '성능점검기록부를 불러오지 못했어요.')
       }

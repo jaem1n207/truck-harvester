@@ -1,18 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { CARMODOO_RENDER_MAX_PAGE_COUNT } from '@/v2/shared/lib/carmodoo-performance-check'
+
 import { createPostHandler, maxDuration } from '../route'
 
 const carmodooUrl =
   'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
 
-function createRequest(body: unknown) {
+function createRequestFromText(body: string) {
   return new Request('http://localhost/api/v2/checkpaper/carmodoo-render', {
-    body: JSON.stringify(body),
+    body,
     headers: {
       'content-type': 'application/json',
     },
     method: 'POST',
   })
+}
+
+function createRequest(body: unknown) {
+  return createRequestFromText(JSON.stringify(body))
 }
 
 describe('POST /api/v2/checkpaper/carmodoo-render', () => {
@@ -46,6 +52,20 @@ describe('POST /api/v2/checkpaper/carmodoo-render', () => {
     })
   })
 
+  it('rejects malformed JSON before calling renderer', async () => {
+    const render = vi.fn()
+    const POST = createPostHandler({ render })
+
+    const response = await POST(createRequestFromText('{'))
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부 주소를 확인하지 못했어요.',
+    })
+    expect(render).not.toHaveBeenCalled()
+  })
+
   it('rejects missing and unsupported URLs before calling renderer', async () => {
     const render = vi.fn()
     const POST = createPostHandler({ render })
@@ -62,6 +82,86 @@ describe('POST /api/v2/checkpaper/carmodoo-render', () => {
     })
     expect(unsupportedResponse.status).toBe(400)
     expect(render).not.toHaveBeenCalled()
+  })
+
+  it('rejects non-HTTPS Carmodoo URLs before calling renderer', async () => {
+    const render = vi.fn()
+    const POST = createPostHandler({ render })
+
+    const response = await POST(
+      createRequest({
+        url: 'ftp://ck.carmodoo.com/carCheck/carmodooPrint.do?checkNum=7126000658',
+      })
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부 주소를 확인하지 못했어요.',
+    })
+    expect(render).not.toHaveBeenCalled()
+  })
+
+  it('rejects Carmodoo URLs without checkNum before calling renderer', async () => {
+    const render = vi.fn()
+    const POST = createPostHandler({ render })
+
+    const response = await POST(
+      createRequest({
+        url: 'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0',
+      })
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부 주소를 확인하지 못했어요.',
+    })
+    expect(render).not.toHaveBeenCalled()
+  })
+
+  it('rejects empty renderer output', async () => {
+    const render = vi.fn(async () => [])
+    const POST = createPostHandler({ render })
+
+    const response = await POST(createRequest({ url: carmodooUrl }))
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부를 불러오지 못했어요.',
+    })
+  })
+
+  it('rejects renderer output with too many pages', async () => {
+    const render = vi.fn(async () =>
+      Array.from(
+        { length: CARMODOO_RENDER_MAX_PAGE_COUNT + 1 },
+        () => new Uint8Array([1])
+      )
+    )
+    const POST = createPostHandler({ render })
+
+    const response = await POST(createRequest({ url: carmodooUrl }))
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부를 불러오지 못했어요.',
+    })
+  })
+
+  it('rejects zero-byte rendered images', async () => {
+    const render = vi.fn(async () => [new Uint8Array()])
+    const POST = createPostHandler({ render })
+
+    const response = await POST(createRequest({ url: carmodooUrl }))
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부를 불러오지 못했어요.',
+    })
   })
 
   it('returns a quiet Korean error when rendering fails', async () => {
