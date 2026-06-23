@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   CARMODOO_RENDER_VIEWPORT,
@@ -8,6 +8,11 @@ import {
 
 const carmodooUrl =
   'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllEnvs()
+})
 
 function createRendererBrowser({
   elements = [
@@ -106,6 +111,20 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
     expect(context.close).toHaveBeenCalledTimes(1)
   })
 
+  it('normalizes trusted origin before building the proxied Carmodoo URL', async () => {
+    const { browser, page } = createRendererBrowser()
+
+    await renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+      origin: 'http://localhost/foo',
+      timeoutMs: 15_000,
+    })
+
+    expect(page.goto).toHaveBeenCalledWith(
+      `http://localhost/api/v2/checkpaper?url=${encodeURIComponent(carmodooUrl)}`,
+      expect.any(Object)
+    )
+  })
+
   it('uses a shared timeout budget across Playwright waits', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(1_000)
@@ -148,6 +167,52 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
       })
     ).rejects.toThrow('성능점검기록부 주소를 확인하지 못했습니다.')
     expect(browser.newContext).not.toHaveBeenCalled()
+  })
+
+  it('accepts localhost origins outside production', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', undefined)
+    const { browser } = createRendererBrowser()
+
+    await expect(
+      renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+        origin: 'http://localhost:3000',
+        timeoutMs: 15_000,
+      })
+    ).resolves.toEqual([new Uint8Array([1, 2, 3])])
+  })
+
+  it('rejects localhost origins in production without a matching app URL', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', undefined)
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://truck.example')
+    const { browser } = createRendererBrowser()
+
+    await expect(
+      renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+        origin: 'http://localhost:3000',
+        timeoutMs: 15_000,
+      })
+    ).rejects.toThrow('성능점검기록부 주소를 확인하지 못했습니다.')
+    expect(browser.newContext).not.toHaveBeenCalled()
+  })
+
+  it('accepts the configured app URL origin in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', undefined)
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://truck.example/app')
+    const { browser, page } = createRendererBrowser()
+
+    await expect(
+      renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+        origin: 'https://truck.example/request-path',
+        timeoutMs: 15_000,
+      })
+    ).resolves.toEqual([new Uint8Array([1, 2, 3])])
+    expect(page.goto).toHaveBeenCalledWith(
+      `https://truck.example/api/v2/checkpaper?url=${encodeURIComponent(carmodooUrl)}`,
+      expect.any(Object)
+    )
   })
 
   it('rejects zero rendered sheets and still cleans up the browser context', async () => {
@@ -281,5 +346,24 @@ describe('renderCarmodooNativeImagesWithLauncher', () => {
       headless: true,
     })
     expect(browser.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts the default render budget before launching Chromium', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000)
+
+    const { browser, page } = createRendererBrowser()
+    const launcher = {
+      launch: vi.fn(async () => {
+        vi.setSystemTime(4_000)
+        return browser
+      }),
+    }
+
+    await renderCarmodooNativeImagesWithLauncher(launcher, carmodooUrl, {
+      origin: 'http://localhost',
+    })
+
+    expect(page.goto.mock.calls[0]?.[1]?.timeout).toBe(9_000)
   })
 })

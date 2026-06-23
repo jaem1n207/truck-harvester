@@ -5,7 +5,7 @@ export const CARMODOO_RENDER_VIEWPORT = {
   width: 1440,
 }
 
-const DEFAULT_CARMODOO_RENDER_TIMEOUT_MS = 15_000
+const DEFAULT_CARMODOO_RENDER_TIMEOUT_MS = 12_000
 const CARMODOO_RENDER_SCALE = 2
 const CARMODOO_RENDER_JPEG_QUALITY = 92
 const CARMODOO_RENDER_TIMEOUT_MESSAGE =
@@ -78,6 +78,8 @@ function createRenderTimeoutBudget(totalMs: number) {
   }
 }
 
+type RenderTimeoutBudget = ReturnType<typeof createRenderTimeoutBudget>
+
 function getAllowedProductionOrigin() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
 
@@ -101,7 +103,10 @@ function assertTrustedRenderOrigin(origin: string) {
     throw new Error(CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE)
   }
 
+  const allowsLocalDevOrigins =
+    process.env.NODE_ENV !== 'production' || process.env.VITEST !== undefined
   const isLocalDevOrigin =
+    allowsLocalDevOrigins &&
     parsedOrigin.protocol === 'http:' &&
     (parsedOrigin.hostname === 'localhost' ||
       parsedOrigin.hostname === '127.0.0.1')
@@ -112,6 +117,8 @@ function assertTrustedRenderOrigin(origin: string) {
   if (!isLocalDevOrigin && !isProductionOrigin) {
     throw new Error(CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE)
   }
+
+  return parsedOrigin.origin
 }
 
 function buildProxiedCarmodooUrl(sourceUrl: string, origin: string) {
@@ -151,15 +158,19 @@ export async function renderCarmodooNativeImagesWithBrowser(
   sourceUrl: string,
   {
     origin,
+    timeoutBudget,
     timeoutMs = DEFAULT_CARMODOO_RENDER_TIMEOUT_MS,
   }: {
     origin: string
+    timeoutBudget?: RenderTimeoutBudget
     timeoutMs?: number
   }
 ) {
-  assertTrustedRenderOrigin(origin)
+  const trustedOrigin = assertTrustedRenderOrigin(origin)
+  const renderTimeoutBudget =
+    timeoutBudget ?? createRenderTimeoutBudget(timeoutMs)
 
-  const timeoutBudget = createRenderTimeoutBudget(timeoutMs)
+  renderTimeoutBudget.getRemainingMs()
   const context = await browser.newContext({
     deviceScaleFactor: CARMODOO_RENDER_SCALE,
     locale: 'ko-KR',
@@ -167,23 +178,30 @@ export async function renderCarmodooNativeImagesWithBrowser(
   })
 
   try {
+    renderTimeoutBudget.getRemainingMs()
     const page = await context.newPage()
 
+    renderTimeoutBudget.getRemainingMs()
     await page.setViewportSize(CARMODOO_RENDER_VIEWPORT)
-    await page.goto(buildProxiedCarmodooUrl(sourceUrl, origin), {
-      timeout: timeoutBudget.getRemainingMs(),
+    renderTimeoutBudget.getRemainingMs()
+    await page.goto(buildProxiedCarmodooUrl(sourceUrl, trustedOrigin), {
+      timeout: renderTimeoutBudget.getRemainingMs(),
       waitUntil: 'networkidle',
     })
+    renderTimeoutBudget.getRemainingMs()
     await page.addStyleTag({ content: getCarmodooNativeStyle() })
+    renderTimeoutBudget.getRemainingMs()
     await page.waitForLoadState('networkidle', {
-      timeout: timeoutBudget.getRemainingMs(),
+      timeout: renderTimeoutBudget.getRemainingMs(),
     })
     await page.waitForSelector('.repaircheck_box .page_wrap', {
       state: 'attached',
-      timeout: timeoutBudget.getRemainingMs(),
+      timeout: renderTimeoutBudget.getRemainingMs(),
     })
 
+    renderTimeoutBudget.getRemainingMs()
     const sheets = await page.$$('.repaircheck_box .page_wrap')
+    renderTimeoutBudget.getRemainingMs()
 
     if (sheets.length === 0 || sheets.length > CARMODOO_RENDER_MAX_PAGE_COUNT) {
       throw new Error('성능점검기록부 페이지를 찾지 못했습니다.')
@@ -194,9 +212,10 @@ export async function renderCarmodooNativeImagesWithBrowser(
     for (const sheet of sheets) {
       const buffer = await sheet.screenshot({
         quality: CARMODOO_RENDER_JPEG_QUALITY,
-        timeout: timeoutBudget.getRemainingMs(),
+        timeout: renderTimeoutBudget.getRemainingMs(),
         type: 'jpeg',
       })
+      renderTimeoutBudget.getRemainingMs()
 
       if (buffer.byteLength === 0) {
         throw new Error('성능점검기록부 이미지를 만들지 못했습니다.')
@@ -214,18 +233,23 @@ export async function renderCarmodooNativeImagesWithBrowser(
 export async function renderCarmodooNativeImagesWithLauncher(
   launcher: RendererLauncher,
   sourceUrl: string,
-  options: { origin: string }
+  {
+    origin,
+    timeoutMs = DEFAULT_CARMODOO_RENDER_TIMEOUT_MS,
+  }: { origin: string; timeoutMs?: number }
 ) {
+  const timeoutBudget = createRenderTimeoutBudget(timeoutMs)
+  timeoutBudget.getRemainingMs()
   const browser = await launcher.launch({
     headless: true,
   })
 
   try {
-    return await renderCarmodooNativeImagesWithBrowser(
-      browser,
-      sourceUrl,
-      options
-    )
+    timeoutBudget.getRemainingMs()
+    return await renderCarmodooNativeImagesWithBrowser(browser, sourceUrl, {
+      origin,
+      timeoutBudget,
+    })
   } finally {
     await browser.close()
   }
