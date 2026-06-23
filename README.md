@@ -16,6 +16,7 @@
 
 - 📋 **URL 기반 자동 수집**: 중고트럭 매물 URL 입력으로 정보 자동 추출
 - 🖼️ **이미지 일괄 다운로드**: 매물 이미지를 체계적으로 정리하여 다운로드
+- 🧾 **성능점검기록부 저장**: 매물의 성능점검기록부 인쇄본을 JPG 이미지로 함께 저장
 - 🧩 **붙여넣기 주소 정리**: 복사한 대화나 메모에서 지원되는 매물 주소 자동 추출
 - 📁 **파일 시스템 통합**: File System Access API로 브라우저에서 직접 파일 저장
 - 📦 **ZIP 다운로드 대안**: 구형 브라우저를 위한 ZIP 파일 생성 기능
@@ -39,6 +40,36 @@ bun dev
 ```
 
 [http://localhost:3000](http://localhost:3000)에서 애플리케이션을 확인할 수 있습니다.
+
+## 📁 저장 결과
+
+매물 주소 입력칸에는 다음처럼 `truck-no1.co.kr`의 매물 상세 주소를
+붙여넣습니다.
+
+```text
+https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3
+```
+
+저장하면 선택한 폴더 안에 차량번호별 폴더가 만들어지고, 차량 이미지,
+성능점검기록부, 원고가 분리되어 들어갑니다. 차량 이미지는 기존 등록
+흐름에 맞춰 `K-001.jpg` 형식을 유지합니다.
+
+```text
+truck-test/
+└─ 서울80바1234/
+   ├─ 차량 이미지/
+   │  ├─ K-001.jpg
+   │  └─ K-002.jpg
+   ├─ 성능점검기록부/
+   │  ├─ 서울80바1234_성능점검기록부_1.jpg
+   │  └─ 서울80바1234_성능점검기록부_2.jpg
+   └─ 원고/
+      └─ 서울80바1234 원고.txt
+```
+
+성능점검기록부가 없는 매물이거나 인쇄본을 만들지 못한 경우에도 차량
+이미지와 원고 저장은 완료됩니다. 이때 완료 요약에서 사용자가 해당 차량
+폴더를 확인할 수 있도록 짧은 안내를 보여줍니다.
 
 ## 📋 스크립트 명령어
 
@@ -203,7 +234,7 @@ git commit -m "fix: 저장 폴더 권한 확인 보정"
 - **API Routes**: Next.js 16 Node.js route handlers
 - **Web Scraping**: Cheerio for HTML parsing
 - **File Operations**: File System Access API + JSZip
-- **Image Handling**: Fetched image blobs are saved directly without runtime stamping
+- **Image Handling**: Fetched image blobs are saved directly without runtime stamping; performance check records are rendered from CheckPaper print pages and saved as JPG files
 
 ### 상태 관리 & 폼
 
