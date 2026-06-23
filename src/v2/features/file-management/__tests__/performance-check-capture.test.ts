@@ -201,6 +201,13 @@ describe('capturePerformanceCheckImages', () => {
             'style[data-performance-check-provider="carmodoo-html"]'
           )?.textContent
         ).toContain('background: none')
+        expect(page.querySelectorAll('input[type="checkbox"]')).toHaveLength(0)
+        const checkboxes = page.querySelectorAll(
+          '[data-performance-check-checkbox="carmodoo"]'
+        )
+        expect(checkboxes).toHaveLength(2)
+        expect(checkboxes[0].getAttribute('data-checked')).toBe('true')
+        expect(checkboxes[1].getAttribute('data-checked')).toBe('false')
         return firstCanvas
       })
       .mockImplementationOnce(async (page) => {
@@ -223,7 +230,10 @@ describe('capturePerformanceCheckImages', () => {
 
     addPagesToIframe(`
       <div class="repaircheck_box">
-        <section class="page_wrap" id="spread-one"></section>
+        <section class="page_wrap" id="spread-one">
+          <label><input type="checkbox" checked>양호</label>
+          <label><input type="checkbox">불량</label>
+        </section>
         <section class="page_wrap" id="spread-two"></section>
       </div>
     `)

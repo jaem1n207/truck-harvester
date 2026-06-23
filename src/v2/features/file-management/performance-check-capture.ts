@@ -7,6 +7,8 @@ const DEFAULT_IFRAME_WIDTH = 1200
 const DEFAULT_IFRAME_HEIGHT = 1800
 const DEFAULT_TIMEOUT_MS = 15_000
 const DEFAULT_PDF_RENDER_SCALE = 2
+const CARMODOO_CHECKBOX_ICON_URL =
+  'https://ck.carmodoo.com/images/input_checkbox.png'
 
 export type PerformanceCheckPageRenderer = (
   page: HTMLElement
@@ -352,6 +354,10 @@ const renderPageWithHtml2Canvas: PerformanceCheckPageRenderer = (page) =>
     scale: Math.max(1, Math.min(window.devicePixelRatio || 1, 2)),
   })
 
+function escapeCssString(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
 function extractBaseHref(html: string) {
   if (typeof DOMParser === 'undefined') {
     return undefined
@@ -593,7 +599,25 @@ async function captureHtmlPageImages({
   }
 }
 
-function injectCarmodooPrintLayout(frameDocument: Document) {
+function replaceCarmodooCheckboxes(frameDocument: Document) {
+  frameDocument
+    .querySelectorAll<HTMLInputElement>(
+      '.repaircheck_box input[type="checkbox"]'
+    )
+    .forEach((input) => {
+      const checkbox = frameDocument.createElement('span')
+      checkbox.dataset.performanceCheckCheckbox = 'carmodoo'
+      checkbox.dataset.checked =
+        input.checked || input.hasAttribute('checked') ? 'true' : 'false'
+      checkbox.setAttribute('aria-hidden', 'true')
+      input.replaceWith(checkbox)
+    })
+}
+
+function injectCarmodooPrintLayout(
+  frameDocument: Document,
+  checkboxIconUrl: string
+) {
   if (
     frameDocument.querySelector(
       'style[data-performance-check-provider="carmodoo-html"]'
@@ -604,6 +628,7 @@ function injectCarmodooPrintLayout(frameDocument: Document) {
 
   const style = frameDocument.createElement('style')
   style.dataset.performanceCheckProvider = 'carmodoo-html'
+  const escapedCheckboxIconUrl = escapeCssString(checkboxIconUrl)
   style.textContent = `
     body {
       -webkit-print-color-adjust: exact;
@@ -619,6 +644,24 @@ function injectCarmodooPrintLayout(frameDocument: Document) {
       margin-bottom: 0 !important;
       margin-right: 2px !important;
       width: 8pt !important;
+    }
+    .repaircheck_box [data-performance-check-checkbox='carmodoo'] {
+      background: #fff !important;
+      border: 1px solid #333 !important;
+      border-radius: 0 !important;
+      box-sizing: border-box !important;
+      display: inline-block !important;
+      height: 8pt !important;
+      line-height: 1 !important;
+      margin: 0 2px 0 0 !important;
+      vertical-align: text-bottom !important;
+      width: 8pt !important;
+    }
+    .repaircheck_box [data-performance-check-checkbox='carmodoo'][data-checked='true'] {
+      background-image: url("${escapedCheckboxIconUrl}") !important;
+      background-position: center center !important;
+      background-repeat: no-repeat !important;
+      background-size: auto 14px !important;
     }
     .repaircheck_box .btn_box {
       display: none !important;
@@ -805,6 +848,17 @@ function injectCarmodooPrintLayout(frameDocument: Document) {
   frameDocument.head.appendChild(style)
 }
 
+function prepareCarmodooFrameDocument(
+  frameDocument: Document,
+  assetProxyPath: string
+) {
+  injectCarmodooPrintLayout(
+    frameDocument,
+    buildProxiedCheckPaperUrl(CARMODOO_CHECKBOX_ICON_URL, assetProxyPath)
+  )
+  replaceCarmodooCheckboxes(frameDocument)
+}
+
 const checkpaperPdfProvider: PerformanceCheckCaptureProvider = {
   id: 'checkpaper-pdf',
   canHandle(url) {
@@ -840,7 +894,8 @@ const carmodooHtmlProvider: PerformanceCheckCaptureProvider = {
       jpegQuality: context.jpegQuality,
       ownerDocument: context.ownerDocument,
       pageSelector: '.repaircheck_box .page_wrap',
-      prepareFrameDocument: injectCarmodooPrintLayout,
+      prepareFrameDocument: (frameDocument) =>
+        prepareCarmodooFrameDocument(frameDocument, context.assetProxyPath),
       proxyPath: context.proxyPath,
       renderPage: context.renderPage,
       signal: context.signal,
