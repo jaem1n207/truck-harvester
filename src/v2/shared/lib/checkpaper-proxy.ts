@@ -3,6 +3,7 @@ import { load } from 'cheerio'
 const allowedCheckPaperHosts = new Set([
   'autocafe.co.kr',
   'checkpaper.jmenetworks.co.kr',
+  'ck.carmodoo.com',
 ])
 
 const MAX_CHECKPAPER_REDIRECTS = 4
@@ -58,6 +59,10 @@ function toProxiedAssetUrl(rawUrl: string, baseUrl: string) {
     return '#'
   }
 
+  if (trimmed.includes('/api/v2/checkpaper/asset?url=')) {
+    return trimmed
+  }
+
   try {
     const absoluteUrl = new URL(trimmed, baseUrl).toString()
 
@@ -101,6 +106,142 @@ function sanitizeActionAttribute(rawAction: string, baseUrl: string) {
   }
 
   return trimmed
+}
+
+function parseJsonObjectLiteral(value: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(value)
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string'
+      )
+    )
+  } catch {
+    return {}
+  }
+}
+
+function extractCarmodooSetData(
+  scriptText: string,
+  prefix: string
+): Record<string, string> {
+  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(
+    `setData\\(\\s*['"]${escapedPrefix}['"]\\s*,\\s*(['"])(.*?)\\1`,
+    'gs'
+  )
+  const merged: Record<string, string> = {}
+
+  for (const match of scriptText.matchAll(pattern)) {
+    Object.assign(merged, parseJsonObjectLiteral(match[2] ?? '{}'))
+  }
+
+  return merged
+}
+
+function extractCarmodooVariableData(
+  scriptText: string,
+  variableName: string
+): Record<string, string> {
+  const escapedName = variableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(
+    `var\\s+${escapedName}\\s*=\\s*(['"])(.*?)\\1\\s*;`,
+    's'
+  )
+  const match = scriptText.match(pattern)
+
+  return parseJsonObjectLiteral(match?.[2] ?? '{}')
+}
+
+function applyCarmodooCheckboxData(
+  $: ReturnType<typeof load>,
+  prefix: string,
+  values: Record<string, string>
+) {
+  Object.entries(values).forEach(([key, value]) => {
+    if (!value || value === '0') {
+      return
+    }
+
+    $(`#${prefix}_${key}_${value}`).attr('checked', 'checked')
+  })
+}
+
+function applyCarmodooImageMarkerData({
+  $,
+  baseUrl,
+  selectorPrefix,
+  values,
+}: {
+  $: ReturnType<typeof load>
+  baseUrl: string
+  selectorPrefix: string
+  values: Record<string, string>
+}) {
+  Object.entries(values).forEach(([key, value]) => {
+    const marker = value.trim().toLowerCase()
+
+    if (!marker || !/^[a-z0-9_-]+$/.test(marker)) {
+      return
+    }
+
+    const proxiedIconUrl = toCheckPaperAssetProxyUrl(
+      `/images/check/icon_${marker}.png`,
+      baseUrl
+    )
+    const node = $(`${selectorPrefix}${key}`)
+
+    if (node.is('img')) {
+      node.attr('src', proxiedIconUrl)
+      node.attr('alt', value)
+      return
+    }
+
+    const markerImage = $('<img>')
+    markerImage.attr('src', proxiedIconUrl)
+    markerImage.attr('alt', value)
+    node.empty().append(markerImage)
+  })
+}
+
+function applyCarmodooLiteralScriptData(
+  $: ReturnType<typeof load>,
+  baseUrl: string
+) {
+  if (new URL(baseUrl).hostname !== 'ck.carmodoo.com') {
+    return
+  }
+
+  const scriptText = $('script')
+    .toArray()
+    .map((element) => $(element).text())
+    .join('\n')
+
+  ;['bc', 'mac', 'dc', 'eac'].forEach((prefix) => {
+    applyCarmodooCheckboxData(
+      $,
+      prefix,
+      extractCarmodooSetData(scriptText, prefix)
+    )
+  })
+
+  applyCarmodooImageMarkerData({
+    $,
+    baseUrl,
+    selectorPrefix: '#accout_',
+    values: extractCarmodooVariableData(scriptText, 'ucAccOutCheck'),
+  })
+  applyCarmodooImageMarkerData({
+    $,
+    baseUrl,
+    selectorPrefix: '#repair_wrap_data .c',
+    values: extractCarmodooVariableData(scriptText, 'ucImgOnCheck'),
+  })
 }
 
 function createTimeoutError() {
@@ -205,6 +346,8 @@ export async function readResponseArrayBufferWithTimeout(
 export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
   const $ = load(html)
   const baseUrl = new URL(finalUrl).toString()
+
+  applyCarmodooLiteralScriptData($, baseUrl)
 
   $('script').remove()
   $('*').each((_, element) => {

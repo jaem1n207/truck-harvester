@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -13,15 +14,18 @@ import {
 
 const finalUrl =
   'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107099659&print=0&iframe=1&key='
+const carmodooUrl =
+  'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
 
 describe('checkpaper proxy helpers', () => {
-  it('allows only the CheckPaper and autocafe hosts', () => {
+  it('allows only supported performance-check hosts', () => {
     expect(isAllowedCheckPaperUrl(finalUrl)).toBe(true)
     expect(
       isAllowedCheckPaperUrl(
         'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3'
       )
     ).toBe(true)
+    expect(isAllowedCheckPaperUrl(carmodooUrl)).toBe(true)
     expect(isAllowedCheckPaperUrl('https://example.com/CheckPaper')).toBe(false)
     expect(
       isAllowedCheckPaperUrl(
@@ -114,6 +118,72 @@ describe('checkpaper proxy helpers', () => {
       )
     )
     expect(rewritten).toContain('action="/Service/CheckPaper"')
+  })
+
+  it('rewrites Carmodoo stylesheet and image URLs through the asset proxy', () => {
+    const html = `
+      <html>
+        <head>
+          <link href="/css/print_repair.css?ver=2" rel="stylesheet">
+        </head>
+        <body>
+          <div class="repaircheck_box">
+            <img id="scene" src="/data/__check/20241011/photo.jpg">
+          </div>
+        </body>
+      </html>
+    `
+
+    const rewritten = rewriteCheckPaperHtml(html, carmodooUrl)
+
+    expect(rewritten).toContain('/api/v2/checkpaper/asset?url=')
+    expect(rewritten).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/css/print_repair.css?ver=2')
+    )
+    expect(rewritten).toContain(
+      encodeURIComponent(
+        'https://ck.carmodoo.com/data/__check/20241011/photo.jpg'
+      )
+    )
+  })
+
+  it('applies known Carmodoo literal script data before removing scripts', () => {
+    const html = `
+      <html>
+        <body>
+          <input id="bc_2_1" type="checkbox">
+          <input id="bc_2_2" type="checkbox">
+          <input id="dc_81_1" type="checkbox">
+          <img id="accout_6" width="10" height="10">
+          <div id="repair_wrap_data">
+            <div class="c14"></div>
+          </div>
+          <script>
+            setData('bc', '{"2":"1"}');
+            setData('dc', '{"81":"1"}');
+            var ucAccOutCheck = '{"6":"W"}';
+            var ucImgOnCheck = '{"14":"X"}';
+          </script>
+        </body>
+      </html>
+    `
+
+    const rewritten = rewriteCheckPaperHtml(html, carmodooUrl)
+    const $ = load(rewritten)
+
+    expect($('script')).toHaveLength(0)
+    expect($('#bc_2_1').attr('checked')).toBe('checked')
+    expect($('#bc_2_2').attr('checked')).toBeUndefined()
+    expect($('#dc_81_1').attr('checked')).toBe('checked')
+    expect($('#accout_6').attr('src')).toContain(
+      '/api/v2/checkpaper/asset?url='
+    )
+    expect($('#accout_6').attr('src')).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/images/check/icon_w.png')
+    )
+    expect($('#repair_wrap_data .c14 img').attr('src')).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/images/check/icon_x.png')
+    )
   })
 
   it('rewrites CSS url() and @import references to the asset proxy', () => {
