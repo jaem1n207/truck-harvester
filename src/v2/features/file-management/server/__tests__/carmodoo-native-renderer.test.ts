@@ -102,9 +102,12 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
       '.repaircheck_box .page_wrap',
       {
         state: 'attached',
-        timeout: 15_000,
+        timeout: expect.any(Number),
       }
     )
+    expect(
+      page.waitForSelector.mock.calls[0]?.[1]?.timeout
+    ).toBeLessThanOrEqual(15_000)
     expect(firstElement.screenshot).toHaveBeenCalledWith({
       quality: 92,
       timeout: expect.any(Number),

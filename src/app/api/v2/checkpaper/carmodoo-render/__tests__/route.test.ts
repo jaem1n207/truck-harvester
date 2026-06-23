@@ -84,15 +84,14 @@ describe('POST /api/v2/checkpaper/carmodoo-render', () => {
     expect(render).not.toHaveBeenCalled()
   })
 
-  it('rejects non-HTTPS Carmodoo URLs before calling renderer', async () => {
+  it.each([
+    'ftp://ck.carmodoo.com/carCheck/carmodooPrint.do?checkNum=7126000658',
+    'http://ck.carmodoo.com/carCheck/carmodooPrint.do?checkNum=7126000658',
+  ])('rejects non-HTTPS Carmodoo URLs before calling renderer', async (url) => {
     const render = vi.fn()
     const POST = createPostHandler({ render })
 
-    const response = await POST(
-      createRequest({
-        url: 'ftp://ck.carmodoo.com/carCheck/carmodooPrint.do?checkNum=7126000658',
-      })
-    )
+    const response = await POST(createRequest({ url }))
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({
