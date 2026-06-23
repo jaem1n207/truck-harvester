@@ -1,5 +1,10 @@
 import html2canvas from 'html2canvas'
 
+import {
+  decodeCarmodooNativeRenderResponse,
+  isCarmodooPrintUrl,
+} from '@/v2/shared/lib/carmodoo-performance-check'
+
 const DEFAULT_PROXY_PATH = '/api/v2/checkpaper'
 const DEFAULT_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
 const DEFAULT_JPEG_QUALITY = 0.92
@@ -48,6 +53,11 @@ export type PerformanceCheckPrintableUrlResolver = (
   }
 ) => Promise<string | undefined>
 
+export type PerformanceCheckNativeRenderer = (
+  sourceUrl: string,
+  options: { signal?: AbortSignal; timeoutMs: number }
+) => Promise<Uint8Array[]>
+
 export interface CapturePerformanceCheckImagesOptions {
   assetProxyPath?: string
   document?: Document
@@ -55,6 +65,7 @@ export interface CapturePerformanceCheckImagesOptions {
   jpegQuality?: number
   preferPrintablePdf?: boolean
   proxyPath?: string
+  renderCarmodooNativeImages?: PerformanceCheckNativeRenderer
   resolvePrintableUrl?: PerformanceCheckPrintableUrlResolver
   renderPdfPages?: PerformanceCheckPdfRenderer
   renderPage?: PerformanceCheckPageRenderer
@@ -68,6 +79,7 @@ type CaptureContext = {
   jpegQuality: number
   ownerDocument: Document
   proxyPath: string
+  renderCarmodooNativeImages: PerformanceCheckNativeRenderer
   renderPage: PerformanceCheckPageRenderer
   renderPdfPages: PerformanceCheckPdfRenderer
   signal?: AbortSignal
@@ -75,7 +87,7 @@ type CaptureContext = {
 }
 
 type PerformanceCheckCaptureProvider = {
-  id: 'checkpaper-pdf' | 'carmodoo-html'
+  id: 'checkpaper-pdf' | 'carmodoo-native'
   canHandle: (url: URL) => boolean
   capture: (url: URL, context: CaptureContext) => Promise<Uint8Array[]>
 }
@@ -140,14 +152,6 @@ function parsePerformanceCheckUrl(value: string) {
   } catch {
     return undefined
   }
-}
-
-function isCarmodooPrintUrl(url: URL) {
-  return (
-    url.hostname === 'ck.carmodoo.com' &&
-    url.pathname.toLowerCase() === '/carcheck/carmodooprint.do' &&
-    Boolean(url.searchParams.get('checkNum')?.trim())
-  )
 }
 
 function createCaptureFrame(ownerDocument: Document, src: string) {
@@ -442,6 +446,24 @@ const fetchPdfBytes: PerformanceCheckPdfFetcher = async (
   }
 
   return new Uint8Array(await response.arrayBuffer())
+}
+
+const renderCarmodooNativeImagesViaApi: PerformanceCheckNativeRenderer = async (
+  sourceUrl,
+  { signal }
+) => {
+  const response = await fetch('/api/v2/checkpaper/carmodoo-render', {
+    body: JSON.stringify({ url: sourceUrl }),
+    headers: { 'content-type': 'application/json' },
+    method: 'POST',
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new Error('성능점검기록부를 불러오지 못했습니다.')
+  }
+
+  return decodeCarmodooNativeRenderResponse(await response.json())
 }
 
 const renderPdfPagesWithPdfJs: PerformanceCheckPdfRenderer = async (
@@ -1229,26 +1251,23 @@ const checkpaperPdfProvider: PerformanceCheckCaptureProvider = {
   },
 }
 
-const carmodooHtmlProvider: PerformanceCheckCaptureProvider = {
-  id: 'carmodoo-html',
+const carmodooNativeProvider: PerformanceCheckCaptureProvider = {
+  id: 'carmodoo-native',
   canHandle: isCarmodooPrintUrl,
   capture(url, context) {
-    return captureCarmodooHtmlImages({
-      assetProxyPath: context.assetProxyPath,
-      jpegQuality: context.jpegQuality,
-      ownerDocument: context.ownerDocument,
-      proxyPath: context.proxyPath,
-      renderPage: context.renderPage,
-      signal: context.signal,
-      timeoutMs: context.timeoutMs,
-      url: url.toString(),
-    })
+    return withAbort(
+      context.renderCarmodooNativeImages(url.toString(), {
+        signal: context.signal,
+        timeoutMs: context.timeoutMs,
+      }),
+      context.signal
+    )
   },
 }
 
 const performanceCheckProviders = [
   checkpaperPdfProvider,
-  carmodooHtmlProvider,
+  carmodooNativeProvider,
 ] satisfies PerformanceCheckCaptureProvider[]
 
 function findPerformanceCheckProvider(url: URL) {
@@ -1264,6 +1283,7 @@ export async function capturePerformanceCheckImages(
     jpegQuality = DEFAULT_JPEG_QUALITY,
     preferPrintablePdf = true,
     proxyPath = DEFAULT_PROXY_PATH,
+    renderCarmodooNativeImages = renderCarmodooNativeImagesViaApi,
     resolvePrintableUrl = resolvePrintableUrlFromProxy,
     renderPdfPages = renderPdfPagesWithPdfJs,
     renderPage = renderPageWithHtml2Canvas,
@@ -1292,6 +1312,7 @@ export async function capturePerformanceCheckImages(
     jpegQuality,
     ownerDocument,
     proxyPath,
+    renderCarmodooNativeImages,
     renderPage,
     renderPdfPages,
     signal,
