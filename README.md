@@ -17,6 +17,7 @@
 - 📋 **URL 기반 자동 수집**: 중고트럭 매물 URL 입력으로 정보 자동 추출
 - 🖼️ **이미지 일괄 다운로드**: 매물 이미지를 체계적으로 정리하여 다운로드
 - 🧾 **성능점검기록부 저장**: 매물의 성능점검기록부 인쇄본을 JPG 이미지로 함께 저장
+- 📝 **스마트스토어 원고 생성**: `차명`, `연식`, `주행거리`, `차량번호`, `차량정보`를 원고의 `기타사항`에 정리
 - 🧩 **붙여넣기 주소 정리**: 복사한 대화나 메모에서 지원되는 매물 주소 자동 추출
 - 📁 **파일 시스템 통합**: File System Access API로 브라우저에서 직접 파일 저장
 - 📦 **ZIP 다운로드 대안**: 구형 브라우저를 위한 ZIP 파일 생성 기능
@@ -70,6 +71,29 @@ truck-test/
 성능점검기록부가 없는 매물이거나 인쇄본을 만들지 못한 경우에도 차량
 이미지와 원고 저장은 완료됩니다. 이때 완료 요약에서 사용자가 해당 차량
 폴더를 확인할 수 있도록 짧은 안내를 보여줍니다.
+
+원고 파일의 `기타사항`에는 스마트스토어 표 입력에 필요한 항목이
+들여쓰기된 블록으로 저장됩니다. `연식`은 매물 상세의 `최초등록` 날짜를
+`yyyy년 m월 등록` 형식으로 바꿔 저장하고, `차량정보`는 상세설명의
+`상부`/`하부` 내용을 사용합니다. `상부`나 `하부` 설명이 여러 문단으로
+이어지는 경우에도 다음 label 전까지의 텍스트를 모두 보존합니다.
+
+```text
+기타사항 :
+  차명 : 봉고3 1톤930바가지차
+  연식 : 2023년 2월 등록
+  주행거리 : 91,000km
+  차량번호 : 90로1234
+  차량정보 :
+    상부 : 동해930, 인버터,유/무선리모컨, 작업다이, 공구함
+      동해기계항공 용인 서비스센터에서 점검 완료
+      작업 높이: 8.9m, 작업 반경: 6.4m
+    하부 : 오토미션, 133마력, 요소수 타입, 실내클리닝 완료
+```
+
+`상부`와 `하부`가 모두 비어 있으면 원고에는 `차량정보 : 정보 없음`으로
+저장됩니다. 둘 중 하나만 비어 있으면 `상부`와 `하부` 줄을 모두 유지하고,
+비어 있는 쪽만 `정보 없음`으로 표시합니다.
 
 ## 📋 스크립트 명령어
 
@@ -232,7 +256,7 @@ git commit -m "fix: 저장 폴더 권한 확인 보정"
 ### 백엔드 & API
 
 - **API Routes**: Next.js 16 Node.js route handlers
-- **Web Scraping**: Cheerio for HTML parsing
+- **Web Scraping**: Cheerio for HTML parsing, SmartStore manuscript table extraction, and performance-check link discovery
 - **File Operations**: File System Access API + JSZip
 - **Image Handling**: Fetched image blobs are saved directly without runtime stamping; performance check records are rendered from CheckPaper print pages and saved as JPG files
 

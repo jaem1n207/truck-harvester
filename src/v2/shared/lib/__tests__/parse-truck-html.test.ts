@@ -14,13 +14,18 @@ const fullHtml = `
     <p class="vcash">가격 <span class="red">3,550</span>만원</p>
     <div class="car-detail">
       <dl>
-        <dd><strong class="number">2020</strong>년식</dd>
-        <dd><strong class="red number">150,000</strong>km</dd>
+        <dt>년형 | 등록</dt>
+        <dd><strong class="number">2023</strong>년형 | <span class="number">20231117</span> 최초등록</dd>
+        <dt>주행거리</dt>
+        <dd><strong class="red number">159,600</strong>km</dd>
       </dl>
     </div>
     <div class="vcontent">
-      <p><font><span><b><span>차명: 2020년 현대 마이티 냉동탑차</span></b></span></font></p>
-      ▶ 추가장착 옵션 :: 냉동탑, 후방카메라, 블랙박스<br />
+      ▶ 추가장착 옵션 :: 1.3톤활어운반차, 포터2, 오토미션, 바로특장, 1.3톤인증차, 1인신조, 무사고, 액산병 보유<br /><br /><br />
+      ▶ 상세설명 ::
+      <p><font><span><b><span>·&nbsp;차명: 포터2 1.3톤활어운반차</span></b></span></font></p>
+      <p><b><span>·&nbsp;</span></b><font><span><b><span>상부: 인증차(</span></b></span><span><b>바로1.3톤활어운반차</b></span></font><b><span>), 액산병 보유</span></b></p>
+      <p><b><span>·&nbsp;</span></b><font><span><b><span>하부: 1인신조, 무사고, 오토미션</span></b></span></font></p>
     </div>
     <div class="sumnail">
       <ul>
@@ -90,6 +95,103 @@ const sparseHtml = `
 </html>
 `
 
+const emptyDetailHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <p class="vname">냉동탑 5톤이상</p>
+    <p class="vnumber">91누5384</p>
+    <p class="vcash"><span class="red">12,500</span>만원</p>
+    <div class="car-detail">
+      <dl>
+        <dt>년형 | 등록</dt>
+        <dd><strong class="number">2021</strong>년형 | <span class="number">20210823</span> 최초등록</dd>
+        <dt>주행거리</dt>
+        <dd><strong class="red number">363,313</strong>km</dd>
+      </dl>
+    </div>
+    <div class="vcontent">
+      ▶ 추가장착 옵션 :: <br /><br /><br />
+      ▶ 상세설명 ::
+      <p><font><span><b><span>·&nbsp;차명:</span></b></span></font></p>
+      <p><b><span>·&nbsp;</span></b><font><span><b><span>상부:</span></b></span></font></p>
+      <p><b><span>·&nbsp;</span></b><font><span><b><span>하부:</span></b></span></font></p>
+    </div>
+  </body>
+</html>
+`
+
+const partialVehicleInfoHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <p class="vname">현대 포터2</p>
+    <p class="vnumber">88다8888</p>
+    <p class="vcash"><span class="red">2,000</span>만원</p>
+    <div class="car-detail">
+      <dl>
+        <dt>년형 | 등록</dt>
+        <dd><strong class="number">2022</strong>년형 | <span class="number">20220501</span> 최초등록</dd>
+        <dt>주행거리</dt>
+        <dd><strong class="red number">50,000</strong>km</dd>
+      </dl>
+    </div>
+    <div class="vcontent">
+      ▶ 상세설명 ::
+      <p><span>· 차명: 포터2 특장차</span></p>
+      <p><span>· 상부: 냉동탑</span></p>
+      <p><span>· 하부:</span></p>
+    </div>
+  </body>
+</html>
+`
+
+const multilineVehicleInfoHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <p class="vname">기아 봉고3</p>
+    <p class="vnumber">90로1234</p>
+    <p class="vcash"><span class="red">4,300</span>만원</p>
+    <div class="car-detail">
+      <dl>
+        <dt>년형 | 등록</dt>
+        <dd><strong class="number">2023</strong>년형 | <span class="number">20230210</span> 최초등록</dd>
+        <dt>주행거리</dt>
+        <dd><strong class="red number">91,000</strong>km</dd>
+      </dl>
+    </div>
+    <div class="vcontent">
+      ▶ 상세설명 ::
+      <p><span>· 차명: 봉고3 1톤930바가지차</span></p>
+      <p><span>· 상부: 동해930, 인버터,유/무선리모컨, 작업다이, 공구함</span></p>
+      <p><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;동해기계항공 용인 서비스센터에서 점검 완료</span></p>
+      <p><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;작업 높이: 8.9m, 작업 반경: 6.4m</span></p>
+      <p><span>· 하부: 오토미션, 133마력, 요소수 타입, 실내클리닝 완료</span></p>
+      <p><span>- - - - - - - - - - - - - - - - - - - - -</span></p>
+      <p><span>안녕하세요. 트럭판매왕입니다.</span></p>
+    </div>
+  </body>
+</html>
+`
+
+const invalidRegistrationHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <p class="vname">기아 봉고</p>
+    <p class="vnumber">34나5678</p>
+    <p class="vcash"><span class="red">900</span></p>
+    <div class="car-detail">
+      <dl>
+        <dt>년형 | 등록</dt>
+        <dd><strong class="number">2020</strong>년형 | <span class="number">20201340</span> 최초등록</dd>
+      </dl>
+    </div>
+  </body>
+</html>
+`
+
 describe('parseTruckHtml', () => {
   it('extracts truck listing fields using the legacy selectors', () => {
     const listing = parseTruckHtml(fullHtml, detailUrl)
@@ -97,7 +199,7 @@ describe('parseTruckHtml', () => {
     expect(listing).toEqual({
       url: detailUrl,
       vname: '현대 마이티',
-      vehicleName: '2020년 현대 마이티 냉동탑차',
+      vehicleName: '포터2 1.3톤활어운반차',
       vnumber: '12가3456',
       price: {
         raw: 3550,
@@ -105,9 +207,19 @@ describe('parseTruckHtml', () => {
         label: '3,550만원',
         compactLabel: '3.6천만',
       },
-      year: '2020',
-      mileage: '150,000km',
-      options: '냉동탑 / 후방카메라 / 블랙박스',
+      year: '2023',
+      mileage: '159,600km',
+      options:
+        '1.3톤활어운반차 / 포터2 / 오토미션 / 바로특장 / 1.3톤인증차 / 1인신조 / 무사고 / 액산병 보유',
+      smartStoreTable: {
+        vehicleName: '포터2 1.3톤활어운반차',
+        registrationLabel: '2023년 11월 등록',
+        mileage: '159,600km',
+        vehicleNumber: '12가3456',
+        upperInfo: '인증차(바로1.3톤활어운반차), 액산병 보유',
+        lowerInfo: '1인신조, 무사고, 오토미션',
+        hasVehicleInfo: true,
+      },
       performanceCheckUrl:
         'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3',
       images: [
@@ -143,6 +255,51 @@ describe('parseTruckHtml', () => {
     const listing = parseTruckHtml(sparseHtml, detailUrl)
 
     expect(listing.performanceCheckUrl).toBeUndefined()
+  })
+
+  it('falls back when detail labels are present but empty', () => {
+    const listing = parseTruckHtml(emptyDetailHtml, detailUrl)
+
+    expect(listing.smartStoreTable).toEqual({
+      vehicleName: '냉동탑 5톤이상',
+      registrationLabel: '2021년 8월 등록',
+      mileage: '363,313km',
+      vehicleNumber: '91누5384',
+      upperInfo: '정보 없음',
+      lowerInfo: '정보 없음',
+      hasVehicleInfo: false,
+    })
+  })
+
+  it('keeps both upper and lower rows when only one vehicle info value exists', () => {
+    const listing = parseTruckHtml(partialVehicleInfoHtml, detailUrl)
+
+    expect(listing.smartStoreTable).toEqual({
+      vehicleName: '포터2 특장차',
+      registrationLabel: '2022년 5월 등록',
+      mileage: '50,000km',
+      vehicleNumber: '88다8888',
+      upperInfo: '냉동탑',
+      lowerInfo: '정보 없음',
+      hasVehicleInfo: true,
+    })
+  })
+
+  it('keeps continuation paragraphs inside upper and lower vehicle info fields', () => {
+    const listing = parseTruckHtml(multilineVehicleInfoHtml, detailUrl)
+
+    expect(listing.smartStoreTable).toMatchObject({
+      upperInfo:
+        '동해930, 인버터,유/무선리모컨, 작업다이, 공구함\n동해기계항공 용인 서비스센터에서 점검 완료\n작업 높이: 8.9m, 작업 반경: 6.4m',
+      lowerInfo: '오토미션, 133마력, 요소수 타입, 실내클리닝 완료',
+      hasVehicleInfo: true,
+    })
+  })
+
+  it('uses the existing year fallback when the initial registration date is invalid', () => {
+    const listing = parseTruckHtml(invalidRegistrationHtml, detailUrl)
+
+    expect(listing.smartStoreTable?.registrationLabel).toBe('2020')
   })
 
   it('matches performance check URLs case-insensitively from href', () => {

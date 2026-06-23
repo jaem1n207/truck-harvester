@@ -121,6 +121,16 @@ Vehicle image files keep the existing `K-001.jpg` naming convention. Manuscript
 and performance-check file names include the sanitized vehicle number so users
 can identify files after moving them between folders.
 
+The manuscript's `기타사항` block is generated for manual SmartStore entry. It
+contains `차명`, `연식`, `주행거리`, `차량번호`, and `차량정보`; `연식` uses the
+listing's `최초등록` date as `yyyy년 m월 등록`. The `차량정보` value comes from
+the listing description's `상부` and `하부` labels. If a label's value continues
+across multiple paragraphs before the next `차명`/`상부`/`하부` label or seller
+intro separator, those continuation paragraphs are preserved in the manuscript
+with extra indentation. When both `상부` and `하부` are empty, the manuscript
+uses `차량정보 : 정보 없음`; when only one side is empty, both rows are still
+rendered and the missing side is `정보 없음`.
+
 Performance-check saving is non-fatal. If the listing has no usable
 performance-check record or the printable record cannot be rendered, the
 vehicle images and manuscript still save successfully. The completion summary
@@ -153,8 +163,8 @@ the user's selected folder or ZIP file.
   saving, performance-check rendering, completion notifications, and
   onboarding.
 - `src/v2/entities`: pure schemas and state contracts.
-- `src/v2/shared`: utilities, stores, selectors, analytics transport, and
-  low-level UI.
+- `src/v2/shared`: utilities, parser helpers, stores, selectors, analytics
+  transport, and low-level UI.
 - `src/v2/design-system`: tokens and motion presets for the root app.
 
 ## Guardrails

@@ -7,6 +7,7 @@ export {
   truckPriceSchema,
   type FailedTruck,
   type PendingTruck,
+  type SmartStoreTable,
   type SuccessTruck,
   type TruckListing,
   type TruckParseResult,
