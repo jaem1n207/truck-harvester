@@ -25,6 +25,16 @@ const listing = {
   images: ['https://example.com/truck.jpg'],
 }
 
+const smartStoreTable = {
+  vehicleName: '포터2 1.3톤활어운반차',
+  registrationLabel: '2023년 11월 등록',
+  mileage: '159,600km',
+  vehicleNumber: '822수2698',
+  upperInfo: '인증차(바로1.3톤활어운반차), 액산병 보유',
+  lowerInfo: '1인신조, 무사고, 오토미션',
+  hasVehicleInfo: true,
+}
+
 describe('truckListingSchema', () => {
   it('parses the legacy truck shape used by v2', () => {
     expect(truckListingSchema.parse(listing)).toEqual(listing)
@@ -46,6 +56,21 @@ describe('truckListingSchema', () => {
     })
 
     expect(parsed.performanceCheckUrl).toBeUndefined()
+  })
+
+  it('parses smart store table details when present', () => {
+    const parsed = truckListingSchema.parse({
+      ...listing,
+      smartStoreTable,
+    })
+
+    expect(parsed.smartStoreTable).toEqual(smartStoreTable)
+  })
+
+  it('allows existing listing payloads without smart store table details', () => {
+    const parsed = truckListingSchema.parse(listing)
+
+    expect(parsed.smartStoreTable).toBeUndefined()
   })
 
   it('rejects non-web performance check URLs', () => {

@@ -25,6 +25,16 @@ export const truckPriceSchema = z.object({
   compactLabel: z.string().min(1),
 })
 
+export const smartStoreTableSchema = z.object({
+  vehicleName: z.string().min(1),
+  registrationLabel: z.string().min(1),
+  mileage: z.string().min(1),
+  vehicleNumber: z.string().min(1),
+  upperInfo: z.string().min(1),
+  lowerInfo: z.string().min(1),
+  hasVehicleInfo: z.boolean(),
+})
+
 export const truckListingSchema = z.object({
   url: z.string().url(),
   performanceCheckUrl: webUrlSchema.optional(),
@@ -35,6 +45,7 @@ export const truckListingSchema = z.object({
   year: z.string().min(1),
   mileage: z.string().min(1),
   options: z.string().min(1),
+  smartStoreTable: smartStoreTableSchema.optional(),
   images: z.array(z.string().url()).default([]),
 })
 
@@ -74,6 +85,7 @@ export const truckParseResultSchema = z.discriminatedUnion('status', [
 ])
 
 export type TruckPrice = z.infer<typeof truckPriceSchema>
+export type SmartStoreTable = z.infer<typeof smartStoreTableSchema>
 export type TruckListing = z.infer<typeof truckListingSchema>
 export type PendingTruck = z.infer<typeof pendingTruckSchema>
 export type SuccessTruck = z.infer<typeof successTruckSchema>
