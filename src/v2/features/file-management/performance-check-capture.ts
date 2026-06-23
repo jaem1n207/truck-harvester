@@ -96,6 +96,10 @@ function createAbortError() {
   return new DOMException('다운로드가 취소되었습니다.', 'AbortError')
 }
 
+function createLoadTimeoutError() {
+  return new Error('성능점검기록부를 불러오는 시간이 초과되었습니다.')
+}
+
 function assertNotAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw createAbortError()
@@ -152,6 +156,14 @@ function parsePerformanceCheckUrl(value: string) {
   } catch {
     return undefined
   }
+}
+
+function normalizeCarmodooNativeRenderUrl(url: URL) {
+  const normalizedUrl = new URL(url.toString())
+
+  normalizedUrl.protocol = 'https:'
+
+  return normalizedUrl.toString()
 }
 
 function createCaptureFrame(ownerDocument: Document, src: string) {
@@ -450,20 +462,49 @@ const fetchPdfBytes: PerformanceCheckPdfFetcher = async (
 
 const renderCarmodooNativeImagesViaApi: PerformanceCheckNativeRenderer = async (
   sourceUrl,
-  { signal }
+  { signal, timeoutMs }
 ) => {
-  const response = await fetch('/api/v2/checkpaper/carmodoo-render', {
-    body: JSON.stringify({ url: sourceUrl }),
-    headers: { 'content-type': 'application/json' },
-    method: 'POST',
-    signal,
-  })
+  assertNotAborted(signal)
 
-  if (!response.ok) {
-    throw new Error('성능점검기록부를 불러오지 못했습니다.')
+  const controller = new AbortController()
+  let didTimeout = false
+  const timeoutId = setTimeout(() => {
+    didTimeout = true
+    controller.abort()
+  }, timeoutMs)
+  const handleExternalAbort = () => {
+    controller.abort()
   }
 
-  return decodeCarmodooNativeRenderResponse(await response.json())
+  signal?.addEventListener('abort', handleExternalAbort, { once: true })
+
+  try {
+    const response = await fetch('/api/v2/checkpaper/carmodoo-render', {
+      body: JSON.stringify({ url: sourceUrl }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error('성능점검기록부를 불러오지 못했습니다.')
+    }
+
+    return decodeCarmodooNativeRenderResponse(await response.json())
+  } catch (error) {
+    if (didTimeout) {
+      throw createLoadTimeoutError()
+    }
+
+    if (signal?.aborted) {
+      throw createAbortError()
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+    signal?.removeEventListener('abort', handleExternalAbort)
+  }
 }
 
 const renderPdfPagesWithPdfJs: PerformanceCheckPdfRenderer = async (
@@ -1255,8 +1296,10 @@ const carmodooNativeProvider: PerformanceCheckCaptureProvider = {
   id: 'carmodoo-native',
   canHandle: isCarmodooPrintUrl,
   capture(url, context) {
+    const renderUrl = normalizeCarmodooNativeRenderUrl(url)
+
     return withAbort(
-      context.renderCarmodooNativeImages(url.toString(), {
+      context.renderCarmodooNativeImages(renderUrl, {
         signal: context.signal,
         timeoutMs: context.timeoutMs,
       }),
