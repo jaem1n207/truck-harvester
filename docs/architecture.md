@@ -141,16 +141,19 @@ folder before SmartStore registration.
 
 `POST /api/v2/parse-truck` returns `performanceCheckUrl` when the listing page
 contains a `성능점검보기` link. During save, the client asks the same-origin
-CheckPaper routes to resolve and fetch the printable record:
+CheckPaper routes to resolve the record and then chooses the supported renderer:
+existing CheckPaper `record.do` PDF pages are rendered as JPGs, and Carmodoo
+`carmodooPrint.do?checkNum=...` HTML records are captured from their 2-up
+print layout as JPGs.
 
 - `GET /api/v2/checkpaper` fetches supported CheckPaper or intermediate pages,
   follows redirects, and rewrites assets to same-origin URLs.
 - `GET /api/v2/checkpaper/asset` proxies supported CSS, image, script, and
   printable record assets.
 
-The browser renders the printable record pages and converts each page to a JPG
-image. The app does not upload these records anywhere; it only saves them into
-the user's selected folder or ZIP file.
+The browser renders the supported record pages and converts each output page to
+a JPG image. The app does not upload these records anywhere; it only saves them
+into the user's selected folder or ZIP file.
 
 ## Layer Responsibilities
 
