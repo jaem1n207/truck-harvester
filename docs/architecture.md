@@ -146,7 +146,8 @@ existing CheckPaper `record.do` PDF pages are rendered as JPGs, and Carmodoo
 `carmodooPrint.do?checkNum=...` HTML records are captured from their 2-up
 print layout as JPGs. Carmodoo records are first wrapped in a landscape
 print-preview sheet with the same browser-style page margins, header, footer,
-and fitted content scale before the sheet is captured.
+fitted content scale, and capture-safe table text metrics before the sheet is
+captured.
 
 - `GET /api/v2/checkpaper` fetches supported CheckPaper or intermediate pages,
   follows redirects, and rewrites assets to same-origin URLs.
