@@ -12,16 +12,37 @@ export function isCarmodooPrintUrl(url: URL) {
   )
 }
 
+function assertValidBase64(value: string) {
+  const hasValidAlphabet = /^[A-Za-z0-9+/]*={0,2}$/.test(value)
+
+  if (!hasValidAlphabet || value.length % 4 !== 0 || /=[^=]/.test(value)) {
+    throw new Error('성능점검기록부 이미지를 만들지 못했습니다.')
+  }
+}
+
 function decodeBase64ToBytes(value: string) {
+  assertValidBase64(value)
+
+  let bytes: Uint8Array
+
   if (typeof Buffer !== 'undefined') {
-    return new Uint8Array(Buffer.from(value, 'base64'))
+    bytes = new Uint8Array(Buffer.from(value, 'base64'))
+  } else {
+    try {
+      const binary = atob(value)
+
+      bytes = new Uint8Array(binary.length)
+
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index)
+      }
+    } catch {
+      throw new Error('성능점검기록부 이미지를 만들지 못했습니다.')
+    }
   }
 
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
+  if (bytes.length === 0) {
+    throw new Error('성능점검기록부 이미지를 만들지 못했습니다.')
   }
 
   return bytes

@@ -52,6 +52,18 @@ describe('carmodoo-performance-check', () => {
     expect(() => decodeCarmodooNativeRenderResponse({})).toThrow(
       '성능점검기록부 이미지를 만들지 못했습니다.'
     )
+    expect(() => decodeCarmodooNativeRenderResponse({ images: [] })).toThrow(
+      '성능점검기록부 이미지 수가 올바르지 않습니다.'
+    )
+    expect(() => decodeCarmodooNativeRenderResponse({ images: [1] })).toThrow(
+      '성능점검기록부 이미지를 만들지 못했습니다.'
+    )
+    expect(() =>
+      decodeCarmodooNativeRenderResponse({ images: ['not-base64'] })
+    ).toThrow('성능점검기록부 이미지를 만들지 못했습니다.')
+    expect(() => decodeCarmodooNativeRenderResponse({ images: [''] })).toThrow(
+      '성능점검기록부 이미지를 만들지 못했습니다.'
+    )
     expect(() =>
       decodeCarmodooNativeRenderResponse({
         images: Array.from({ length: CARMODOO_RENDER_MAX_PAGE_COUNT + 1 }, () =>
@@ -59,5 +71,28 @@ describe('carmodoo-performance-check', () => {
         ),
       })
     ).toThrow('성능점검기록부 이미지 수가 올바르지 않습니다.')
+  })
+
+  it('decodes through the browser atob fallback when Buffer is unavailable', () => {
+    const originalBuffer = globalThis.Buffer
+    const encoded = Buffer.from([1, 2, 3]).toString('base64')
+
+    try {
+      Object.defineProperty(globalThis, 'Buffer', {
+        configurable: true,
+        value: undefined,
+      })
+
+      expect(
+        decodeCarmodooNativeRenderResponse({
+          images: [encoded],
+        })
+      ).toEqual([new Uint8Array([1, 2, 3])])
+    } finally {
+      Object.defineProperty(globalThis, 'Buffer', {
+        configurable: true,
+        value: originalBuffer,
+      })
+    }
   })
 })
