@@ -14,6 +14,11 @@ const printableRecordUrl =
   'https://checkpaper.jmenetworks.co.kr/view/record.do?check_id=41-00-029368'
 const autocafeSourceUrl =
   'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300060798'
+const carmodooSourceUrl =
+  'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
+const proxiedCarmodooSourceUrl = `/api/v2/checkpaper?url=${encodeURIComponent(
+  carmodooSourceUrl
+)}`
 
 function captureHtmlImages(options: CapturePerformanceCheckImagesOptions = {}) {
   return capturePerformanceCheckImages(sourceUrl, {
@@ -171,6 +176,110 @@ describe('capturePerformanceCheckImages', () => {
       `/api/v2/checkpaper/asset?url=${encodeURIComponent(printableRecordUrl)}`,
       { signal: undefined }
     )
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('captures Carmodoo page_wrap elements with injected print layout', async () => {
+    const firstCanvas = createCanvas([11, 12])
+    const secondCanvas = createCanvas([13, 14])
+    const renderPage = vi
+      .fn<PerformanceCheckPageRenderer>()
+      .mockImplementationOnce(async (page) => {
+        expect(page.classList.contains('page_wrap')).toBe(true)
+        expect(
+          page.ownerDocument.querySelector(
+            'style[data-performance-check-provider="carmodoo-html"]'
+          )?.textContent
+        ).toContain('.repaircheck_box')
+        return firstCanvas
+      })
+      .mockImplementationOnce(async (page) => {
+        expect(page.classList.contains('page_wrap')).toBe(true)
+        return secondCanvas
+      })
+    const fetchPdf = vi.fn()
+    const renderPdfPages = vi.fn()
+    const resolvePrintableUrl = vi.fn()
+
+    const capturePromise = capturePerformanceCheckImages(carmodooSourceUrl, {
+      fetchPdf,
+      renderPage,
+      renderPdfPages,
+      resolvePrintableUrl,
+    })
+
+    const iframe = document.querySelector('iframe') as HTMLIFrameElement
+    expect(iframe.getAttribute('src')).toBe(proxiedCarmodooSourceUrl)
+
+    addPagesToIframe(`
+      <div class="repaircheck_box">
+        <section class="page_wrap" id="spread-one"></section>
+        <section class="page_wrap" id="spread-two"></section>
+      </div>
+    `)
+    dispatchIframeLoad()
+
+    await expect(capturePromise).resolves.toEqual([
+      new Uint8Array([11, 12]),
+      new Uint8Array([13, 14]),
+    ])
+    expect(resolvePrintableUrl).not.toHaveBeenCalled()
+    expect(fetchPdf).not.toHaveBeenCalled()
+    expect(renderPdfPages).not.toHaveBeenCalled()
+    expect(renderPage).toHaveBeenCalledTimes(2)
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('uses the Carmodoo provider after resolving an autocafe URL', async () => {
+    const canvas = createCanvas([21])
+    const resolvePrintableUrl = vi.fn(async () => carmodooSourceUrl)
+    const renderPage = vi
+      .fn<PerformanceCheckPageRenderer>()
+      .mockResolvedValue(canvas)
+    const fetchPdf = vi.fn()
+
+    const capturePromise = capturePerformanceCheckImages(autocafeSourceUrl, {
+      fetchPdf,
+      renderPage,
+      resolvePrintableUrl,
+    })
+
+    await Promise.resolve()
+
+    const iframe = document.querySelector('iframe') as HTMLIFrameElement
+    expect(iframe.getAttribute('src')).toBe(proxiedCarmodooSourceUrl)
+
+    addPagesToIframe(
+      '<div class="repaircheck_box"><section class="page_wrap"></section></div>'
+    )
+    dispatchIframeLoad()
+
+    await expect(capturePromise).resolves.toEqual([new Uint8Array([21])])
+    expect(resolvePrintableUrl).toHaveBeenCalledWith(autocafeSourceUrl, {
+      proxyPath: '/api/v2/checkpaper',
+      signal: undefined,
+    })
+    expect(fetchPdf).not.toHaveBeenCalled()
+    expect(renderPage).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('rejects and cleans up when the Carmodoo document has no page_wrap elements', async () => {
+    const renderPage = vi.fn<PerformanceCheckPageRenderer>()
+
+    const capturePromise = capturePerformanceCheckImages(carmodooSourceUrl, {
+      renderPage,
+    })
+
+    addPagesToIframe(
+      '<div class="repaircheck_box"><main>문서를 찾지 못했습니다.</main></div>'
+    )
+    dispatchIframeLoad()
+
+    await expect(capturePromise).rejects.toThrow(
+      '성능점검기록부 페이지를 찾지 못했습니다.'
+    )
+    expect(renderPage).not.toHaveBeenCalled()
     expect(document.querySelector('iframe')).toBeNull()
   })
 

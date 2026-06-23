@@ -48,6 +48,24 @@ export interface CapturePerformanceCheckImagesOptions {
   timeoutMs?: number
 }
 
+type CaptureContext = {
+  assetProxyPath: string
+  fetchPdf: PerformanceCheckPdfFetcher
+  jpegQuality: number
+  ownerDocument: Document
+  proxyPath: string
+  renderPage: PerformanceCheckPageRenderer
+  renderPdfPages: PerformanceCheckPdfRenderer
+  signal?: AbortSignal
+  timeoutMs: number
+}
+
+type PerformanceCheckCaptureProvider = {
+  id: 'checkpaper-pdf' | 'carmodoo-html'
+  canHandle: (url: URL) => boolean
+  capture: (url: URL, context: CaptureContext) => Promise<Uint8Array[]>
+}
+
 function createAbortError() {
   return new DOMException('다운로드가 취소되었습니다.', 'AbortError')
 }
@@ -64,7 +82,7 @@ function buildProxiedCheckPaperUrl(url: string, proxyPath: string) {
   return `${proxyPath}${separator}url=${encodeURIComponent(url)}`
 }
 
-function derivePrintableRecordUrl(value: string) {
+function deriveCheckPaperPrintableRecordUrl(value: string) {
   try {
     const url = new URL(value)
     const checkId = url.searchParams.get('check_id')?.trim()
@@ -94,6 +112,28 @@ function derivePrintableRecordUrl(value: string) {
   } catch {
     return undefined
   }
+}
+
+function parsePerformanceCheckUrl(value: string) {
+  try {
+    const url = new URL(value)
+
+    if (!/^https?:$/i.test(url.protocol)) {
+      return undefined
+    }
+
+    return url
+  } catch {
+    return undefined
+  }
+}
+
+function isCarmodooPrintUrl(url: URL) {
+  return (
+    url.hostname === 'ck.carmodoo.com' &&
+    url.pathname.toLowerCase() === '/carcheck/carmodooprint.do' &&
+    Boolean(url.searchParams.get('checkNum')?.trim())
+  )
 }
 
 function createCaptureFrame(ownerDocument: Document, src: string) {
@@ -488,6 +528,8 @@ async function capturePrintablePdfImages({
 async function captureHtmlPageImages({
   jpegQuality,
   ownerDocument,
+  pageSelector = '.page',
+  prepareFrameDocument,
   proxyPath,
   renderPage,
   signal,
@@ -496,6 +538,8 @@ async function captureHtmlPageImages({
 }: {
   jpegQuality: number
   ownerDocument: Document
+  pageSelector?: string
+  prepareFrameDocument?: (frameDocument: Document) => void
   proxyPath: string
   renderPage: PerformanceCheckPageRenderer
   signal?: AbortSignal
@@ -514,9 +558,10 @@ async function captureHtmlPageImages({
       timeoutMs,
     })
     assertNotAborted(signal)
+    prepareFrameDocument?.(frameDocument)
 
     const pages = Array.from(
-      frameDocument.querySelectorAll<HTMLElement>('.page')
+      frameDocument.querySelectorAll<HTMLElement>(pageSelector)
     )
 
     if (pages.length === 0) {
@@ -546,6 +591,103 @@ async function captureHtmlPageImages({
   } finally {
     iframe.remove()
   }
+}
+
+function injectCarmodooPrintLayout(frameDocument: Document) {
+  if (
+    frameDocument.querySelector(
+      'style[data-performance-check-provider="carmodoo-html"]'
+    )
+  ) {
+    return
+  }
+
+  const style = frameDocument.createElement('style')
+  style.dataset.performanceCheckProvider = 'carmodoo-html'
+  style.textContent = `
+    .repaircheck_box {
+      margin: 0 !important;
+      width: 1400px !important;
+    }
+    .repaircheck_box .btn_box {
+      display: none !important;
+    }
+    .repaircheck_box .page_wrap {
+      clear: both;
+      display: block;
+      height: 950px;
+      page-break-after: always;
+      page-break-before: auto;
+      width: 100%;
+    }
+    .repaircheck_box .page_col1 {
+      float: left;
+      width: 49%;
+    }
+    .repaircheck_box .page_col2 {
+      float: right;
+      width: 49%;
+    }
+    .repaircheck_box .fuc_print {
+      display: block !important;
+    }
+  `
+
+  frameDocument.head.appendChild(style)
+}
+
+const checkpaperPdfProvider: PerformanceCheckCaptureProvider = {
+  id: 'checkpaper-pdf',
+  canHandle(url) {
+    return Boolean(deriveCheckPaperPrintableRecordUrl(url.toString()))
+  },
+  capture(url, context) {
+    const printableRecordUrl = deriveCheckPaperPrintableRecordUrl(
+      url.toString()
+    )
+
+    if (!printableRecordUrl) {
+      throw new Error('성능점검기록부 인쇄본 주소를 찾지 못했습니다.')
+    }
+
+    return capturePrintablePdfImages({
+      assetProxyPath: context.assetProxyPath,
+      fetchPdf: context.fetchPdf,
+      jpegQuality: context.jpegQuality,
+      ownerDocument: context.ownerDocument,
+      printableRecordUrl,
+      renderPdfPages: context.renderPdfPages,
+      signal: context.signal,
+      timeoutMs: context.timeoutMs,
+    })
+  },
+}
+
+const carmodooHtmlProvider: PerformanceCheckCaptureProvider = {
+  id: 'carmodoo-html',
+  canHandle: isCarmodooPrintUrl,
+  capture(url, context) {
+    return captureHtmlPageImages({
+      jpegQuality: context.jpegQuality,
+      ownerDocument: context.ownerDocument,
+      pageSelector: '.repaircheck_box .page_wrap',
+      prepareFrameDocument: injectCarmodooPrintLayout,
+      proxyPath: context.proxyPath,
+      renderPage: context.renderPage,
+      signal: context.signal,
+      timeoutMs: context.timeoutMs,
+      url: url.toString(),
+    })
+  },
+}
+
+const performanceCheckProviders = [
+  checkpaperPdfProvider,
+  carmodooHtmlProvider,
+] satisfies PerformanceCheckCaptureProvider[]
+
+function findPerformanceCheckProvider(url: URL) {
+  return performanceCheckProviders.find((provider) => provider.canHandle(url))
 }
 
 export async function capturePerformanceCheckImages(
@@ -579,49 +721,56 @@ export async function capturePerformanceCheckImages(
     throw new Error('브라우저에서만 성능점검기록부를 캡처할 수 있습니다.')
   }
 
-  const printableRecordUrl = preferPrintablePdf
-    ? derivePrintableRecordUrl(trimmedUrl)
-    : undefined
-
-  let resolvedPrintableRecordUrl = printableRecordUrl
-  if (preferPrintablePdf && !resolvedPrintableRecordUrl) {
-    const resolvedUrl = await withAbort(
-      resolvePrintableUrl(trimmedUrl, {
-        proxyPath,
-        signal,
-      }),
-      signal
-    )
-
-    resolvedPrintableRecordUrl = resolvedUrl
-      ? derivePrintableRecordUrl(resolvedUrl)
-      : undefined
-  }
-
-  if (preferPrintablePdf && !resolvedPrintableRecordUrl) {
-    throw new Error('성능점검기록부 인쇄본 주소를 찾지 못했습니다.')
-  }
-
-  if (resolvedPrintableRecordUrl) {
-    return capturePrintablePdfImages({
-      assetProxyPath,
-      fetchPdf,
-      jpegQuality,
-      ownerDocument,
-      printableRecordUrl: resolvedPrintableRecordUrl,
-      renderPdfPages,
-      signal,
-      timeoutMs,
-    })
-  }
-
-  return captureHtmlPageImages({
+  const captureContext: CaptureContext = {
+    assetProxyPath,
+    fetchPdf,
     jpegQuality,
     ownerDocument,
     proxyPath,
     renderPage,
+    renderPdfPages,
     signal,
     timeoutMs,
-    url: trimmedUrl,
-  })
+  }
+
+  if (!preferPrintablePdf) {
+    return captureHtmlPageImages({
+      jpegQuality,
+      ownerDocument,
+      proxyPath,
+      renderPage,
+      signal,
+      timeoutMs,
+      url: trimmedUrl,
+    })
+  }
+
+  const sourceUrl = parsePerformanceCheckUrl(trimmedUrl)
+  const sourceProvider = sourceUrl
+    ? findPerformanceCheckProvider(sourceUrl)
+    : undefined
+
+  if (sourceUrl && sourceProvider) {
+    return sourceProvider.capture(sourceUrl, captureContext)
+  }
+
+  const resolvedUrl = await withAbort(
+    resolvePrintableUrl(trimmedUrl, {
+      proxyPath,
+      signal,
+    }),
+    signal
+  )
+  const resolvedPerformanceCheckUrl = resolvedUrl
+    ? parsePerformanceCheckUrl(resolvedUrl)
+    : undefined
+  const resolvedProvider = resolvedPerformanceCheckUrl
+    ? findPerformanceCheckProvider(resolvedPerformanceCheckUrl)
+    : undefined
+
+  if (resolvedPerformanceCheckUrl && resolvedProvider) {
+    return resolvedProvider.capture(resolvedPerformanceCheckUrl, captureContext)
+  }
+
+  throw new Error('성능점검기록부 인쇄본 주소를 찾지 못했습니다.')
 }
