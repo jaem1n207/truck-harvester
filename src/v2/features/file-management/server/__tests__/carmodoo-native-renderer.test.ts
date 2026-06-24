@@ -29,6 +29,7 @@ function createRendererBrowser({
     $$: vi.fn(async () => elements),
     addStyleTag: vi.fn(),
     close: vi.fn(),
+    emulateMedia: vi.fn(),
     goto,
     setViewportSize: vi.fn(),
     waitForLoadState: vi.fn(),
@@ -62,6 +63,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
       $$: vi.fn(async () => [firstElement, secondElement]),
       addStyleTag: vi.fn(),
       close: vi.fn(),
+      emulateMedia: vi.fn(),
       goto: vi.fn(),
       setViewportSize: vi.fn(),
       waitForLoadState: vi.fn(),
@@ -97,6 +99,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
         waitUntil: 'networkidle',
       }
     )
+    expect(page.emulateMedia).toHaveBeenCalledWith({ media: 'print' })
     expect(page.goto.mock.calls[0]?.[1]?.timeout).toBeLessThanOrEqual(15_000)
     expect(page.waitForSelector).toHaveBeenCalledWith(
       '.repaircheck_box .page_wrap',
@@ -327,6 +330,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
           },
         ]),
         addStyleTag: vi.fn(),
+        emulateMedia: vi.fn(),
         goto: vi.fn(),
         setViewportSize: vi.fn(),
         waitForLoadState: vi.fn(),

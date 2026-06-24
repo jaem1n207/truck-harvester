@@ -24,6 +24,7 @@ type ScreenshotElement = {
 type RendererPage = {
   $$: (selector: string) => Promise<ScreenshotElement[]>
   addStyleTag: (options: { content: string }) => Promise<unknown>
+  emulateMedia: (options: { media: 'print' }) => Promise<unknown>
   goto: (
     url: string,
     options: { timeout: number; waitUntil: 'networkidle' }
@@ -208,6 +209,8 @@ export async function renderCarmodooNativeImagesWithBrowser(
 
     renderTimeoutBudget.getRemainingMs()
     await page.setViewportSize(CARMODOO_RENDER_VIEWPORT)
+    renderTimeoutBudget.getRemainingMs()
+    await page.emulateMedia({ media: 'print' })
     renderTimeoutBudget.getRemainingMs()
     await page.goto(buildProxiedCarmodooUrl(sourceUrl, trustedOrigin), {
       timeout: renderTimeoutBudget.getRemainingMs(),
