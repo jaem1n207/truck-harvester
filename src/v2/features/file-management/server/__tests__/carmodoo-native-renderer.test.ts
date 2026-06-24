@@ -205,6 +205,53 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
     expect(browser.newContext).not.toHaveBeenCalled()
   })
 
+  it('accepts localhost origins in production when no app URL is configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', undefined)
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', undefined)
+    const { browser } = createRendererBrowser()
+
+    await expect(
+      renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+        origin: 'http://localhost:3000',
+        timeoutMs: 15_000,
+      })
+    ).resolves.toEqual([new Uint8Array([1, 2, 3])])
+  })
+
+  it('accepts HTTPS request origins in production when no app URL is configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', undefined)
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', undefined)
+    const { browser, page } = createRendererBrowser()
+
+    await expect(
+      renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+        origin: 'https://preview.example/request-path',
+        timeoutMs: 15_000,
+      })
+    ).resolves.toEqual([new Uint8Array([1, 2, 3])])
+    expect(page.goto).toHaveBeenCalledWith(
+      `https://preview.example/api/v2/checkpaper?url=${encodeURIComponent(carmodooUrl)}`,
+      expect.any(Object)
+    )
+  })
+
+  it('rejects non-local HTTP request origins in production when no app URL is configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', undefined)
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', undefined)
+    const { browser } = createRendererBrowser()
+
+    await expect(
+      renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
+        origin: 'http://preview.example',
+        timeoutMs: 15_000,
+      })
+    ).rejects.toThrow('성능점검기록부 주소를 확인하지 못했습니다.')
+    expect(browser.newContext).not.toHaveBeenCalled()
+  })
+
   it('rejects localhost origins in production even when Vitest is set', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('VITEST', 'true')

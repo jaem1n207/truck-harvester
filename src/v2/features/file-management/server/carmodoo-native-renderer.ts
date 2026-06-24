@@ -121,6 +121,13 @@ function getAllowedProductionOrigin() {
   }
 }
 
+function isLocalOrigin(url: URL) {
+  return (
+    url.protocol === 'http:' &&
+    (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+  )
+}
+
 function assertTrustedRenderOrigin(origin: string) {
   let parsedOrigin: URL
 
@@ -130,17 +137,21 @@ function assertTrustedRenderOrigin(origin: string) {
     throw new Error(CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE)
   }
 
-  const allowsLocalDevOrigins = process.env.NODE_ENV !== 'production'
-  const isLocalDevOrigin =
-    allowsLocalDevOrigins &&
-    parsedOrigin.protocol === 'http:' &&
-    (parsedOrigin.hostname === 'localhost' ||
-      parsedOrigin.hostname === '127.0.0.1')
+  const isProduction = process.env.NODE_ENV === 'production'
+  const isLocalRenderOrigin = isLocalOrigin(parsedOrigin)
   const productionOrigin = getAllowedProductionOrigin()
   const isProductionOrigin =
     productionOrigin !== undefined && parsedOrigin.origin === productionOrigin
+  const isProductionRequestOrigin =
+    isProduction &&
+    productionOrigin === undefined &&
+    (parsedOrigin.protocol === 'https:' || isLocalRenderOrigin)
 
-  if (!isLocalDevOrigin && !isProductionOrigin) {
+  if (
+    !isProductionOrigin &&
+    !isProductionRequestOrigin &&
+    (isProduction || !isLocalRenderOrigin)
+  ) {
     throw new Error(CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE)
   }
 
