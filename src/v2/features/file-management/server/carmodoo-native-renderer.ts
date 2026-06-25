@@ -5,7 +5,7 @@ export const CARMODOO_RENDER_VIEWPORT = {
   width: 1440,
 }
 
-const DEFAULT_CARMODOO_RENDER_TIMEOUT_MS = 12_000
+const DEFAULT_CARMODOO_RENDER_TIMEOUT_MS = 45_000
 const CARMODOO_RENDER_SCALE = 2
 const CARMODOO_RENDER_JPEG_QUALITY = 92
 const CARMODOO_RENDER_TIMEOUT_MESSAGE =
@@ -60,11 +60,25 @@ type LaunchedRendererBrowser = RendererBrowser & {
 }
 
 type RendererLauncher = {
-  launch: (options: {
-    headless: true
-    timeout: number
-  }) => Promise<LaunchedRendererBrowser>
+  launch: (options: RendererLaunchOptions) => Promise<LaunchedRendererBrowser>
 }
+
+type RendererLaunchOptions = {
+  args?: string[]
+  executablePath?: string
+  headless: true
+  timeout: number
+}
+
+type ServerlessChromium = {
+  args: string[]
+  executablePath: () => Promise<string>
+  setGraphicsMode?: boolean
+}
+
+type ServerlessChromiumLoader = () => Promise<{
+  default: ServerlessChromium
+}>
 
 function createRenderTimeoutBudget(totalMs: number) {
   const deadlineMs = Date.now() + totalMs
@@ -156,6 +170,39 @@ function assertTrustedRenderOrigin(origin: string) {
   }
 
   return parsedOrigin.origin
+}
+
+function shouldUseServerlessChromium() {
+  return process.env.VERCEL === '1'
+}
+
+export async function createCarmodooRendererLaunchOptions(
+  timeoutBudget: RenderTimeoutBudget,
+  loadServerlessChromium: ServerlessChromiumLoader = () =>
+    import('@sparticuz/chromium')
+): Promise<RendererLaunchOptions> {
+  const launchOptions: Omit<RendererLaunchOptions, 'timeout'> = {
+    headless: true,
+  }
+
+  if (shouldUseServerlessChromium()) {
+    const { default: chromium } = await withRenderTimeout(
+      loadServerlessChromium(),
+      timeoutBudget
+    )
+
+    chromium.setGraphicsMode = false
+    launchOptions.args = chromium.args
+    launchOptions.executablePath = await withRenderTimeout(
+      chromium.executablePath(),
+      timeoutBudget
+    )
+  }
+
+  return {
+    ...launchOptions,
+    timeout: timeoutBudget.getRemainingMs(),
+  }
 }
 
 function getCarmodooNativeStyle() {
@@ -269,18 +316,26 @@ export async function renderCarmodooNativeImagesWithLauncher(
   launcher: RendererLauncher,
   sourceUrl: string,
   {
+    loadServerlessChromium,
     origin,
     timeoutBudget,
     timeoutMs = DEFAULT_CARMODOO_RENDER_TIMEOUT_MS,
-  }: { origin: string; timeoutBudget?: RenderTimeoutBudget; timeoutMs?: number }
+  }: {
+    loadServerlessChromium?: ServerlessChromiumLoader
+    origin: string
+    timeoutBudget?: RenderTimeoutBudget
+    timeoutMs?: number
+  }
 ) {
   const renderTimeoutBudget =
     timeoutBudget ?? createRenderTimeoutBudget(timeoutMs)
   renderTimeoutBudget.getRemainingMs()
-  const browser = await launcher.launch({
-    headless: true,
-    timeout: renderTimeoutBudget.getRemainingMs(),
-  })
+  const browser = await launcher.launch(
+    await createCarmodooRendererLaunchOptions(
+      renderTimeoutBudget,
+      loadServerlessChromium
+    )
+  )
 
   try {
     renderTimeoutBudget.getRemainingMs()

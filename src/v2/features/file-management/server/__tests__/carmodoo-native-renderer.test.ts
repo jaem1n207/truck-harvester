@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   CARMODOO_RENDER_VIEWPORT,
+  createCarmodooRendererLaunchOptions,
   renderCarmodooNativeImagesWithBrowser,
   renderCarmodooNativeImagesWithLauncher,
   renderCarmodooNativeImagesWithPlaywrightImport,
@@ -426,9 +427,9 @@ describe('renderCarmodooNativeImagesWithLauncher', () => {
 
     expect(launcher.launch).toHaveBeenCalledWith({
       headless: true,
-      timeout: 12_000,
+      timeout: 45_000,
     })
-    expect(page.goto.mock.calls[0]?.[1]?.timeout).toBe(9_000)
+    expect(page.goto.mock.calls[0]?.[1]?.timeout).toBe(42_000)
   })
 })
 
@@ -462,9 +463,59 @@ describe('renderCarmodooNativeImagesWithPlaywrightImport', () => {
 
     expect(launcher.launch).toHaveBeenCalledWith({
       headless: true,
-      timeout: 10_000,
+      timeout: 43_000,
     })
-    expect(page.goto.mock.calls[0]?.[1]?.timeout).toBe(9_000)
+    expect(page.goto.mock.calls[0]?.[1]?.timeout).toBe(42_000)
+  })
+})
+
+describe('createCarmodooRendererLaunchOptions', () => {
+  it('uses the default Playwright executable outside Vercel', async () => {
+    vi.stubEnv('VERCEL', undefined)
+    const loadServerlessChromium = vi.fn()
+
+    await expect(
+      createCarmodooRendererLaunchOptions(
+        {
+          getRemainingMs: () => 15_000,
+        },
+        loadServerlessChromium
+      )
+    ).resolves.toEqual({
+      headless: true,
+      timeout: 15_000,
+    })
+    expect(loadServerlessChromium).not.toHaveBeenCalled()
+  })
+
+  it('uses the serverless Chromium executable on Vercel', async () => {
+    vi.stubEnv('VERCEL', '1')
+
+    const chromium = {
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      executablePath: vi.fn(async () => '/tmp/chromium'),
+      setGraphicsMode: true,
+    }
+    const loadServerlessChromium = vi.fn(async () => ({
+      default: chromium,
+    }))
+
+    await expect(
+      createCarmodooRendererLaunchOptions(
+        {
+          getRemainingMs: () => 15_000,
+        },
+        loadServerlessChromium
+      )
+    ).resolves.toEqual({
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      executablePath: '/tmp/chromium',
+      headless: true,
+      timeout: 15_000,
+    })
+    expect(loadServerlessChromium).toHaveBeenCalledTimes(1)
+    expect(chromium.executablePath).toHaveBeenCalledTimes(1)
+    expect(chromium.setGraphicsMode).toBe(false)
   })
 })
 
