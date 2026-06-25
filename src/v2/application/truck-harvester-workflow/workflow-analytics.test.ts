@@ -335,6 +335,52 @@ describe('workflow analytics adapter', () => {
     expect(transport.trackListingFailed).not.toHaveBeenCalled()
   })
 
+  it('does not count blank performance-check URLs as requested when the save result is missing', () => {
+    const transport = createTransport()
+    const tracker = createWorkflowAnalytics({
+      createBatchId: () => 'batch-blank-performance-check',
+      getFilesystemSupported: () => true,
+      getNotificationEnabled: () => false,
+      now: () => 320,
+      transport,
+    })
+    const batch = tracker.previewStarted({ urlCount: 1, startedAt: 100 })
+    const notRequestedListing = {
+      ...listing,
+      performanceCheckUrl: '   ',
+    }
+
+    tracker.previewCompleted({
+      batch,
+      items: [{ id: 'listing-1', url: firstUrl, status: 'ready' }],
+    })
+    tracker.saveSettled({
+      items: [{ id: 'listing-1', url: firstUrl, listing: notRequestedListing }],
+      saveMethod: 'directory',
+      savedItemIds: new Set(['listing-1']),
+      saveResultsByItemId: new Map([
+        [
+          'listing-1',
+          createSaveResult({
+            performanceCheckStatus: 'missing',
+            sourceUrl: firstUrl,
+          }),
+        ],
+      ]),
+    })
+
+    expect(transport.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-blank-performance-check',
+        performanceCheckRequestedCount: 0,
+        performanceCheckSavedCount: 0,
+        performanceCheckMissingCount: 0,
+        performanceCheckImageCount: 0,
+      })
+    )
+    expect(transport.trackListingFailed).not.toHaveBeenCalled()
+  })
+
   it('keeps performance-check aggregates separate from vehicle save failures', () => {
     const transport = createTransport()
     const tracker = createWorkflowAnalytics({
