@@ -82,6 +82,13 @@ interface SaveBatchGroup {
   items: WorkflowSaveItem[]
 }
 
+interface PerformanceCheckBatchCounts {
+  performanceCheckRequestedCount: number
+  performanceCheckSavedCount: number
+  performanceCheckMissingCount: number
+  performanceCheckImageCount: number
+}
+
 const missingListingIdentityPlaceholder = '차명 정보 없음'
 
 const defaultTransport: WorkflowAnalyticsTransport = {
@@ -135,6 +142,7 @@ export function createWorkflowAnalytics({
     batch: AnalyticsBatchRef,
     items: readonly WorkflowPreviewItem[],
     options: {
+      performanceCheckCounts?: PerformanceCheckBatchCounts
       saveMethod?: SaveMethod
       savedCount?: number
       saveFailedCount?: number
@@ -149,6 +157,14 @@ export function createWorkflowAnalytics({
     previewFailedCount: items.filter((item) => item.status === 'failed').length,
     savedCount: options.savedCount ?? 0,
     saveFailedCount: options.saveFailedCount ?? 0,
+    performanceCheckRequestedCount:
+      options.performanceCheckCounts?.performanceCheckRequestedCount,
+    performanceCheckSavedCount:
+      options.performanceCheckCounts?.performanceCheckSavedCount,
+    performanceCheckMissingCount:
+      options.performanceCheckCounts?.performanceCheckMissingCount,
+    performanceCheckImageCount:
+      options.performanceCheckCounts?.performanceCheckImageCount,
     durationMs: getDuration(now, batch.startedAt),
     saveMethod: options.saveMethod,
     filesystemSupported: getFilesystemSupported(),
@@ -210,6 +226,50 @@ export function createWorkflowAnalytics({
     saveFailedCount: group.items.filter((item) => saveFailureIds.has(item.id))
       .length,
   })
+
+  const hasRequestedPerformanceCheck = (listing: TruckListing) =>
+    Boolean(listing.performanceCheckUrl?.trim())
+
+  const getPerformanceCheckCounts = (
+    group: SaveBatchGroup,
+    saveResultsByItemId: ReadonlyMap<string, TruckSaveResult>
+  ): PerformanceCheckBatchCounts => {
+    let performanceCheckRequestedCount = 0
+    let performanceCheckSavedCount = 0
+    let performanceCheckMissingCount = 0
+    let performanceCheckImageCount = 0
+
+    group.items.forEach((item) => {
+      const requested = hasRequestedPerformanceCheck(item.listing)
+
+      if (requested) {
+        performanceCheckRequestedCount += 1
+      }
+
+      const result = saveResultsByItemId.get(item.id)
+
+      if (!result) {
+        return
+      }
+
+      if (result.performanceCheckStatus === 'saved') {
+        performanceCheckSavedCount += 1
+      }
+
+      if (requested && result.performanceCheckStatus === 'missing') {
+        performanceCheckMissingCount += 1
+      }
+
+      performanceCheckImageCount += result.performanceCheckImageCount
+    })
+
+    return {
+      performanceCheckRequestedCount,
+      performanceCheckSavedCount,
+      performanceCheckMissingCount,
+      performanceCheckImageCount,
+    }
+  }
 
   return {
     unsupportedInputFailed: ({ rawInput, startedAt }) => {
@@ -281,15 +341,20 @@ export function createWorkflowAnalytics({
         elapsedMs: getDuration(now, batch.startedAt),
       })
     },
-    saveSettled: ({ items, saveMethod, savedItemIds }) => {
+    saveSettled: ({ items, saveMethod, savedItemIds, saveResultsByItemId }) => {
       getSaveGroups(items).forEach((group) => {
         const counts = getSaveCounts(group, savedItemIds)
+        const performanceCheckCounts = getPerformanceCheckCounts(
+          group,
+          saveResultsByItemId
+        )
         const input = toBatchInput(
           group.batch,
           toReadyPreviewItems(group.items),
           {
             ...counts,
             saveMethod,
+            performanceCheckCounts,
           }
         )
 

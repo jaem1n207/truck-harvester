@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { type TruckListing } from '@/v2/entities/truck'
+import { type TruckSaveResult } from '@/v2/features/file-management'
 
 import { createWorkflowAnalytics } from './workflow-analytics'
 
@@ -25,6 +26,20 @@ const listing: TruckListing = {
   options: '윙바디',
   images: ['https://img.example.com/1.jpg'],
 }
+
+const createSaveResult = (
+  overrides: Partial<TruckSaveResult> = {}
+): TruckSaveResult => ({
+  performanceCheckImageCount: 0,
+  performanceCheckStatus: 'not_requested',
+  sourceUrl: firstUrl,
+  vehicleImageCount: 1,
+  vehicleImageStatus: 'complete',
+  vehicleImageTotalCount: 1,
+  vehicleFolderName: '서울12가3456',
+  vehicleNumber: '서울12가3456',
+  ...overrides,
+})
 
 const createTransport = () => ({
   trackBatchStarted: vi.fn(),
@@ -227,6 +242,172 @@ describe('workflow analytics adapter', () => {
         batchId: 'batch-save-second',
         savedCount: 0,
         saveFailedCount: 1,
+      })
+    )
+  })
+
+  it('adds performance-check aggregates to save completed events without listing failures for missing records', () => {
+    const transport = createTransport()
+    const tracker = createWorkflowAnalytics({
+      createBatchId: () => 'batch-performance-checks',
+      getFilesystemSupported: () => true,
+      getNotificationEnabled: () => false,
+      now: () => 300,
+      transport,
+    })
+    const batch = tracker.previewStarted({ urlCount: 3, startedAt: 100 })
+    const savedCheckListing = {
+      ...listing,
+      performanceCheckUrl: 'https://check.example.com/saved',
+    }
+    const missingCheckListing = {
+      ...listing,
+      url: secondUrl,
+      vnumber: '부산34나7890',
+      performanceCheckUrl: 'https://check.example.com/missing',
+    }
+    const notRequestedListing = {
+      ...listing,
+      url: thirdUrl,
+      vnumber: '대구56다1234',
+      performanceCheckUrl: undefined,
+    }
+
+    tracker.previewCompleted({
+      batch,
+      items: [
+        { id: 'listing-1', url: firstUrl, status: 'ready' },
+        { id: 'listing-2', url: secondUrl, status: 'ready' },
+        { id: 'listing-3', url: thirdUrl, status: 'ready' },
+      ],
+    })
+    tracker.saveSettled({
+      items: [
+        { id: 'listing-1', url: firstUrl, listing: savedCheckListing },
+        { id: 'listing-2', url: secondUrl, listing: missingCheckListing },
+        { id: 'listing-3', url: thirdUrl, listing: notRequestedListing },
+      ],
+      saveMethod: 'directory',
+      savedItemIds: new Set(['listing-1', 'listing-2', 'listing-3']),
+      saveResultsByItemId: new Map([
+        [
+          'listing-1',
+          createSaveResult({
+            performanceCheckImageCount: 2,
+            performanceCheckStatus: 'saved',
+            sourceUrl: firstUrl,
+          }),
+        ],
+        [
+          'listing-2',
+          createSaveResult({
+            performanceCheckImageCount: 0,
+            performanceCheckStatus: 'missing',
+            sourceUrl: secondUrl,
+            vehicleFolderName: '부산34나7890',
+            vehicleNumber: '부산34나7890',
+          }),
+        ],
+        [
+          'listing-3',
+          createSaveResult({
+            performanceCheckImageCount: 0,
+            performanceCheckStatus: 'not_requested',
+            sourceUrl: thirdUrl,
+            vehicleFolderName: '대구56다1234',
+            vehicleNumber: '대구56다1234',
+          }),
+        ],
+      ]),
+    })
+
+    expect(transport.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-performance-checks',
+        savedCount: 3,
+        saveFailedCount: 0,
+        performanceCheckRequestedCount: 2,
+        performanceCheckSavedCount: 1,
+        performanceCheckMissingCount: 1,
+        performanceCheckImageCount: 2,
+      })
+    )
+    expect(transport.trackListingFailed).not.toHaveBeenCalled()
+  })
+
+  it('keeps performance-check aggregates separate from vehicle save failures', () => {
+    const transport = createTransport()
+    const tracker = createWorkflowAnalytics({
+      createBatchId: () => 'batch-partial-performance-checks',
+      getFilesystemSupported: () => true,
+      getNotificationEnabled: () => false,
+      now: () => 400,
+      transport,
+    })
+    const batch = tracker.previewStarted({ urlCount: 2, startedAt: 100 })
+    const savedItem = {
+      id: 'listing-1',
+      url: firstUrl,
+      listing: {
+        ...listing,
+        performanceCheckUrl: 'https://check.example.com/saved',
+      },
+    }
+    const failedItem = {
+      id: 'listing-2',
+      url: secondUrl,
+      listing: {
+        ...listing,
+        url: secondUrl,
+        vnumber: '부산34나7890',
+        performanceCheckUrl: 'https://check.example.com/not-saved',
+      },
+    }
+
+    tracker.previewCompleted({
+      batch,
+      items: [
+        { id: savedItem.id, url: savedItem.url, status: 'ready' },
+        { id: failedItem.id, url: failedItem.url, status: 'ready' },
+      ],
+    })
+    tracker.saveListingFailed({
+      item: failedItem,
+      message: '저장하지 못했어요.',
+    })
+    tracker.saveSettled({
+      items: [savedItem, failedItem],
+      saveMethod: 'directory',
+      savedItemIds: new Set([savedItem.id]),
+      saveResultsByItemId: new Map([
+        [
+          savedItem.id,
+          createSaveResult({
+            performanceCheckImageCount: 1,
+            performanceCheckStatus: 'saved',
+            sourceUrl: firstUrl,
+          }),
+        ],
+      ]),
+    })
+
+    expect(transport.trackSaveFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-partial-performance-checks',
+        savedCount: 1,
+        saveFailedCount: 1,
+        performanceCheckRequestedCount: 2,
+        performanceCheckSavedCount: 1,
+        performanceCheckMissingCount: 0,
+        performanceCheckImageCount: 1,
+      })
+    )
+    expect(transport.trackListingFailed).toHaveBeenCalledTimes(1)
+    expect(transport.trackListingFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'batch-partial-performance-checks',
+        failureStage: 'save',
+        listingUrl: secondUrl,
       })
     )
   })
