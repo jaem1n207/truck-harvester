@@ -93,6 +93,51 @@ describe('analytics payload builders', () => {
     expect(data).not.toHaveProperty('vehicle_name')
   })
 
+  it('builds batch event data with performance-check aggregates only as counts', () => {
+    const data = toBatchEventData({
+      batchId: 'batch-performance-checks',
+      urlCount: 4,
+      uniqueUrlCount: 4,
+      readyCount: 4,
+      invalidCount: 0,
+      previewFailedCount: 0,
+      savedCount: 4,
+      saveFailedCount: 0,
+      durationMs: 2400,
+      saveMethod: 'zip',
+      filesystemSupported: false,
+      notificationEnabled: true,
+      performanceCheckRequestedCount: 3,
+      performanceCheckSavedCount: 2,
+      performanceCheckMissingCount: 1,
+      performanceCheckImageCount: 5,
+    })
+
+    expect(data).toEqual({
+      batch_id: 'batch-performance-checks',
+      url_count: 4,
+      unique_url_count: 4,
+      ready_count: 4,
+      invalid_count: 0,
+      preview_failed_count: 0,
+      saved_count: 4,
+      save_failed_count: 0,
+      duration_ms: 2400,
+      save_method: 'zip',
+      filesystem_supported: false,
+      notification_enabled: true,
+      performance_check_requested_count: 3,
+      performance_check_saved_count: 2,
+      performance_check_missing_count: 1,
+      performance_check_image_count: 5,
+    })
+    expect(data).not.toHaveProperty('listing_url')
+    expect(data).not.toHaveProperty('vehicle_number')
+    expect(data).not.toHaveProperty('vehicle_name')
+    expect(data).not.toHaveProperty('performance_check_url')
+    expect(data).not.toHaveProperty('checkpaper_url')
+  })
+
   it.each([
     [Number.NaN, 0],
     [Number.POSITIVE_INFINITY, 0],
@@ -310,6 +355,10 @@ describe('analytics tracking', () => {
       saveMethod: 'directory',
       filesystemSupported: true,
       notificationEnabled: false,
+      performanceCheckRequestedCount: 3,
+      performanceCheckSavedCount: 2,
+      performanceCheckMissingCount: 1,
+      performanceCheckImageCount: 4,
     })
 
     expect(track).toHaveBeenCalledWith('save_completed', {
@@ -326,6 +375,10 @@ describe('analytics tracking', () => {
       save_method: 'directory',
       filesystem_supported: true,
       notification_enabled: false,
+      performance_check_requested_count: 3,
+      performance_check_saved_count: 2,
+      performance_check_missing_count: 1,
+      performance_check_image_count: 4,
     })
   })
 

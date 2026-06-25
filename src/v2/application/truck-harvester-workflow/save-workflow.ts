@@ -81,6 +81,7 @@ export async function runSaveWorkflow({
 
   const workflowItems = items.map(toWorkflowSaveItem)
   const savedItemIds = new Set<string>()
+  const saveResultsByItemId = new Map<string, TruckSaveResult>()
 
   tracker.saveStarted({ items: workflowItems, saveMethod })
 
@@ -114,6 +115,7 @@ export async function runSaveWorkflow({
           return { savedCount }
         }
 
+        saveResultsByItemId.set(item.id, saveResult)
         store.getState().markSaved(item.id, saveResult)
         savedItemIds.add(item.id)
         savedCount += 1
@@ -179,6 +181,7 @@ export async function runSaveWorkflow({
           return
         }
 
+        saveResultsByItemId.set(item.id, saveResult)
         store.getState().markSaved(item.id, saveResult)
         savedItemIds.add(item.id)
         savedCount += 1
@@ -208,6 +211,7 @@ export async function runSaveWorkflow({
     items: workflowItems,
     saveMethod,
     savedItemIds,
+    saveResultsByItemId,
   })
 
   return { savedCount }
