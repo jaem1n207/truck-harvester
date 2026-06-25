@@ -1,4 +1,5 @@
 import { type TruckListing } from '@/v2/entities/truck'
+import { type TruckSaveResult } from '@/v2/features/file-management'
 import {
   createAnalyticsBatchId,
   trackBatchStarted,
@@ -63,6 +64,7 @@ export interface WorkflowTracker {
     items: readonly WorkflowSaveItem[]
     saveMethod: SaveMethod
     savedItemIds: ReadonlySet<string>
+    saveResultsByItemId?: ReadonlyMap<string, TruckSaveResult>
   }) => void
   removeListing: (id: string) => void
 }

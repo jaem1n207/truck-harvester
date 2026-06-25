@@ -129,6 +129,7 @@ describe('runSaveWorkflow', () => {
       items: [workflowItem],
       saveMethod: 'directory',
       savedItemIds: new Set(['listing-1']),
+      saveResultsByItemId: new Map([['listing-1', directorySaveResult]]),
     })
   })
 
@@ -194,6 +195,7 @@ describe('runSaveWorkflow', () => {
       items: [workflowItem],
       saveMethod: 'directory',
       savedItemIds: new Set(),
+      saveResultsByItemId: new Map(),
     })
   })
 
@@ -268,18 +270,20 @@ describe('runSaveWorkflow', () => {
     }
     const items = addReadyListings(store, [listing, secondListing])
     const tracker = createTracker()
+    const secondZipSaveResult = {
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'saved',
+      sourceUrl: secondUrl,
+      vehicleImageCount: 0,
+      vehicleImageStatus: 'complete',
+      vehicleImageTotalCount: 0,
+      vehicleFolderName: '부산34나7890',
+      vehicleNumber: '부산34나7890',
+    } satisfies TruckSaveResult
+    const firstZipSaveResult = missingPerformanceCheckResult
     const downloadTruckZip = vi.fn(async () => [
-      {
-        performanceCheckImageCount: 0,
-        performanceCheckStatus: 'saved',
-        sourceUrl: secondUrl,
-        vehicleImageCount: 0,
-        vehicleImageStatus: 'complete',
-        vehicleImageTotalCount: 0,
-        vehicleFolderName: '부산34나7890',
-        vehicleNumber: '부산34나7890',
-      } satisfies TruckSaveResult,
-      missingPerformanceCheckResult,
+      secondZipSaveResult,
+      firstZipSaveResult,
     ])
 
     await runSaveWorkflow({
@@ -306,6 +310,26 @@ describe('runSaveWorkflow', () => {
         vehicleImageStatus: 'complete',
       },
     ])
+    expect(tracker.saveSettled).toHaveBeenCalledWith({
+      items: [
+        {
+          id: 'listing-1',
+          url: firstUrl,
+          listing,
+        },
+        {
+          id: 'listing-2',
+          url: secondUrl,
+          listing: secondListing,
+        },
+      ],
+      saveMethod: 'zip',
+      savedItemIds: new Set(['listing-1', 'listing-2']),
+      saveResultsByItemId: new Map([
+        ['listing-1', firstZipSaveResult],
+        ['listing-2', secondZipSaveResult],
+      ]),
+    })
   })
 
   it('does not attach mismatched ZIP results to the wrong saved item', async () => {
@@ -352,6 +376,31 @@ describe('runSaveWorkflow', () => {
         listing: secondListing,
       },
       message: saveFailureMessage,
+    })
+    expect(tracker.saveSettled).toHaveBeenCalledWith({
+      items: [
+        {
+          id: 'listing-1',
+          url: firstUrl,
+          listing,
+        },
+        {
+          id: 'listing-2',
+          url: secondUrl,
+          listing: secondListing,
+        },
+      ],
+      saveMethod: 'zip',
+      savedItemIds: new Set(['listing-1']),
+      saveResultsByItemId: new Map([
+        [
+          'listing-1',
+          {
+            ...missingPerformanceCheckResult,
+            sourceUrl: firstUrl,
+          },
+        ],
+      ]),
     })
   })
 
