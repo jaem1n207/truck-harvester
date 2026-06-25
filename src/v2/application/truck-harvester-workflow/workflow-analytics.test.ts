@@ -185,6 +185,7 @@ describe('workflow analytics adapter', () => {
       ],
       saveMethod: 'directory',
       savedItemIds: new Set(['listing-1']),
+      saveResultsByItemId: new Map(),
     })
 
     expect(transport.trackSaveStarted).toHaveBeenCalledTimes(2)
@@ -258,6 +259,7 @@ describe('workflow analytics adapter', () => {
       items: [item],
       saveMethod: 'directory',
       savedItemIds: new Set(),
+      saveResultsByItemId: new Map(),
     })
 
     tracker.saveStarted({
@@ -268,6 +270,7 @@ describe('workflow analytics adapter', () => {
       items: [item],
       saveMethod: 'directory',
       savedItemIds: new Set([item.id]),
+      saveResultsByItemId: new Map(),
     })
 
     expect(transport.trackSaveFailed).toHaveBeenCalledWith(

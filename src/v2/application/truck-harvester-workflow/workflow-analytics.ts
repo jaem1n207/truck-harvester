@@ -64,7 +64,7 @@ export interface WorkflowTracker {
     items: readonly WorkflowSaveItem[]
     saveMethod: SaveMethod
     savedItemIds: ReadonlySet<string>
-    saveResultsByItemId?: ReadonlyMap<string, TruckSaveResult>
+    saveResultsByItemId: ReadonlyMap<string, TruckSaveResult>
   }) => void
   removeListing: (id: string) => void
 }
