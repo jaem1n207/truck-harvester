@@ -158,10 +158,6 @@ function assertTrustedRenderOrigin(origin: string) {
   return parsedOrigin.origin
 }
 
-function buildProxiedCarmodooUrl(sourceUrl: string, origin: string) {
-  return `${origin}/api/v2/checkpaper?url=${encodeURIComponent(sourceUrl)}`
-}
-
 function getCarmodooNativeStyle() {
   return `
     body {
@@ -203,7 +199,7 @@ export async function renderCarmodooNativeImagesWithBrowser(
     timeoutMs?: number
   }
 ) {
-  const trustedOrigin = assertTrustedRenderOrigin(origin)
+  assertTrustedRenderOrigin(origin)
   const renderTimeoutBudget =
     timeoutBudget ?? createRenderTimeoutBudget(timeoutMs)
 
@@ -223,7 +219,7 @@ export async function renderCarmodooNativeImagesWithBrowser(
     renderTimeoutBudget.getRemainingMs()
     await page.emulateMedia({ media: 'print' })
     renderTimeoutBudget.getRemainingMs()
-    await page.goto(buildProxiedCarmodooUrl(sourceUrl, trustedOrigin), {
+    await page.goto(sourceUrl, {
       timeout: renderTimeoutBudget.getRemainingMs(),
       waitUntil: 'networkidle',
     })

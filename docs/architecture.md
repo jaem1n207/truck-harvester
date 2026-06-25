@@ -151,7 +151,8 @@ browser layout.
   follows redirects, and rewrites assets to same-origin URLs.
 - `GET /api/v2/checkpaper/asset` proxies supported CSS, image, script, and
   printable record assets.
-- `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs and
+- `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs,
+  opens the approved Carmodoo page directly in the native browser renderer, and
   returns the rendered JPG pages for the save flow.
 
 The app does not upload these records anywhere; it only saves them into the

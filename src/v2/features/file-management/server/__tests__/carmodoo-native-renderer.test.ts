@@ -52,7 +52,7 @@ function createRendererBrowser({
 }
 
 describe('renderCarmodooNativeImagesWithBrowser', () => {
-  it('loads the proxied Carmodoo page and screenshots each page_wrap as JPG', async () => {
+  it('loads the Carmodoo page directly and screenshots each page_wrap as JPG', async () => {
     const firstElement = {
       screenshot: vi.fn(async () => Buffer.from([1, 2, 3])),
     }
@@ -92,13 +92,10 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
       locale: 'ko-KR',
       viewport: CARMODOO_RENDER_VIEWPORT,
     })
-    expect(page.goto).toHaveBeenCalledWith(
-      `http://localhost/api/v2/checkpaper?url=${encodeURIComponent(carmodooUrl)}`,
-      {
-        timeout: expect.any(Number),
-        waitUntil: 'networkidle',
-      }
-    )
+    expect(page.goto).toHaveBeenCalledWith(carmodooUrl, {
+      timeout: expect.any(Number),
+      waitUntil: 'networkidle',
+    })
     expect(page.emulateMedia).toHaveBeenCalledWith({ media: 'print' })
     expect(page.goto.mock.calls[0]?.[1]?.timeout).toBeLessThanOrEqual(15_000)
     expect(page.waitForSelector).toHaveBeenCalledWith(
@@ -119,7 +116,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
     expect(context.close).toHaveBeenCalledTimes(1)
   })
 
-  it('normalizes trusted origin before building the proxied Carmodoo URL', async () => {
+  it('validates trusted origin without using it as the page navigation target', async () => {
     const { browser, page } = createRendererBrowser()
 
     await renderCarmodooNativeImagesWithBrowser(browser, carmodooUrl, {
@@ -127,10 +124,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
       timeoutMs: 15_000,
     })
 
-    expect(page.goto).toHaveBeenCalledWith(
-      `http://localhost/api/v2/checkpaper?url=${encodeURIComponent(carmodooUrl)}`,
-      expect.any(Object)
-    )
+    expect(page.goto).toHaveBeenCalledWith(carmodooUrl, expect.any(Object))
   })
 
   it('uses a shared timeout budget across Playwright waits', async () => {
@@ -231,10 +225,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
         timeoutMs: 15_000,
       })
     ).resolves.toEqual([new Uint8Array([1, 2, 3])])
-    expect(page.goto).toHaveBeenCalledWith(
-      `https://preview.example/api/v2/checkpaper?url=${encodeURIComponent(carmodooUrl)}`,
-      expect.any(Object)
-    )
+    expect(page.goto).toHaveBeenCalledWith(carmodooUrl, expect.any(Object))
   })
 
   it('rejects non-local HTTP request origins in production when no app URL is configured', async () => {
@@ -279,10 +270,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
         timeoutMs: 15_000,
       })
     ).resolves.toEqual([new Uint8Array([1, 2, 3])])
-    expect(page.goto).toHaveBeenCalledWith(
-      `https://truck.example/api/v2/checkpaper?url=${encodeURIComponent(carmodooUrl)}`,
-      expect.any(Object)
-    )
+    expect(page.goto).toHaveBeenCalledWith(carmodooUrl, expect.any(Object))
   })
 
   it('rejects zero rendered sheets and still cleans up the browser context', async () => {
