@@ -154,7 +154,8 @@ browser layout.
 - `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs,
   opens the approved Carmodoo page directly in the native browser renderer, and
   returns the rendered JPG pages for the save flow. Vercel deployments use a
-  packaged serverless Chromium executable for this renderer.
+  packaged serverless Chromium executable and bundled Korean font faces for this
+  renderer, because the serverless Chromium runtime does not include CJK fonts.
 
 The app does not upload these records anywhere; it only saves them into the
 user's selected folder or ZIP file. Performance-check saving remains non-fatal.
