@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   capturePerformanceCheckImages,
   type CapturePerformanceCheckImagesOptions,
+  type PerformanceCheckNativeRenderer,
   type PerformanceCheckPageRenderer,
 } from '../performance-check-capture'
 
@@ -14,6 +15,10 @@ const printableRecordUrl =
   'https://checkpaper.jmenetworks.co.kr/view/record.do?check_id=41-00-029368'
 const autocafeSourceUrl =
   'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300060798'
+const carmodooSourceUrl =
+  'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
+const httpCarmodooSourceUrl =
+  'http://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
 
 function captureHtmlImages(options: CapturePerformanceCheckImagesOptions = {}) {
   return capturePerformanceCheckImages(sourceUrl, {
@@ -85,6 +90,10 @@ function createCanvasWithThrowingToBlob(error: Error) {
       throw error
     }),
   } as unknown as HTMLCanvasElement
+}
+
+function encodeBytes(bytes: number[]) {
+  return Buffer.from(bytes).toString('base64')
 }
 
 describe('capturePerformanceCheckImages', () => {
@@ -172,6 +181,202 @@ describe('capturePerformanceCheckImages', () => {
       { signal: undefined }
     )
     expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('captures Carmodoo records through the native renderer API', async () => {
+    const renderNative = vi.fn<PerformanceCheckNativeRenderer>(async () => [
+      new Uint8Array([11, 12]),
+      new Uint8Array([13, 14]),
+    ])
+    const fetchPdf = vi.fn()
+    const renderPdfPages = vi.fn()
+    const resolvePrintableUrl = vi.fn()
+
+    await expect(
+      capturePerformanceCheckImages(carmodooSourceUrl, {
+        fetchPdf,
+        renderCarmodooNativeImages: renderNative,
+        renderPdfPages,
+        resolvePrintableUrl,
+      })
+    ).resolves.toEqual([new Uint8Array([11, 12]), new Uint8Array([13, 14])])
+
+    expect(renderNative).toHaveBeenCalledWith(carmodooSourceUrl, {
+      signal: undefined,
+      timeoutMs: 15_000,
+    })
+    expect(resolvePrintableUrl).not.toHaveBeenCalled()
+    expect(fetchPdf).not.toHaveBeenCalled()
+    expect(renderPdfPages).not.toHaveBeenCalled()
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('uses the native Carmodoo provider after resolving an autocafe URL', async () => {
+    const resolvePrintableUrl = vi.fn(async () => carmodooSourceUrl)
+    const renderNative = vi.fn<PerformanceCheckNativeRenderer>(async () => [
+      new Uint8Array([21]),
+    ])
+    const fetchPdf = vi.fn()
+
+    await expect(
+      capturePerformanceCheckImages(autocafeSourceUrl, {
+        fetchPdf,
+        renderCarmodooNativeImages: renderNative,
+        resolvePrintableUrl,
+      })
+    ).resolves.toEqual([new Uint8Array([21])])
+
+    expect(resolvePrintableUrl).toHaveBeenCalledWith(autocafeSourceUrl, {
+      proxyPath: '/api/v2/checkpaper',
+      signal: undefined,
+    })
+    expect(renderNative).toHaveBeenCalledWith(carmodooSourceUrl, {
+      signal: undefined,
+      timeoutMs: 15_000,
+    })
+    expect(fetchPdf).not.toHaveBeenCalled()
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('propagates native Carmodoo renderer failures without creating an iframe', async () => {
+    const renderNative = vi.fn<PerformanceCheckNativeRenderer>(async () => {
+      throw new Error('성능점검기록부 페이지를 찾지 못했습니다.')
+    })
+
+    await expect(
+      capturePerformanceCheckImages(carmodooSourceUrl, {
+        renderCarmodooNativeImages: renderNative,
+      })
+    ).rejects.toThrow('성능점검기록부 페이지를 찾지 못했습니다.')
+
+    expect(renderNative).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('posts Carmodoo records to the default native renderer API and decodes image bytes', async () => {
+    const fetchApi = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          images: [encodeBytes([31, 32]), encodeBytes([33])],
+        }),
+        {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        }
+      )
+    )
+
+    await expect(
+      capturePerformanceCheckImages(carmodooSourceUrl)
+    ).resolves.toEqual([new Uint8Array([31, 32]), new Uint8Array([33])])
+
+    expect(fetchApi).toHaveBeenCalledWith(
+      '/api/v2/checkpaper/carmodoo-render',
+      expect.objectContaining({
+        body: JSON.stringify({ url: carmodooSourceUrl }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+        signal: expect.any(AbortSignal),
+      })
+    )
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('throws a Korean generic load error when the default native renderer API fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: false }), { status: 502 })
+    )
+
+    await expect(
+      capturePerformanceCheckImages(carmodooSourceUrl)
+    ).rejects.toThrow('성능점검기록부를 불러오지 못했습니다.')
+
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('aborts the default native renderer API request when timeout elapses', async () => {
+    vi.useFakeTimers()
+
+    let requestSignal: AbortSignal | undefined
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          requestSignal = init?.signal as AbortSignal | undefined
+          requestSignal?.addEventListener(
+            'abort',
+            () => {
+              reject(
+                new DOMException('The operation was aborted.', 'AbortError')
+              )
+            },
+            { once: true }
+          )
+        })
+    )
+
+    const capturePromise = capturePerformanceCheckImages(carmodooSourceUrl, {
+      timeoutMs: 50,
+    })
+    const rejection = expect(capturePromise).rejects.toThrow(
+      '성능점검기록부를 불러오는 시간이 초과되었습니다.'
+    )
+
+    await vi.advanceTimersByTimeAsync(50)
+
+    await rejection
+    expect(requestSignal?.aborted).toBe(true)
+    expect(document.querySelector('iframe')).toBeNull()
+  })
+
+  it('normalizes direct http Carmodoo records to https before posting to the default native renderer API', async () => {
+    const fetchApi = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          images: [encodeBytes([41])],
+        }),
+        { status: 200 }
+      )
+    )
+
+    await expect(
+      capturePerformanceCheckImages(httpCarmodooSourceUrl)
+    ).resolves.toEqual([new Uint8Array([41])])
+
+    expect(fetchApi).toHaveBeenCalledWith(
+      '/api/v2/checkpaper/carmodoo-render',
+      expect.objectContaining({
+        body: JSON.stringify({ url: carmodooSourceUrl }),
+      })
+    )
+  })
+
+  it('normalizes resolved http Carmodoo records to https before posting to the default native renderer API', async () => {
+    const resolvePrintableUrl = vi.fn(async () => httpCarmodooSourceUrl)
+    const fetchApi = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          images: [encodeBytes([51])],
+        }),
+        { status: 200 }
+      )
+    )
+
+    await expect(
+      capturePerformanceCheckImages(autocafeSourceUrl, {
+        resolvePrintableUrl,
+      })
+    ).resolves.toEqual([new Uint8Array([51])])
+
+    expect(resolvePrintableUrl).toHaveBeenCalledWith(autocafeSourceUrl, {
+      proxyPath: '/api/v2/checkpaper',
+      signal: undefined,
+    })
+    expect(fetchApi).toHaveBeenCalledWith(
+      '/api/v2/checkpaper/carmodoo-render',
+      expect.objectContaining({
+        body: JSON.stringify({ url: carmodooSourceUrl }),
+      })
+    )
   })
 
   it('rejects and cleans up when the proxied document has no page elements', async () => {

@@ -141,16 +141,43 @@ folder before SmartStore registration.
 
 `POST /api/v2/parse-truck` returns `performanceCheckUrl` when the listing page
 contains a `성능점검보기` link. During save, the client asks the same-origin
-CheckPaper routes to resolve and fetch the printable record:
+CheckPaper routes to resolve the record and then chooses the supported renderer:
+existing CheckPaper `record.do` PDF pages are rendered as JPGs in the browser,
+and Carmodoo `carmodooPrint.do?checkNum=7126000658` HTML records are rendered
+through a same-origin native browser renderer API so the saved JPGs match the
+browser layout.
 
 - `GET /api/v2/checkpaper` fetches supported CheckPaper or intermediate pages,
   follows redirects, and rewrites assets to same-origin URLs.
 - `GET /api/v2/checkpaper/asset` proxies supported CSS, image, script, and
   printable record assets.
+- `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs,
+  opens the approved Carmodoo page directly in the native browser renderer, and
+  returns the rendered JPG pages for the save flow. Vercel deployments use
+  `@sparticuz/chromium` and bundled Noto Sans KR font faces for this renderer,
+  because the serverless Chromium runtime does not include CJK fonts.
 
-The browser renders the printable record pages and converts each page to a JPG
-image. The app does not upload these records anywhere; it only saves them into
-the user's selected folder or ZIP file.
+The app does not upload these records anywhere; it only saves them into the
+user's selected folder or ZIP file. Performance-check saving remains non-fatal.
+
+## Quality Gates
+
+Pull requests and `main` pushes run the GitHub Actions `CI` workflow. The
+workflow installs dependencies with Bun, installs Playwright Chromium, and then
+runs:
+
+- `bun run typecheck`
+- `bun run lint`
+- `bun run format:check`
+- `bun run test -- --run`
+- `bun run test:carmodoo-render`
+- `bun run build`
+
+`bun run test:carmodoo-render` is a focused Playwright smoke test for the
+Carmodoo native renderer. It launches real Chromium, renders a Korean fixture
+through the same renderer code path, and verifies that the produced JPG contains
+enough dark pixel coverage across rows and columns to prove Korean glyphs were
+painted instead of disappearing as tofu or empty boxes.
 
 ## Layer Responsibilities
 

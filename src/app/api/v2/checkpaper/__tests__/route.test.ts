@@ -7,6 +7,8 @@ import { GET, maxDuration } from '../route'
 const sourceUrl = 'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3'
 const finalUrl =
   'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107099659&print=0&iframe=1&key='
+const carmodooUrl =
+  'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
 
 const sampleHtml = `
   <html>
@@ -136,6 +138,7 @@ describe('GET /api/v2/checkpaper', () => {
       "frame-ancestors 'self'"
     )
     expect(body).toContain('/api/v2/checkpaper/asset?url=')
+    expect(body).not.toContain('<base')
     expect(body).toContain(
       encodeURIComponent(
         'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'
@@ -152,6 +155,54 @@ describe('GET /api/v2/checkpaper', () => {
     expect(body).not.toContain('adobe link')
     expect(body).not.toContain('<script')
     expect(body).not.toContain('onclick')
+  })
+
+  it('fetches and rewrites Carmodoo html', async () => {
+    const carmodooHtml = `
+      <html>
+        <head>
+          <link href="/css/print_repair.css?ver=2" rel="stylesheet">
+          <script>setData('bc', '{"2":"1"}');</script>
+        </head>
+        <body>
+          <div class="repaircheck_box">
+            <input id="bc_2_1" type="checkbox">
+            <div class="page_wrap"><div class="page_col1"></div><div class="page_col2"></div></div>
+          </div>
+        </body>
+      </html>
+    `
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(carmodooHtml, {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await GET(createRequest(carmodooUrl))
+    const body = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledWith(
+      carmodooUrl,
+      expect.objectContaining({
+        cache: 'no-store',
+        redirect: 'manual',
+        headers: expect.objectContaining({
+          'User-Agent': expect.any(String),
+        }),
+      })
+    )
+    expect(response.headers.get('x-checkpaper-final-url')).toBe(carmodooUrl)
+    expect(body).toContain('/api/v2/checkpaper/asset?url=')
+    expect(body).not.toContain('<base')
+    expect(body).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/css/print_repair.css?ver=2')
+    )
+    expect(body).toContain('id="bc_2_1"')
+    expect(body).toContain('checked="checked"')
+    expect(body).not.toContain('<script')
   })
 
   it('returns 502 when CheckPaper fails to load', async () => {

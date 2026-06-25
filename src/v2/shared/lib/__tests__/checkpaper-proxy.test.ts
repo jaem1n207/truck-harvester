@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -13,15 +14,18 @@ import {
 
 const finalUrl =
   'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107099659&print=0&iframe=1&key='
+const carmodooUrl =
+  'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
 
 describe('checkpaper proxy helpers', () => {
-  it('allows only the CheckPaper and autocafe hosts', () => {
+  it('allows only supported performance-check hosts', () => {
     expect(isAllowedCheckPaperUrl(finalUrl)).toBe(true)
     expect(
       isAllowedCheckPaperUrl(
         'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3'
       )
     ).toBe(true)
+    expect(isAllowedCheckPaperUrl(carmodooUrl)).toBe(true)
     expect(isAllowedCheckPaperUrl('https://example.com/CheckPaper')).toBe(false)
     expect(
       isAllowedCheckPaperUrl(
@@ -91,6 +95,7 @@ describe('checkpaper proxy helpers', () => {
     const html = `
       <html>
         <head>
+          <base href="https://checkpaper.jmenetworks.co.kr/">
           <link href="/assets/css/style_v2.css" rel="stylesheet">
         </head>
         <body>
@@ -101,8 +106,14 @@ describe('checkpaper proxy helpers', () => {
     `
 
     const rewritten = rewriteCheckPaperHtml(html, finalUrl)
+    const $ = load(rewritten)
 
     expect(rewritten).toContain('/api/v2/checkpaper/asset?url=')
+    expect($('base')).toHaveLength(0)
+    expect($('link').attr('href')).toMatch(/^\/api\/v2\/checkpaper\/asset\?/)
+    expect($('#car_img_file_url_1').attr('src')).toMatch(
+      /^\/api\/v2\/checkpaper\/asset\?/
+    )
     expect(rewritten).toContain(
       encodeURIComponent(
         'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'
@@ -114,6 +125,154 @@ describe('checkpaper proxy helpers', () => {
       )
     )
     expect(rewritten).toContain('action="/Service/CheckPaper"')
+  })
+
+  it('rewrites Carmodoo stylesheet and image URLs through the asset proxy', () => {
+    const html = `
+      <html>
+        <head>
+          <link href="/css/print_repair.css?ver=2" rel="stylesheet">
+        </head>
+        <body>
+          <div class="repaircheck_box">
+            <img id="scene" src="/data/__check/20241011/photo.jpg">
+          </div>
+        </body>
+      </html>
+    `
+
+    const rewritten = rewriteCheckPaperHtml(html, carmodooUrl)
+
+    expect(rewritten).toContain('/api/v2/checkpaper/asset?url=')
+    expect(rewritten).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/css/print_repair.css?ver=2')
+    )
+    expect(rewritten).toContain(
+      encodeURIComponent(
+        'https://ck.carmodoo.com/data/__check/20241011/photo.jpg'
+      )
+    )
+  })
+
+  it('does not preserve malicious absolute URLs that only contain the asset proxy path', () => {
+    const maliciousProxyUrl = `https://evil.example/api/v2/checkpaper/asset?url=${encodeURIComponent(
+      'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'
+    )}`
+    const html = `
+      <html>
+        <head>
+          <link id="style" href="${maliciousProxyUrl}" rel="stylesheet">
+        </head>
+        <body>
+          <img id="scene" src="${maliciousProxyUrl}">
+        </body>
+      </html>
+    `
+    const css = `.scene { background-image: url("${maliciousProxyUrl}"); }`
+
+    const rewrittenHtml = rewriteCheckPaperHtml(html, finalUrl)
+    const $ = load(rewrittenHtml)
+    const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
+
+    expect($('#style').attr('href')).toBeUndefined()
+    expect($('#scene').attr('src')).toBeUndefined()
+    expect(rewrittenCss).not.toContain(maliciousProxyUrl)
+  })
+
+  it('keeps already proxied asset URLs only when their wrapped target is allowed', () => {
+    const allowedAlreadyProxiedUrl = `/api/v2/checkpaper/asset?url=${encodeURIComponent(
+      'https://checkpaper.jmenetworks.co.kr/assets/css/style_v2.css'
+    )}`
+    const html = `
+      <html>
+        <head>
+          <link id="style" href="${allowedAlreadyProxiedUrl}" rel="stylesheet">
+        </head>
+        <body>
+          <img id="scene" src="${allowedAlreadyProxiedUrl}">
+        </body>
+      </html>
+    `
+    const css = `.scene { background-image: url("${allowedAlreadyProxiedUrl}"); }`
+
+    const rewrittenHtml = rewriteCheckPaperHtml(html, finalUrl)
+    const $ = load(rewrittenHtml)
+    const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
+
+    expect($('#style').attr('href')).toBe(allowedAlreadyProxiedUrl)
+    expect($('#scene').attr('src')).toBe(allowedAlreadyProxiedUrl)
+    expect(rewrittenCss).toContain(allowedAlreadyProxiedUrl)
+  })
+
+  it('applies known Carmodoo literal script data before removing scripts', () => {
+    const html = `
+      <html>
+        <body>
+          <input id="bc_2_1" type="checkbox">
+          <input id="bc_2_2" type="checkbox">
+          <input id="dc_81_1" type="checkbox">
+          <img id="accout_6" width="10" height="10">
+          <div id="repair_wrap_data">
+            <div class="c14"></div>
+          </div>
+          <script>
+            setData('bc', '{"2":"1"}');
+            setData('dc', '{"81":"1"}');
+            var ucAccOutCheck = '{"6":"W"}';
+            var ucImgOnCheck = '{"14":"X"}';
+          </script>
+        </body>
+      </html>
+    `
+
+    const rewritten = rewriteCheckPaperHtml(html, carmodooUrl)
+    const $ = load(rewritten)
+
+    expect($('script')).toHaveLength(0)
+    expect($('#bc_2_1').attr('checked')).toBe('checked')
+    expect($('#bc_2_2').attr('checked')).toBeUndefined()
+    expect($('#dc_81_1').attr('checked')).toBe('checked')
+    expect($('#accout_6').attr('src')).toContain(
+      '/api/v2/checkpaper/asset?url='
+    )
+    expect($('#accout_6').attr('src')).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/images/check/icon_w.png')
+    )
+    expect($('#repair_wrap_data .c14 img').attr('src')).toContain(
+      encodeURIComponent('https://ck.carmodoo.com/images/check/icon_x.png')
+    )
+  })
+
+  it('ignores malformed Carmodoo literal data without touching unrelated elements', () => {
+    const html = `
+      <html>
+        <body>
+          <input id="bc_2_1" type="checkbox">
+          <img id="accout_6" width="10" height="10">
+          <div id="repair_wrap_data">
+            <div class="c14"></div>
+          </div>
+          <div id="unrelated">
+            <img src="/images/original.png">
+          </div>
+          <script>
+            setData('bc', '{"[":"1","2":"1, input","3":"0"}');
+            var ucAccOutCheck = '{"6, img":"W","6":"javascript:alert(1)"}';
+            var ucImgOnCheck = '{"14, img":"X","14":"XX"}';
+          </script>
+        </body>
+      </html>
+    `
+
+    expect(() => rewriteCheckPaperHtml(html, carmodooUrl)).not.toThrow()
+
+    const rewritten = rewriteCheckPaperHtml(html, carmodooUrl)
+    const $ = load(rewritten)
+
+    expect($('#bc_2_1').attr('checked')).toBeUndefined()
+    expect($('#accout_6').attr('src')).toBeUndefined()
+    expect($('#repair_wrap_data .c14 img')).toHaveLength(0)
+    expect($('#unrelated img')).toHaveLength(1)
   })
 
   it('rewrites CSS url() and @import references to the asset proxy', () => {

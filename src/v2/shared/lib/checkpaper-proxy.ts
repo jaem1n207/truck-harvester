@@ -3,9 +3,12 @@ import { load } from 'cheerio'
 const allowedCheckPaperHosts = new Set([
   'autocafe.co.kr',
   'checkpaper.jmenetworks.co.kr',
+  'ck.carmodoo.com',
 ])
 
 const MAX_CHECKPAPER_REDIRECTS = 4
+const CHECKPAPER_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
+const SAME_ORIGIN_PROXY_URL_BASE = 'https://truck-harvester.local'
 export const CHECKPAPER_FETCH_TIMEOUT_MS = 4500
 
 export type CheckPaperTimeoutBudget = {
@@ -40,7 +43,7 @@ export function isAllowedCheckPaperUrl(value: string) {
 export function toCheckPaperAssetProxyUrl(
   assetUrl: string,
   baseUrl: string,
-  proxyPath = '/api/v2/checkpaper/asset'
+  proxyPath = CHECKPAPER_ASSET_PROXY_PATH
 ) {
   const absoluteUrl = new URL(assetUrl, baseUrl).toString()
 
@@ -51,11 +54,52 @@ function isDisallowedUrlScheme(value: string) {
   return /^(javascript:|data:|blob:|about:)/i.test(value.trim())
 }
 
+function getSafeAlreadyProxiedAssetUrl(value: string) {
+  const trimmed = value.trim()
+
+  if (!trimmed.includes(CHECKPAPER_ASSET_PROXY_PATH)) {
+    return { kind: 'not-proxy' as const }
+  }
+
+  if (!trimmed.startsWith(`${CHECKPAPER_ASSET_PROXY_PATH}?`)) {
+    return { kind: 'invalid-proxy' as const }
+  }
+
+  try {
+    const proxyUrl = new URL(trimmed, SAME_ORIGIN_PROXY_URL_BASE)
+
+    if (
+      proxyUrl.origin !== SAME_ORIGIN_PROXY_URL_BASE ||
+      proxyUrl.pathname !== CHECKPAPER_ASSET_PROXY_PATH
+    ) {
+      return { kind: 'invalid-proxy' as const }
+    }
+
+    const wrappedUrl = proxyUrl.searchParams.get('url')
+
+    if (!wrappedUrl || !isAllowedCheckPaperUrl(wrappedUrl)) {
+      return { kind: 'invalid-proxy' as const }
+    }
+
+    return { kind: 'safe-proxy' as const, url: trimmed }
+  } catch {
+    return { kind: 'invalid-proxy' as const }
+  }
+}
+
 function toProxiedAssetUrl(rawUrl: string, baseUrl: string) {
   const trimmed = rawUrl.trim()
 
   if (!trimmed || isDisallowedUrlScheme(trimmed) || trimmed.startsWith('#')) {
     return '#'
+  }
+
+  const alreadyProxied = getSafeAlreadyProxiedAssetUrl(trimmed)
+  if (alreadyProxied.kind === 'safe-proxy') {
+    return alreadyProxied.url
+  }
+  if (alreadyProxied.kind === 'invalid-proxy') {
+    return null
   }
 
   try {
@@ -101,6 +145,161 @@ function sanitizeActionAttribute(rawAction: string, baseUrl: string) {
   }
 
   return trimmed
+}
+
+function parseJsonObjectLiteral(value: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(value)
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string'
+      )
+    )
+  } catch {
+    return {}
+  }
+}
+
+function isDigitFragment(value: string) {
+  return /^\d+$/.test(value.trim())
+}
+
+function isSingleAlphabeticMarker(value: string) {
+  return /^[a-z]$/i.test(value.trim())
+}
+
+function extractCarmodooSetData(
+  scriptText: string,
+  prefix: string
+): Record<string, string> {
+  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(
+    `setData\\(\\s*['"]${escapedPrefix}['"]\\s*,\\s*(['"])(.*?)\\1`,
+    'gs'
+  )
+  const merged: Record<string, string> = {}
+
+  for (const match of scriptText.matchAll(pattern)) {
+    Object.assign(merged, parseJsonObjectLiteral(match[2] ?? '{}'))
+  }
+
+  return merged
+}
+
+function extractCarmodooVariableData(
+  scriptText: string,
+  variableName: string
+): Record<string, string> {
+  const escapedName = variableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(
+    `var\\s+${escapedName}\\s*=\\s*(['"])(.*?)\\1\\s*;`,
+    's'
+  )
+  const match = scriptText.match(pattern)
+
+  return parseJsonObjectLiteral(match?.[2] ?? '{}')
+}
+
+function applyCarmodooCheckboxData(
+  $: ReturnType<typeof load>,
+  prefix: string,
+  values: Record<string, string>
+) {
+  Object.entries(values).forEach(([key, value]) => {
+    const normalizedKey = key.trim()
+    const normalizedValue = value.trim()
+
+    if (
+      !isDigitFragment(normalizedKey) ||
+      !isDigitFragment(normalizedValue) ||
+      normalizedValue === '0'
+    ) {
+      return
+    }
+
+    $(`#${prefix}_${normalizedKey}_${normalizedValue}`).attr(
+      'checked',
+      'checked'
+    )
+  })
+}
+
+function applyCarmodooImageMarkerData({
+  $,
+  baseUrl,
+  selectorPrefix,
+  values,
+}: {
+  $: ReturnType<typeof load>
+  baseUrl: string
+  selectorPrefix: string
+  values: Record<string, string>
+}) {
+  Object.entries(values).forEach(([key, value]) => {
+    const normalizedKey = key.trim()
+    const marker = value.trim().toLowerCase()
+
+    if (!isDigitFragment(normalizedKey) || !isSingleAlphabeticMarker(marker)) {
+      return
+    }
+
+    const proxiedIconUrl = toCheckPaperAssetProxyUrl(
+      `/images/check/icon_${marker}.png`,
+      baseUrl
+    )
+    const node = $(`${selectorPrefix}${normalizedKey}`)
+
+    if (node.is('img')) {
+      node.attr('src', proxiedIconUrl)
+      node.attr('alt', value)
+      return
+    }
+
+    const markerImage = $('<img>')
+    markerImage.attr('src', proxiedIconUrl)
+    markerImage.attr('alt', value)
+    node.empty().append(markerImage)
+  })
+}
+
+function applyCarmodooLiteralScriptData(
+  $: ReturnType<typeof load>,
+  baseUrl: string
+) {
+  if (new URL(baseUrl).hostname !== 'ck.carmodoo.com') {
+    return
+  }
+
+  const scriptText = $('script')
+    .toArray()
+    .map((element) => $(element).text())
+    .join('\n')
+
+  ;['bc', 'mac', 'dc', 'eac'].forEach((prefix) => {
+    applyCarmodooCheckboxData(
+      $,
+      prefix,
+      extractCarmodooSetData(scriptText, prefix)
+    )
+  })
+
+  applyCarmodooImageMarkerData({
+    $,
+    baseUrl,
+    selectorPrefix: '#accout_',
+    values: extractCarmodooVariableData(scriptText, 'ucAccOutCheck'),
+  })
+  applyCarmodooImageMarkerData({
+    $,
+    baseUrl,
+    selectorPrefix: '#repair_wrap_data .c',
+    values: extractCarmodooVariableData(scriptText, 'ucImgOnCheck'),
+  })
 }
 
 function createTimeoutError() {
@@ -206,6 +405,8 @@ export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
   const $ = load(html)
   const baseUrl = new URL(finalUrl).toString()
 
+  applyCarmodooLiteralScriptData($, baseUrl)
+
   $('script').remove()
   $('*').each((_, element) => {
     const node = $(element)
@@ -255,13 +456,6 @@ export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
 
   $('base').remove()
 
-  const base = $('<base>')
-  base.attr('href', baseUrl)
-  const head = $('head')
-  if (head.length > 0) {
-    head.prepend(base)
-  }
-
   return $.html()
 }
 
@@ -276,8 +470,12 @@ function toProxiedCssAsset(rawUrl: string, finalUrl: string) {
     return null
   }
 
-  if (trimmed.includes('/api/v2/checkpaper/asset?url=')) {
-    return null
+  const alreadyProxied = getSafeAlreadyProxiedAssetUrl(trimmed)
+  if (alreadyProxied.kind === 'safe-proxy') {
+    return alreadyProxied.url
+  }
+  if (alreadyProxied.kind === 'invalid-proxy') {
+    return '#'
   }
 
   if (/^\/\//.test(trimmed) || /^(?!https?:)\w+:/.test(trimmed)) {

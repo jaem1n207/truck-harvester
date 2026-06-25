@@ -152,7 +152,14 @@ function getWrittenBlob(
 ) {
   const [blob] = writable!.write.mock.calls[0]
 
-  expect(blob).toBeInstanceOf(Blob)
+  expect(blob).toEqual(
+    expect.objectContaining({
+      size: expect.any(Number),
+      type: expect.any(String),
+    })
+  )
+  expect(typeof (blob as Blob).arrayBuffer).toBe('function')
+  expect(typeof (blob as Blob).text).toBe('function')
 
   return blob as Blob
 }

@@ -1,6 +1,14 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    '/api/v2/checkpaper/carmodoo-render': [
+      './node_modules/@sparticuz/chromium/bin/**/*',
+      './node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-400-normal.woff2',
+      './node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-700-normal.woff2',
+    ],
+  },
+
   // 성능 최적화 설정
   experimental: {
     // 번들 크기 최적화

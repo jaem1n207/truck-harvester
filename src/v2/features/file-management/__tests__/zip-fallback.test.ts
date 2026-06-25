@@ -56,6 +56,7 @@ describe('createTruckZipBlob', () => {
     const { blob, results } = await createTruckZipArchive([listing], {
       capturePerformanceCheckImages: vi.fn(async () => [
         new Uint8Array([7, 8]),
+        new Uint8Array([9, 10]),
       ]),
     })
     const zip = await JSZip.loadAsync(blob)
@@ -67,9 +68,12 @@ describe('createTruckZipBlob', () => {
     expect(
       zip.file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')
     ).toBeTruthy()
+    expect(
+      zip.file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_2.jpg')
+    ).toBeTruthy()
     expect(results).toEqual([
       {
-        performanceCheckImageCount: 1,
+        performanceCheckImageCount: 2,
         performanceCheckStatus: 'saved',
         sourceUrl: listing.url,
         vehicleImageCount: 2,
@@ -106,6 +110,11 @@ describe('createTruckZipBlob', () => {
         .file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_1.jpg')!
         .async('uint8array')
     ).resolves.toEqual(new Uint8Array([7, 8]))
+    await expect(
+      zip
+        .file('12가_3456/성능점검기록부/12가_3456_성능점검기록부_2.jpg')!
+        .async('uint8array')
+    ).resolves.toEqual(new Uint8Array([9, 10]))
   })
 
   it('keeps createTruckZipBlob as a blob-only compatibility wrapper', async () => {
