@@ -21,6 +21,10 @@ export interface BatchAnalyticsInput {
   previewFailedCount: number
   savedCount: number
   saveFailedCount: number
+  performanceCheckRequestedCount?: number
+  performanceCheckSavedCount?: number
+  performanceCheckMissingCount?: number
+  performanceCheckImageCount?: number
   durationMs: number
   saveMethod?: SaveMethod
   filesystemSupported: boolean
@@ -115,6 +119,10 @@ export function toBatchEventData(input: BatchAnalyticsInput) {
     preview_failed_count: input.previewFailedCount,
     saved_count: input.savedCount,
     save_failed_count: input.saveFailedCount,
+    performance_check_requested_count: input.performanceCheckRequestedCount,
+    performance_check_saved_count: input.performanceCheckSavedCount,
+    performance_check_missing_count: input.performanceCheckMissingCount,
+    performance_check_image_count: input.performanceCheckImageCount,
     duration_ms: durationMs,
     save_method: input.saveMethod,
     filesystem_supported: input.filesystemSupported,
