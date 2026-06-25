@@ -153,12 +153,31 @@ browser layout.
   printable record assets.
 - `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs,
   opens the approved Carmodoo page directly in the native browser renderer, and
-  returns the rendered JPG pages for the save flow. Vercel deployments use a
-  packaged serverless Chromium executable and bundled Korean font faces for this
-  renderer, because the serverless Chromium runtime does not include CJK fonts.
+  returns the rendered JPG pages for the save flow. Vercel deployments use
+  `@sparticuz/chromium` and bundled Noto Sans KR font faces for this renderer,
+  because the serverless Chromium runtime does not include CJK fonts.
 
 The app does not upload these records anywhere; it only saves them into the
 user's selected folder or ZIP file. Performance-check saving remains non-fatal.
+
+## Quality Gates
+
+Pull requests and `main` pushes run the GitHub Actions `CI` workflow. The
+workflow installs dependencies with Bun, installs Playwright Chromium, and then
+runs:
+
+- `bun run typecheck`
+- `bun run lint`
+- `bun run format:check`
+- `bun run test -- --run`
+- `bun run test:carmodoo-render`
+- `bun run build`
+
+`bun run test:carmodoo-render` is a focused Playwright smoke test for the
+Carmodoo native renderer. It launches real Chromium, renders a Korean fixture
+through the same renderer code path, and verifies that the produced JPG contains
+enough dark pixel coverage across rows and columns to prove Korean glyphs were
+painted instead of disappearing as tofu or empty boxes.
 
 ## Layer Responsibilities
 

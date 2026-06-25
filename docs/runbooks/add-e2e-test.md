@@ -23,6 +23,9 @@ Keep the Playwright matrix broad enough to cover the app's real staff workflow:
 - Performance-check save: saved folders or ZIP files include
   `성능점검기록부/` JPG files when the mocked listing has a performance-check
   record, and show the quiet completion notice when the record is missing.
+- Carmodoo renderer smoke: real Chromium renders Korean glyphs into JPG pixels
+  through `e2e/carmodoo-render-font.spec.ts`. Keep this focused on renderer
+  runtime health rather than the full listing-save workflow.
 - Reduced motion: first-visit tour card and highlight stay visible without
   transform motion.
 - A11y: root flow and onboarding overlay have no critical axe violations.
@@ -48,7 +51,14 @@ GitHub issue #8 owns that behavior.
 
 - `bun run test:e2e -- --list`
 - `bun run test:e2e -- e2e/<name>.spec.ts`
+- `bun run test:carmodoo-render` when Carmodoo renderer, Playwright runtime,
+  serverless Chromium, or bundled Korean fonts change
 - `bun run test:a11y` when accessibility behavior changes
+
+The GitHub Actions `CI` workflow runs `bun run test:carmodoo-render` on every
+pull request and `main` push. A local sandbox may block the Next.js dev server's
+port binding; in that case rerun the command with the normal local shell
+permissions before treating the smoke as failed.
 
 ## Related Decisions
 
