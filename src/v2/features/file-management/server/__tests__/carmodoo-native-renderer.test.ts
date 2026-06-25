@@ -31,6 +31,7 @@ function createRendererBrowser({
     addStyleTag: vi.fn(),
     close: vi.fn(),
     emulateMedia: vi.fn(),
+    evaluate: vi.fn(async () => undefined),
     goto,
     setViewportSize: vi.fn(),
     waitForLoadState: vi.fn(),
@@ -65,6 +66,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
       addStyleTag: vi.fn(),
       close: vi.fn(),
       emulateMedia: vi.fn(),
+      evaluate: vi.fn(async () => undefined),
       goto: vi.fn(),
       setViewportSize: vi.fn(),
       waitForLoadState: vi.fn(),
@@ -98,6 +100,11 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
       waitUntil: 'networkidle',
     })
     expect(page.emulateMedia).toHaveBeenCalledWith({ media: 'print' })
+    const injectedStyle = page.addStyleTag.mock.calls[0]?.[0]?.content
+    expect(injectedStyle).toContain('@font-face')
+    expect(injectedStyle).toContain('TruckHarvesterCarmodooKR')
+    expect(injectedStyle).toContain('data:font/woff2;base64,')
+    expect(page.evaluate).toHaveBeenCalledTimes(1)
     expect(page.goto.mock.calls[0]?.[1]?.timeout).toBeLessThanOrEqual(15_000)
     expect(page.waitForSelector).toHaveBeenCalledWith(
       '.repaircheck_box .page_wrap',
@@ -367,6 +374,7 @@ describe('renderCarmodooNativeImagesWithBrowser', () => {
         ]),
         addStyleTag: vi.fn(),
         emulateMedia: vi.fn(),
+        evaluate: vi.fn(async () => undefined),
         goto: vi.fn(),
         setViewportSize: vi.fn(),
         waitForLoadState: vi.fn(),

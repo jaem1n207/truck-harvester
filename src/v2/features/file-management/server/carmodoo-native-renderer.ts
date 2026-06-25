@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+
 import { CARMODOO_RENDER_MAX_PAGE_COUNT } from '@/v2/shared/lib/carmodoo-performance-check'
 
 export const CARMODOO_RENDER_VIEWPORT = {
@@ -8,10 +11,29 @@ export const CARMODOO_RENDER_VIEWPORT = {
 const DEFAULT_CARMODOO_RENDER_TIMEOUT_MS = 45_000
 const CARMODOO_RENDER_SCALE = 2
 const CARMODOO_RENDER_JPEG_QUALITY = 92
+const CARMODOO_RENDER_FONT_FAMILY = 'TruckHarvesterCarmodooKR'
+const CARMODOO_RENDER_FONTS = [
+  {
+    filePath: join(
+      process.cwd(),
+      'node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-400-normal.woff2'
+    ),
+    weight: 400,
+  },
+  {
+    filePath: join(
+      process.cwd(),
+      'node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-700-normal.woff2'
+    ),
+    weight: 700,
+  },
+] as const
 const CARMODOO_RENDER_TIMEOUT_MESSAGE =
   '성능점검기록부 이미지를 만드는 시간이 초과되었습니다.'
 const CARMODOO_RENDER_INVALID_ORIGIN_MESSAGE =
   '성능점검기록부 주소를 확인하지 못했습니다.'
+
+let carmodooKoreanFontStylePromise: Promise<string> | undefined
 
 type ScreenshotElement = {
   screenshot: (options: {
@@ -25,6 +47,7 @@ type RendererPage = {
   $$: (selector: string) => Promise<ScreenshotElement[]>
   addStyleTag: (options: { content: string }) => Promise<unknown>
   emulateMedia: (options: { media: 'print' }) => Promise<unknown>
+  evaluate: (pageFunction: () => unknown | Promise<unknown>) => Promise<unknown>
   goto: (
     url: string,
     options: { timeout: number; waitUntil: 'networkidle' }
@@ -176,6 +199,32 @@ function shouldUseServerlessChromium() {
   return process.env.VERCEL === '1'
 }
 
+async function readCarmodooFontDataUrl(filePath: string) {
+  const font = await readFile(filePath)
+
+  return `data:font/woff2;base64,${font.toString('base64')}`
+}
+
+function getCarmodooKoreanFontStyle() {
+  carmodooKoreanFontStylePromise ??= Promise.all(
+    CARMODOO_RENDER_FONTS.map(async ({ filePath, weight }) => {
+      const dataUrl = await readCarmodooFontDataUrl(filePath)
+
+      return `
+        @font-face {
+          font-display: block;
+          font-family: "${CARMODOO_RENDER_FONT_FAMILY}";
+          font-style: normal;
+          font-weight: ${weight};
+          src: url("${dataUrl}") format("woff2");
+        }
+      `
+    })
+  ).then((fontFaces) => fontFaces.join('\n'))
+
+  return carmodooKoreanFontStylePromise
+}
+
 export async function createCarmodooRendererLaunchOptions(
   timeoutBudget: RenderTimeoutBudget,
   loadServerlessChromium: ServerlessChromiumLoader = () =>
@@ -205,17 +254,20 @@ export async function createCarmodooRendererLaunchOptions(
   }
 }
 
-function getCarmodooNativeStyle() {
-  return `
+async function getCarmodooNativeStyle() {
+  return `${await getCarmodooKoreanFontStyle()}
     body {
       background: #fff !important;
       margin: 0 !important;
       padding: 0 !important;
     }
+    .repaircheck_box,
+    .repaircheck_box * {
+      font-family: "${CARMODOO_RENDER_FONT_FAMILY}", "Noto Sans KR", Dotum, 돋움, Arial, sans-serif !important;
+    }
     .repaircheck_box {
       background: #fff !important;
       color: #000 !important;
-      font-family: Dotum, 돋움, Arial, sans-serif !important;
       margin: 0 !important;
       width: 1400px !important;
     }
@@ -231,6 +283,18 @@ function getCarmodooNativeStyle() {
       width: 1400px !important;
     }
   `
+}
+
+async function waitForCarmodooFonts(
+  page: RendererPage,
+  timeoutBudget: RenderTimeoutBudget
+) {
+  await withRenderTimeout(
+    page.evaluate(async () => {
+      await document.fonts.ready
+    }),
+    timeoutBudget
+  )
 }
 
 export async function renderCarmodooNativeImagesWithBrowser(
@@ -271,7 +335,14 @@ export async function renderCarmodooNativeImagesWithBrowser(
       waitUntil: 'networkidle',
     })
     renderTimeoutBudget.getRemainingMs()
-    await page.addStyleTag({ content: getCarmodooNativeStyle() })
+    await page.addStyleTag({
+      content: await withRenderTimeout(
+        getCarmodooNativeStyle(),
+        renderTimeoutBudget
+      ),
+    })
+    renderTimeoutBudget.getRemainingMs()
+    await waitForCarmodooFonts(page, renderTimeoutBudget)
     renderTimeoutBudget.getRemainingMs()
     await page.waitForLoadState('networkidle', {
       timeout: renderTimeoutBudget.getRemainingMs(),
