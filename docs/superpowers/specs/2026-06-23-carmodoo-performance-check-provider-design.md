@@ -1,5 +1,11 @@
 # 카모두 성능점검기록부 provider 설계
 
+> 상태: 이 문서는 Carmodoo 지원을 처음 추가하기 위한 provider/HTML capture 설계
+> 기록이다. 이후 `html2canvas` 기반 캡처가 실제 화면 정렬을 재현하지 못해
+> `docs/superpowers/specs/2026-06-24-carmodoo-native-renderer-design.md`의 native
+> Chromium renderer 설계로 대체되었다. 현재 구현 기준 문서는 2026-06-24 native
+> renderer 설계를 따른다.
+
 ## 배경
 
 Truck Harvester는 truck-no1 매물 주소에서 차량 이미지, 원고, 성능점검기록부
