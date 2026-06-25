@@ -153,7 +153,8 @@ browser layout.
   printable record assets.
 - `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs,
   opens the approved Carmodoo page directly in the native browser renderer, and
-  returns the rendered JPG pages for the save flow.
+  returns the rendered JPG pages for the save flow. Vercel deployments use a
+  packaged serverless Chromium executable for this renderer.
 
 The app does not upload these records anywhere; it only saves them into the
 user's selected folder or ZIP file. Performance-check saving remains non-fatal.
