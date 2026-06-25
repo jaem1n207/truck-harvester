@@ -16,7 +16,7 @@
 
 - 📋 **URL 기반 자동 수집**: 중고트럭 매물 URL 입력으로 정보 자동 추출
 - 🖼️ **이미지 일괄 다운로드**: 매물 이미지를 체계적으로 정리하여 다운로드
-- 🧾 **성능점검기록부 저장**: 매물의 성능점검기록부 인쇄본을 JPG 이미지로 함께 저장
+- 🧾 **성능점검기록부 저장**: CheckPaper PDF와 Carmodoo 인쇄 화면을 JPG 이미지로 함께 저장
 - 📝 **스마트스토어 원고 생성**: `차명`, `연식`, `주행거리`, `차량번호`, `차량정보`를 원고의 `기타사항`에 정리
 - 🧩 **붙여넣기 주소 정리**: 복사한 대화나 메모에서 지원되는 매물 주소 자동 추출
 - 📁 **파일 시스템 통합**: File System Access API로 브라우저에서 직접 파일 저장
@@ -72,6 +72,12 @@ truck-test/
 이미지와 원고 저장은 완료됩니다. 이때 완료 요약에서 사용자가 해당 차량
 폴더를 확인할 수 있도록 짧은 안내를 보여줍니다.
 
+성능점검기록부는 매물의 `성능점검보기` 링크에서 확인한 기록부 형식에 맞춰
+저장됩니다. 기존 CheckPaper 기록부는 printable PDF를 JPG로 변환하고,
+Carmodoo `checkNum` 기록부는 서버의 native Chromium renderer가 실제 인쇄 화면을
+JPG로 캡처합니다. Vercel 환경에서도 한글이 깨지지 않도록 renderer는 프로젝트에
+포함된 Noto Sans KR font와 serverless Chromium 실행 파일을 사용합니다.
+
 원고 파일의 `기타사항`에는 스마트스토어 표 입력에 필요한 항목이
 들여쓰기된 블록으로 저장됩니다. `연식`은 매물 상세의 `최초등록` 날짜를
 `yyyy년 m월 등록` 형식으로 바꿔 저장하고, `차량정보`는 상세설명의
@@ -121,6 +127,9 @@ truck-test/
 
 - `bun run test` - Vitest 테스트 실행
 - `bun run test:coverage` - 테스트 커버리지
+- `bun run test:carmodoo-render` - 실제 Chromium에서 Carmodoo renderer 한글 glyph가 JPG 픽셀로 그려지는지 확인
+- `bun run test:e2e` - Playwright E2E 테스트 실행
+- `bun run test:a11y` - axe 기반 접근성 E2E 테스트 실행
 
 ### 전체 코드 점검
 
@@ -258,7 +267,8 @@ git commit -m "fix: 저장 폴더 권한 확인 보정"
 - **API Routes**: Next.js 16 Node.js route handlers
 - **Web Scraping**: Cheerio for HTML parsing, SmartStore manuscript table extraction, and performance-check link discovery
 - **File Operations**: File System Access API + JSZip
-- **Image Handling**: Fetched image blobs are saved directly without runtime stamping; performance check records are rendered from CheckPaper print pages and saved as JPG files
+- **Image Handling**: Fetched image blobs are saved directly without runtime stamping; CheckPaper PDF records are rendered to JPG in the browser, and Carmodoo records are rendered to JPG through a same-origin native Chromium route
+- **Server Rendering Runtime**: `playwright`, `@sparticuz/chromium`, and bundled Noto Sans KR font files support Carmodoo rendering in Vercel serverless environments
 
 ### 상태 관리 & 폼
 
@@ -269,7 +279,7 @@ git commit -m "fix: 저장 폴더 권한 확인 보정"
 ### 개발 도구 & 품질
 
 - **Package Manager**: Bun
-- **Testing**: Vitest + jsdom + React Testing Library
+- **Testing**: Vitest + jsdom + React Testing Library + Playwright
 - **Type Checking**: TypeScript with strict configuration
 - **Linting**: ESLint with Next.js rules
 - **Formatting**: Prettier with Tailwind CSS plugin
@@ -280,6 +290,7 @@ git commit -m "fix: 저장 폴더 권한 확인 보정"
 
 - **Hosting**: Vercel
 - **Build System**: Turbopack for fast builds
+- **CI**: GitHub Actions runs typecheck, lint, format check, unit tests, Carmodoo Chromium glyph smoke, and build on pull requests and `main` pushes
 - **SEO**: Next.js Metadata API + OpenGraph images
 - **PWA**: Web App Manifest
 - **Performance**: Bundle optimization, lazy loading
@@ -310,6 +321,7 @@ bun run start
 ```text
 src/
 ├── app/                      # Next.js App Router + 글로벌 설정
+│   ├── api/v2/checkpaper/   # 성능점검기록부 proxy, asset proxy, Carmodoo renderer
 │   ├── api/v2/parse-truck/  # 현재 서버 파싱 API
 │   ├── globals.css          # 글로벌 스타일 + 접근성 개선
 │   ├── layout.tsx           # 루트 레이아웃 + 메타데이터
