@@ -236,7 +236,7 @@ jobs:
           operations-per-run: 50
 ```
 
-Expected: The workflow marks inactive issues stale after 90 days, never closes issues, and never marks, closes, or removes stale labels from PRs.
+Expected: The workflow marks inactive issues stale after 90 days, never closes issues, and never marks, closes, or removes stale labels from PRs. The remote `status:stale` label must exist before this workflow runs because `actions/stale` does not create missing labels.
 
 - [ ] **Step 2: Validate stale workflow syntax**
 
@@ -274,5 +274,6 @@ Expected: One commit contains only the stale workflow.
 - [ ] Existing `.github/workflows/ci.yml` remains unchanged.
 - [ ] Labeler uses `pull_request_target` without checkout or code execution.
 - [ ] Stale marks issues only and never auto-closes issues or mutates PRs.
+- [ ] The remote `status:stale` label exists before the stale workflow is enabled.
 - [ ] Release Drafter and PR comment automation are not included in this first implementation.
 - [ ] All third-party actions are pinned to full commit SHA.

@@ -72,6 +72,7 @@ Add Labeler:
 Add conservative Stale:
 
 - Issue-only stale behavior after a longer inactivity window.
+- Ensure the remote `status:stale` label exists because `actions/stale` does not create missing labels.
 - Exempt `security`, `pinned`, `in-progress`, `needs-decision`, `customer-critical`, and preview/deployment investigation labels.
 - Do not mutate or auto-close PRs.
 
