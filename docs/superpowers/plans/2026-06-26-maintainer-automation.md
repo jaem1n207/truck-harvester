@@ -95,7 +95,9 @@ Create `/Users/jaemin/programming/projects/archive/truck-harvester/.github/label
 'area:parsing':
   - changed-files:
       - any-glob-to-any-file:
-          - 'src/v2/shared/lib/**'
+          - 'src/v2/shared/lib/parse-*.ts'
+          - 'src/v2/shared/lib/checkpaper-proxy.ts'
+          - 'src/v2/features/listing-preparation/model/*parser*.ts'
           - 'src/v2/features/truck-processing/**'
           - 'src/v2/features/listing-preparation/**'
           - 'src/v2/entities/**'
@@ -104,8 +106,11 @@ Create `/Users/jaemin/programming/projects/archive/truck-harvester/.github/label
   - changed-files:
       - any-glob-to-any-file:
           - 'src/**/carmodoo*'
+          - 'src/**/carmodoo*/**'
           - 'src/**/checkpaper*'
+          - 'src/**/checkpaper*/**'
           - 'src/**/renderer*'
+          - 'src/**/renderer*/**'
           - 'e2e/carmodoo-*.spec.ts'
           - 'e2e/*render*.spec.ts'
 
