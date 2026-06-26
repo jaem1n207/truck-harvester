@@ -47,6 +47,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
   pull-requests: write
 
 jobs:
@@ -60,7 +61,7 @@ jobs:
           sync-labels: true
 ```
 
-Expected: The workflow never checks out the repository and only changes PR labels.
+Expected: The workflow never checks out the repository and only changes PR labels. `issues: write` allows `actions/labeler` to create missing configured labels on first run.
 
 - [ ] **Step 2: Add the labeler config**
 
