@@ -62,7 +62,7 @@ Add Labeler:
 
 - `area:api` for `src/app/api/**`.
 - `area:v2-workflow` for `src/v2/application/**`.
-- `area:parsing` for parser/provider paths such as `src/v2/shared/lib/**` and truck-processing features.
+- `area:parsing` for parser/provider paths such as `parse-*`, `checkpaper-proxy`, listing-preparation parsers, and truck-processing features.
 - `area:rendering` for Carmodoo, CheckPaper, Playwright renderer, or font/glyph-related paths.
 - `area:analytics` for workflow analytics and Umami-related paths.
 - `area:e2e` for `e2e/**`.
