@@ -148,7 +148,7 @@ Create `/Users/jaemin/programming/projects/archive/truck-harvester/.github/label
   - head-branch:
       - '^docs[/-]'
 
-'status:needs-review':
+'target:main':
   - base-branch:
       - '^main$'
 ```
