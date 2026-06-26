@@ -19,7 +19,7 @@ Create or modify these files inside `/Users/jaemin/programming/projects/archive/
 - Create: `.github/labeler.yml`
   - Responsibility: Define file and branch matching rules for API, parser, renderer, analytics, docs, test, and CI labels.
 - Create: `.github/workflows/stale.yml`
-  - Responsibility: Mark inactive issues stale without closing issues or PRs automatically.
+  - Responsibility: Mark inactive issues stale without closing issues or mutating PRs automatically.
 - Preserve: `.github/workflows/ci.yml`
   - Responsibility: Continue running the existing Bun install, typecheck, lint, format, tests, Carmodoo smoke, and build flow.
 
@@ -213,7 +213,6 @@ on:
 
 permissions:
   issues: write
-  pull-requests: write
 
 jobs:
   stale:
@@ -224,22 +223,20 @@ jobs:
         uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899 # v10.3.0
         with:
           stale-issue-label: 'status:stale'
-          stale-pr-label: 'status:stale'
           days-before-issue-stale: 90
           days-before-issue-close: -1
           days-before-pr-stale: -1
           days-before-pr-close: -1
+          remove-pr-stale-when-updated: false
           stale-issue-message: >-
             이 이슈는 90일 동안 활동이 없어 stale로 표시합니다.
             아직 필요하면 댓글을 남기거나 `status:stale` 라벨을 제거해 주세요.
           exempt-issue-labels: >-
             security,pinned,in-progress,needs-decision,customer-critical,preview-investigation,deployment-investigation
-          exempt-pr-labels: >-
-            security,pinned,in-progress,needs-decision,customer-critical,preview-investigation,deployment-investigation
           operations-per-run: 50
 ```
 
-Expected: The workflow marks inactive issues stale after 90 days, never closes issues, and never marks or closes PRs automatically.
+Expected: The workflow marks inactive issues stale after 90 days, never closes issues, and never marks, closes, or removes stale labels from PRs.
 
 - [ ] **Step 2: Validate stale workflow syntax**
 
@@ -259,7 +256,7 @@ Run:
 sed -n '1,120p' .github/workflows/stale.yml
 ```
 
-Expected: The file shows only `issues: write` and `pull-requests: write`; it does not include `contents: write` or secrets.
+Expected: The file shows only `issues: write`; it does not include `pull-requests: write`, `contents: write`, or secrets.
 
 - [ ] **Step 4: Commit stale automation**
 
@@ -276,6 +273,6 @@ Expected: One commit contains only the stale workflow.
 
 - [ ] Existing `.github/workflows/ci.yml` remains unchanged.
 - [ ] Labeler uses `pull_request_target` without checkout or code execution.
-- [ ] Stale marks issues only and never auto-closes issues or PRs.
+- [ ] Stale marks issues only and never auto-closes issues or mutates PRs.
 - [ ] Release Drafter and PR comment automation are not included in this first implementation.
 - [ ] All third-party actions are pinned to full commit SHA.
