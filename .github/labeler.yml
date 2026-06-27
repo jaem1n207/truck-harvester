@@ -1,0 +1,89 @@
+'area:ci':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+'area:docs':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - 'memo/**'
+          - 'README.md'
+          - 'CLAUDE.md'
+          - 'AGENTS.md'
+
+'area:api':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/app/api/**'
+
+'area:v2-workflow':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/v2/application/**'
+
+'area:parsing':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/v2/shared/lib/parse-*.ts'
+          - 'src/v2/shared/lib/checkpaper-proxy.ts'
+          - 'src/v2/features/listing-preparation/model/*parser*.ts'
+          - 'src/v2/features/truck-processing/**'
+          - 'src/v2/features/listing-preparation/**'
+          - 'src/v2/entities/**'
+
+'area:rendering':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**/carmodoo*'
+          - 'src/**/carmodoo*/**'
+          - 'src/**/checkpaper*'
+          - 'src/**/checkpaper*/**'
+          - 'src/**/renderer*'
+          - 'src/**/renderer*/**'
+          - 'e2e/carmodoo-*.spec.ts'
+          - 'e2e/*render*.spec.ts'
+
+'area:analytics':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**/analytics*'
+          - 'src/v2/application/**/workflow-analytics*'
+
+'area:e2e':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'e2e/**'
+
+'area:tests':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.test.ts'
+          - '**/*.test.tsx'
+          - '**/__tests__/**'
+
+'area:package':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'package.json'
+          - 'bun.lock'
+          - 'next.config.*'
+          - 'tsconfig.json'
+
+'type:feature':
+  - head-branch:
+      - '^feat[/-]'
+      - '^feature[/-]'
+
+'type:fix':
+  - head-branch:
+      - '^fix[/-]'
+      - '^hotfix[/-]'
+
+'type:docs':
+  - head-branch:
+      - '^docs[/-]'
+
+'target:main':
+  - base-branch:
+      - '^main$'
