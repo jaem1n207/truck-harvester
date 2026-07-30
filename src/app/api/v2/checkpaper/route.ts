@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 
+import { cancelResponseBody } from '@/v2/shared/lib/bounded-response'
 import {
   CHECKPAPER_FETCH_TIMEOUT_MS,
+  CHECKPAPER_HTML_MAX_BYTES,
   createTimeoutBudget,
   fetchWithManualRedirect,
   isAllowedCheckPaperUrl,
@@ -61,10 +63,12 @@ export async function GET(request: Request) {
     )
 
     if (!response.ok) {
+      await cancelResponseBody(response)
       return createErrorResponse(502, '성능점검기록부를 불러오지 못했어요.')
     }
 
     if (!isAllowedCheckPaperUrl(finalUrl)) {
+      await cancelResponseBody(response)
       return createErrorResponse(
         400,
         '성능점검기록부 주소를 확인하지 못했어요.'
@@ -73,10 +77,15 @@ export async function GET(request: Request) {
 
     const timeoutMs = timeoutBudget.getRemainingMs()
     if (timeoutMs <= 0) {
+      await cancelResponseBody(response)
       return createErrorResponse(502, '성능점검기록부를 불러오지 못했어요.')
     }
 
-    const html = await readResponseTextWithTimeout(response, timeoutMs)
+    const html = await readResponseTextWithTimeout(
+      response,
+      timeoutMs,
+      CHECKPAPER_HTML_MAX_BYTES
+    )
 
     const rewrittenHtml = rewriteCheckPaperHtml(html, finalUrl)
 

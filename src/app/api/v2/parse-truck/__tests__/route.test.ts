@@ -107,4 +107,22 @@ describe('POST /api/v2/parse-truck', () => {
       message: '지원하는 매물 사이트 주소만 사용할 수 있습니다.',
     })
   })
+
+  it('keeps the timeout response for Node HTTPS abort errors', async () => {
+    const abortError = Object.assign(new Error('The operation was aborted'), {
+      code: 'ABORT_ERR',
+      name: 'AbortError',
+    })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError))
+
+    const response = await POST(createRequest({ url: validUrl }))
+    const body = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(body).toEqual({
+      success: false,
+      reason: 'site-timeout',
+      message: '사이트 응답이 늦습니다. 다시 시도해볼까요?',
+    })
+  })
 })

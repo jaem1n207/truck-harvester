@@ -17,6 +17,17 @@ const finalUrl =
 const carmodooUrl =
   'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
 
+function createCertificateChainError() {
+  const cause = Object.assign(
+    new Error('unable to verify the first certificate'),
+    {
+      code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    }
+  )
+
+  return new TypeError('fetch failed', { cause })
+}
+
 describe('checkpaper proxy helpers', () => {
   it('allows only supported performance-check hosts', () => {
     expect(isAllowedCheckPaperUrl(finalUrl)).toBe(true)
@@ -32,6 +43,105 @@ describe('checkpaper proxy helpers', () => {
         'ftp://checkpaper.jmenetworks.co.kr/Service/CheckPaper'
       )
     ).toBe(false)
+  })
+
+  it.each([
+    'https://example.com/Service/CheckPaper',
+    'https://checkpaper.jmenetworks.co.kr:8443/Service/CheckPaper',
+    'https://user:password@checkpaper.jmenetworks.co.kr/Service/CheckPaper',
+    'http://checkpaper.jmenetworks.co.kr/Service/CheckPaper',
+    'https://checkpaper.jmenetworks.co.kr/admin',
+    'https://checkpaper.jmenetworks.co.kr/assets/%2e%2e/admin',
+    'https://checkpaper.jmenetworks.co.kr/assets/%252e%252e/admin',
+    'https://checkpaper.jmenetworks.co.kr/assets/logo%2Fadmin.png',
+    'https://checkpaper.jmenetworks.co.kr/assets/style.css#fragment',
+  ])(
+    'rejects unsafe initial request target %s inside the fetch boundary',
+    async (unsafeUrl) => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('unsafe'))
+      const fetchAutocafeWithTrustedChain = vi.fn()
+
+      await expect(
+        fetchWithManualRedirect(
+          unsafeUrl,
+          { 'User-Agent': 'test' },
+          createTimeoutBudget(1000),
+          4,
+          {
+            fetch: fetchMock,
+            fetchAutocafeWithTrustedChain,
+          }
+        )
+      ).rejects.toMatchObject({
+        code: 'UNSAFE_REDIRECT',
+      })
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(fetchAutocafeWithTrustedChain).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rebuilds request URLs from a fixed origin and encoded path/query components', async () => {
+    const unsafeQueryUrl =
+      'https://checkpaper.jmenetworks.co.kr/assets/성능 점검.css?next=https://169.254.169.254/latest&path=../admin'
+    const expectedUrl =
+      'https://checkpaper.jmenetworks.co.kr/assets/%EC%84%B1%EB%8A%A5%20%EC%A0%90%EA%B2%80.css?next=https%3A%2F%2F169.254.169.254%2Flatest&path=..%2Fadmin'
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('safe', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      })
+    )
+
+    const result = await fetchWithManualRedirect(
+      unsafeQueryUrl,
+      { 'User-Agent': 'test' },
+      createTimeoutBudget(1000),
+      4,
+      {
+        fetch: fetchMock,
+      }
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expectedUrl,
+      expect.objectContaining({
+        redirect: 'manual',
+      })
+    )
+    expect(result.finalUrl).toBe(expectedUrl)
+    expect(await result.response.text()).toBe('safe')
+  })
+
+  it('upgrades the known Autocafe HTTP entry URL before the outbound request', async () => {
+    const httpEntryUrl =
+      'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const httpsEntryUrl =
+      'https://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('safe', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      })
+    )
+
+    const result = await fetchWithManualRedirect(
+      httpEntryUrl,
+      { 'User-Agent': 'test' },
+      createTimeoutBudget(1000),
+      4,
+      {
+        fetch: fetchMock,
+      }
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      httpsEntryUrl,
+      expect.objectContaining({
+        redirect: 'manual',
+      })
+    )
+    expect(result.finalUrl).toBe(httpsEntryUrl)
   })
 
   it('builds encoded same-origin asset proxy URLs', () => {
@@ -395,6 +505,94 @@ describe('checkpaper proxy helpers', () => {
     vi.unstubAllGlobals()
   })
 
+  it('recovers an Autocafe HTTPS redirect when the server omits its intermediate certificate', async () => {
+    const sourceUrl =
+      'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const autocafeHttpsEntryUrl =
+      'https://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const autocafeHttpsUrl =
+      'https://autocafe.co.kr/ASSO/CarCheck_Form.asp?OnCarNo=2026300140712'
+    const printableUrl =
+      'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107101989&print=0&iframe=1&key='
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(createCertificateChainError())
+      .mockRejectedValueOnce(createCertificateChainError())
+      .mockResolvedValueOnce(
+        new Response('<html>record</html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        })
+      )
+    const fetchAutocafeWithTrustedChain = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: autocafeHttpsUrl },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: printableUrl },
+        })
+      )
+
+    const result = await fetchWithManualRedirect(
+      sourceUrl,
+      { 'User-Agent': 'test' },
+      createTimeoutBudget(1000),
+      4,
+      {
+        fetch: fetchMock,
+        fetchAutocafeWithTrustedChain,
+      }
+    )
+
+    expect(fetchAutocafeWithTrustedChain).toHaveBeenNthCalledWith(
+      1,
+      autocafeHttpsEntryUrl,
+      expect.objectContaining({
+        headers: { 'User-Agent': 'test' },
+        signal: expect.any(AbortSignal),
+      })
+    )
+    expect(fetchAutocafeWithTrustedChain).toHaveBeenNthCalledWith(
+      2,
+      autocafeHttpsUrl,
+      expect.objectContaining({
+        headers: { 'User-Agent': 'test' },
+        signal: expect.any(AbortSignal),
+      })
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(result.finalUrl).toBe(printableUrl)
+    expect(result.response.status).toBe(200)
+  })
+
+  it('does not apply Autocafe trust recovery to other CheckPaper hosts', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(createCertificateChainError())
+    const fetchAutocafeWithTrustedChain = vi.fn()
+
+    await expect(
+      fetchWithManualRedirect(
+        finalUrl,
+        { 'User-Agent': 'test' },
+        createTimeoutBudget(1000),
+        4,
+        {
+          fetch: fetchMock,
+          fetchAutocafeWithTrustedChain,
+        }
+      )
+    ).rejects.toMatchObject({
+      cause: { code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' },
+    })
+
+    expect(fetchAutocafeWithTrustedChain).not.toHaveBeenCalled()
+  })
+
   it('cancels a real response reader when body read times out', async () => {
     const cancelSpy = vi.spyOn(ReadableStreamDefaultReader.prototype, 'cancel')
     const response = new Response(
@@ -438,5 +636,44 @@ describe('checkpaper proxy helpers', () => {
     const result = new TextDecoder().decode(new Uint8Array(arrayBuffer))
 
     expect(result).toBe('abcd')
+  })
+
+  it('rejects a text response when streamed bytes cross its body limit', async () => {
+    const encoder = new TextEncoder()
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('ab'))
+          controller.enqueue(encoder.encode('cde'))
+          controller.close()
+        },
+      }),
+      { status: 200 }
+    )
+
+    await expect(
+      readResponseTextWithTimeout(response, 1000, 4)
+    ).rejects.toMatchObject({
+      code: 'RESPONSE_BODY_TOO_LARGE',
+      limitBytes: 4,
+      observedBytes: 5,
+    })
+  })
+
+  it('accepts an array-buffer response exactly at its body limit', async () => {
+    const response = new Response('abcd', {
+      status: 200,
+      headers: {
+        'content-length': '4',
+      },
+    })
+
+    const arrayBuffer = await readResponseArrayBufferWithTimeout(
+      response,
+      1000,
+      4
+    )
+
+    expect(new TextDecoder().decode(new Uint8Array(arrayBuffer))).toBe('abcd')
   })
 })

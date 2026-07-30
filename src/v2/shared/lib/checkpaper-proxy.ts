@@ -1,18 +1,97 @@
+import { request as requestHttps } from 'node:https'
+import { rootCertificates } from 'node:tls'
+
 import { load } from 'cheerio'
 
-const allowedCheckPaperHosts = new Set([
-  'autocafe.co.kr',
-  'checkpaper.jmenetworks.co.kr',
-  'ck.carmodoo.com',
-])
+import {
+  cancelResponseBody,
+  createStreamingResponse,
+  readBoundedResponseBytes,
+  readBoundedResponseText,
+  toResponseHeaders,
+} from './bounded-response'
 
 const MAX_CHECKPAPER_REDIRECTS = 4
+const MAX_CHECKPAPER_URL_LENGTH = 4096
 const CHECKPAPER_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
 const SAME_ORIGIN_PROXY_URL_BASE = 'https://truck-harvester.local'
 export const CHECKPAPER_FETCH_TIMEOUT_MS = 4500
+export const CHECKPAPER_HTML_MAX_BYTES = 4 * 1024 * 1024
+export const CHECKPAPER_ASSET_MAX_BYTES = 16 * 1024 * 1024
+
+const autocafeHostname = 'autocafe.co.kr'
+
+const incompleteCertificateChainErrorCodes = new Set([
+  'UNABLE_TO_GET_ISSUER_CERT',
+  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+])
+
+/*
+ * autocafe.co.kr currently serves only its leaf certificate. Node does not
+ * fetch the missing AIA intermediate automatically, so its otherwise valid
+ * certificate cannot be verified in Vercel's Node runtime.
+ *
+ * Source: leaf Authority Information Access URL
+ * Subject: GoGetSSL RSA DV CA
+ * SHA-256: 43:CA:C3:1E:F8:E8:BA:1B:4B:16:B8:20:6E:4C:0A:26:
+ *          C5:BA:DB:2F:C3:AA:09:E9:01:70:E4:1B:66:C2:FD:64
+ * Valid through: 2028-09-05
+ */
+const goGetSslRsaDvCa = `-----BEGIN CERTIFICATE-----
+MIIF1zCCA7+gAwIBAgIRAJOLsI5imHtPdfmMtqUEXJYwDQYJKoZIhvcNAQEMBQAw
+gYgxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpOZXcgSmVyc2V5MRQwEgYDVQQHEwtK
+ZXJzZXkgQ2l0eTEeMBwGA1UEChMVVGhlIFVTRVJUUlVTVCBOZXR3b3JrMS4wLAYD
+VQQDEyVVU0VSVHJ1c3QgUlNBIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTE4
+MDkwNjAwMDAwMFoXDTI4MDkwNTIzNTk1OVowTDELMAkGA1UEBhMCTFYxDTALBgNV
+BAcTBFJpZ2ExETAPBgNVBAoTCEdvR2V0U1NMMRswGQYDVQQDExJHb0dldFNTTCBS
+U0EgRFYgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCfwF4hD6E1
+kLglXs1n2fH5vMQukCGyyD4LqLsc3pSzeh8we7njU4TB85BH5YXqcfwiH1Sf78aB
+hk1FgXoAZ3EQrF49We8mnTtTPFRnMwEHLJRpY9I/+peKeAZNL0MJG5zM+9gmcSpI
+OTI6p7MPela72g0pBQjwcExYLqFFVsnroEPTRRlmfTBTRi9r7rYcXwIct2VUCRmj
+jR1GX13op370YjYwgGv/TeYqUWkNiEjWNskFDEfxSc0YfoBwwKdPNfp6t/5+RsFn
+lgQKstmFLQbbENsdUEpzWEvZUpDC4qPvRrxEKcF0uLoZhEnxhskwXSTC64BNtc+l
+VEk7/g/be8svAgMBAAGjggF1MIIBcTAfBgNVHSMEGDAWgBRTeb9aqitKz1SA4dib
+wJ3ysgNmyzAdBgNVHQ4EFgQU+ftQxItnu2dk/oMhpqnOP1WEk5kwDgYDVR0PAQH/
+BAQDAgGGMBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYDVR0lBBYwFAYIKwYBBQUHAwEG
+CCsGAQUFBwMCMCIGA1UdIAQbMBkwDQYLKwYBBAGyMQECAkAwCAYGZ4EMAQIBMFAG
+A1UdHwRJMEcwRaBDoEGGP2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9VU0VSVHJ1
+c3RSU0FDZXJ0aWZpY2F0aW9uQXV0aG9yaXR5LmNybDB2BggrBgEFBQcBAQRqMGgw
+PwYIKwYBBQUHMAKGM2h0dHA6Ly9jcnQudXNlcnRydXN0LmNvbS9VU0VSVHJ1c3RS
+U0FBZGRUcnVzdENBLmNydDAlBggrBgEFBQcwAYYZaHR0cDovL29jc3AudXNlcnRy
+dXN0LmNvbTANBgkqhkiG9w0BAQwFAAOCAgEAXXRDKHiA5DOhNKsztwayc8qtlK4q
+Vt2XNdlzXn4RyZIsC9+SBi0Xd4vGDhFx6XX4N/fnxlUjdzNN/BYY1gS1xK66Uy3p
+rw9qI8X12J4er9lNNhrsvOcjB8CT8FyvFu94j3Bs427uxcSukhYbERBAIN7MpWKl
+VWxT3q8GIqiEYVKa/tfWAvnOMDDSKgRwMUtggr/IE77hekQm20p7e1BuJODf1Q7c
+FPt7T74m3chg+qu0xheLI6HsUFuOxc7R5SQlkFvaVY5tmswfWpY+rwhyJW+FWNbT
+uNXkxR4v5KOQPWrY100/QN68/j17paKuSXNcsr56snuB/Dx+MACLBdsF35HxPadx
+78vkfQ37WcVmKZtHrHJQ/QUyjxdG8fezMsh0f+puUln/O+NlsFtipve8qYa9h/K5
+yD0oZN93ChWve78XrV4vCpjO75Nk5B8O9CWQqGTHbhkgvjyb9v/B+sYJqB22/NLl
+R4RPvbmqDJGeEI+4u6NJ5YiLIVVsX+dyfFP8zUbSsj6J34RyCYKBbQ4L+r7k8Srs
+LY51WUFP292wkFDPSDmV7XsUNTDOZoQcBh2Fycf7xFfxeA+6ERx2d8MpPPND7yS2
+1dkf+SY5SdpSbAKtYmbqb9q8cZUDEImNWJFUVHBLDOrnYhGwJudE3OBXRTxNhMDm
+IXnjEeWrFvAZQhk=
+-----END CERTIFICATE-----`
+
+const trustedAutocafeCaCertificates = [...rootCertificates, goGetSslRsaDvCa]
 
 export type CheckPaperTimeoutBudget = {
   getRemainingMs: () => number
+}
+
+type CheckPaperFetch = (input: string, init: RequestInit) => Promise<Response>
+
+type AutocafeTrustedChainFetch = (
+  url: string,
+  init: {
+    headers: HeadersInit
+    signal: AbortSignal
+  }
+) => Promise<Response>
+
+interface CheckPaperFetchDependencies {
+  fetch?: CheckPaperFetch
+  fetchAutocafeWithTrustedChain?: AutocafeTrustedChainFetch
 }
 
 export function createTimeoutBudget(
@@ -28,16 +107,217 @@ export function createTimeoutBudget(
 }
 
 export function isAllowedCheckPaperUrl(value: string) {
+  return toAllowedCheckPaperRequestUrl(value) !== undefined
+}
+
+function isAllowedCheckPaperPath(hostname: string, pathname: string) {
+  const normalizedPath = pathname.toLowerCase()
+
+  if (hostname === autocafeHostname) {
+    return (
+      normalizedPath === '/asso/carcheck_form_my.asp' ||
+      normalizedPath === '/asso/carcheck_form.asp'
+    )
+  }
+
+  if (hostname === 'checkpaper.jmenetworks.co.kr') {
+    return [
+      '/assets/',
+      '/carimage/',
+      '/images/',
+      '/service/',
+      '/theme/',
+      '/view/',
+    ].some((prefix) => normalizedPath.startsWith(prefix))
+  }
+
+  if (hostname === 'ck.carmodoo.com') {
+    return ['/carcheck/', '/css/', '/data/', '/images/', '/js/'].some(
+      (prefix) => normalizedPath.startsWith(prefix)
+    )
+  }
+
+  return false
+}
+
+function selectAllowedCheckPaperOrigin(url: URL) {
+  if (url.username || url.password || url.port || url.hash) {
+    return undefined
+  }
+
+  if (!isAllowedCheckPaperPath(url.hostname, url.pathname)) {
+    return undefined
+  }
+
+  if (url.hostname === autocafeHostname) {
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return 'https://autocafe.co.kr'
+    }
+
+    return undefined
+  }
+
+  if (
+    url.hostname === 'checkpaper.jmenetworks.co.kr' &&
+    url.protocol === 'https:'
+  ) {
+    return 'https://checkpaper.jmenetworks.co.kr'
+  }
+
+  if (url.hostname === 'ck.carmodoo.com' && url.protocol === 'https:') {
+    return 'https://ck.carmodoo.com'
+  }
+
+  return undefined
+}
+
+function encodePathname(pathname: string) {
+  const encodedSegments: string[] = []
+
+  for (const segment of pathname.split('/')) {
+    let decodedSegment = segment
+
+    for (let depth = 0; depth < 3; depth += 1) {
+      let nextDecodedSegment: string
+
+      try {
+        nextDecodedSegment = decodeURIComponent(decodedSegment)
+      } catch {
+        return undefined
+      }
+
+      if (nextDecodedSegment === decodedSegment) {
+        break
+      }
+
+      decodedSegment = nextDecodedSegment
+    }
+
+    if (
+      decodedSegment === '.' ||
+      decodedSegment === '..' ||
+      decodedSegment.includes('/') ||
+      decodedSegment.includes('\\')
+    ) {
+      return undefined
+    }
+
+    encodedSegments.push(encodeURIComponent(decodedSegment))
+  }
+
+  const encodedPathname = encodedSegments.join('/')
+
+  if (!encodedPathname.startsWith('/') || encodedPathname.startsWith('//')) {
+    return undefined
+  }
+
+  return encodedPathname
+}
+
+function encodeSearchParams(searchParams: URLSearchParams) {
+  const encodedEntries: string[] = []
+
+  searchParams.forEach((value, key) => {
+    encodedEntries.push(
+      `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+    )
+  })
+
+  return encodedEntries.length > 0 ? `?${encodedEntries.join('&')}` : ''
+}
+
+function toAllowedCheckPaperRequestUrl(value: string) {
+  if (value.length > MAX_CHECKPAPER_URL_LENGTH) {
+    return undefined
+  }
+
   try {
     const url = new URL(value)
+    const allowedOrigin = selectAllowedCheckPaperOrigin(url)
+    const encodedPathname = encodePathname(url.pathname)
 
-    return (
-      /^https?:$/i.test(url.protocol) &&
-      allowedCheckPaperHosts.has(url.hostname)
-    )
+    if (!allowedOrigin || !encodedPathname) {
+      return undefined
+    }
+
+    return `${allowedOrigin}${encodedPathname}${encodeSearchParams(
+      url.searchParams
+    )}`
   } catch {
-    return false
+    return undefined
   }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isIncompleteCertificateChainError(error: unknown) {
+  let current = error
+
+  for (let depth = 0; depth < 5 && isObject(current); depth += 1) {
+    if (
+      typeof current.code === 'string' &&
+      incompleteCertificateChainErrorCodes.has(current.code)
+    ) {
+      return true
+    }
+
+    current = current.cause
+  }
+
+  return false
+}
+
+function shouldRecoverAutocafeCertificateChain(url: string, error: unknown) {
+  const parsedUrl = new URL(url)
+
+  return (
+    parsedUrl.protocol === 'https:' &&
+    parsedUrl.hostname === autocafeHostname &&
+    isIncompleteCertificateChainError(error)
+  )
+}
+
+function fetchAutocafeWithTrustedChain(
+  url: string,
+  { headers, signal }: { headers: HeadersInit; signal: AbortSignal }
+): Promise<Response> {
+  const parsedUrl = new URL(url)
+
+  if (
+    parsedUrl.protocol !== 'https:' ||
+    parsedUrl.hostname !== autocafeHostname
+  ) {
+    return Promise.reject(new Error('Unsupported trusted-chain host'))
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = requestHttps(
+      parsedUrl,
+      {
+        ca: trustedAutocafeCaCertificates,
+        headers: {
+          ...Object.fromEntries(new Headers(headers).entries()),
+          'Accept-Encoding': 'identity',
+        },
+        rejectUnauthorized: true,
+        signal,
+      },
+      (response) => {
+        resolve(
+          createStreamingResponse(response, {
+            headers: toResponseHeaders(response.headers),
+            status: response.statusCode ?? 502,
+            statusText: response.statusMessage,
+          })
+        )
+      }
+    )
+
+    request.on('error', reject)
+    request.end()
+  })
 }
 
 export function toCheckPaperAssetProxyUrl(
@@ -309,96 +589,30 @@ function createTimeoutError() {
   )
 }
 
-async function readWithTimeoutFromReader<T>(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  timeoutMs: number,
-  readBuffer: (chunks: Uint8Array[]) => T
-) {
-  const chunks: Uint8Array[] = []
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  let timedOut = false
-
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      timedOut = true
-      void reader.cancel()
-      reject(createTimeoutError())
-    }, timeoutMs)
-  })
-
-  try {
-    while (true) {
-      const chunkOrTimeout = (await Promise.race([reader.read(), timeout])) as
-        | ReadableStreamReadResult<Uint8Array>
-        | typeof timeout
-
-      if (timedOut) {
-        throw createTimeoutError()
-      }
-
-      if ('done' in chunkOrTimeout) {
-        if (chunkOrTimeout.done) {
-          return readBuffer(chunks)
-        }
-
-        chunks.push(chunkOrTimeout.value ?? new Uint8Array())
-      }
-    }
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-    }
-  }
-}
-
 export async function readResponseTextWithTimeout(
   response: Response,
-  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS,
+  maxBytes = CHECKPAPER_HTML_MAX_BYTES
 ): Promise<string> {
-  if (!response.body) {
-    return response.text()
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-
-  return readWithTimeoutFromReader(reader, timeoutMs, (chunks) => {
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-    const merged = new Uint8Array(totalLength)
-
-    let offset = 0
-    for (const chunk of chunks) {
-      merged.set(chunk, offset)
-      offset += chunk.length
-    }
-
-    return decoder.decode(merged)
+  return readBoundedResponseText(response, {
+    maxBytes,
+    timeoutMs,
+    createTimeoutError,
   })
 }
 
 export async function readResponseArrayBufferWithTimeout(
   response: Response,
-  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS,
+  maxBytes = CHECKPAPER_ASSET_MAX_BYTES
 ): Promise<ArrayBuffer> {
-  if (!response.body) {
-    const fallback = await response.arrayBuffer()
-    return fallback
-  }
-
-  const reader = response.body.getReader()
-
-  return readWithTimeoutFromReader(reader, timeoutMs, (chunks) => {
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-    const merged = new Uint8Array(totalLength)
-
-    let offset = 0
-    for (const chunk of chunks) {
-      merged.set(chunk, offset)
-      offset += chunk.length
-    }
-
-    return merged.buffer.slice(0, merged.byteLength)
+  const body = await readBoundedResponseBytes(response, {
+    maxBytes,
+    timeoutMs,
+    createTimeoutError,
   })
+
+  return body.buffer
 }
 
 export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
@@ -544,27 +758,39 @@ export function rewriteCheckPaperCss(css: string, finalUrl: string) {
   })
 }
 
-type RedirectError = Error & {
-  code: 'UNSAFE_REDIRECT' | 'REDIRECT_LIMIT_REACHED' | 'BUDGET_EXCEEDED'
+type RedirectErrorCode =
+  | 'UNSAFE_REDIRECT'
+  | 'REDIRECT_LIMIT_REACHED'
+  | 'BUDGET_EXCEEDED'
+
+class CheckPaperRedirectError extends Error {
+  constructor(readonly code: RedirectErrorCode) {
+    super(`CheckPaper redirect blocked: ${code}`)
+    this.name = 'CheckPaperRedirectError'
+  }
 }
 
-function createRedirectError(code: RedirectError['code']) {
-  const error = new Error(
-    `CheckPaper redirect blocked: ${code}`
-  ) as RedirectError
-
-  error.code = code
-
-  return error
+function createRedirectError(code: RedirectErrorCode) {
+  return new CheckPaperRedirectError(code)
 }
 
 export async function fetchWithManualRedirect(
   initialUrl: string,
   headers: HeadersInit,
   timeoutBudget: CheckPaperTimeoutBudget = createTimeoutBudget(),
-  maxRedirects = MAX_CHECKPAPER_REDIRECTS
+  maxRedirects = MAX_CHECKPAPER_REDIRECTS,
+  dependencies: CheckPaperFetchDependencies = {}
 ): Promise<{ response: Response; finalUrl: string }> {
-  let currentUrl = new URL(initialUrl).toString()
+  const allowedInitialUrl = toAllowedCheckPaperRequestUrl(initialUrl)
+
+  if (!allowedInitialUrl) {
+    throw createRedirectError('UNSAFE_REDIRECT')
+  }
+
+  let currentUrl = allowedInitialUrl
+  const regularFetch = dependencies.fetch ?? globalThis.fetch
+  const trustedChainFetch =
+    dependencies.fetchAutocafeWithTrustedChain ?? fetchAutocafeWithTrustedChain
 
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
     const timeoutMs = timeoutBudget.getRemainingMs()
@@ -578,31 +804,53 @@ export async function fetchWithManualRedirect(
     }, timeoutMs)
 
     try {
-      const response = await fetch(currentUrl, {
-        cache: 'no-store',
-        redirect: 'manual',
-        headers,
-        signal: controller.signal,
-      })
+      let response: Response
+
+      try {
+        response = await regularFetch(currentUrl, {
+          cache: 'no-store',
+          redirect: 'manual',
+          headers,
+          signal: controller.signal,
+        })
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          !shouldRecoverAutocafeCertificateChain(currentUrl, error)
+        ) {
+          throw error
+        }
+
+        response = await trustedChainFetch(currentUrl, {
+          headers,
+          signal: controller.signal,
+        })
+      }
 
       clearTimeout(timeout)
 
       if (response.status >= 300 && response.status < 400) {
         if (redirectCount === maxRedirects) {
+          await cancelResponseBody(response)
           throw createRedirectError('REDIRECT_LIMIT_REACHED')
         }
 
         const location = response.headers.get('location')
         if (!location) {
+          await cancelResponseBody(response)
           throw createRedirectError('REDIRECT_LIMIT_REACHED')
         }
 
-        const nextUrl = new URL(location, currentUrl).toString()
+        const nextUrl = toAllowedCheckPaperRequestUrl(
+          new URL(location, currentUrl).toString()
+        )
 
-        if (!isAllowedCheckPaperUrl(nextUrl)) {
+        if (!nextUrl) {
+          await cancelResponseBody(response)
           throw createRedirectError('UNSAFE_REDIRECT')
         }
 
+        await cancelResponseBody(response)
         currentUrl = nextUrl
 
         continue

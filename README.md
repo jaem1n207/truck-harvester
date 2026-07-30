@@ -24,7 +24,10 @@
 - 🌙 **다크 모드 지원**: 시스템 설정에 따른 자동 테마 전환
 - ♿ **접근성 최적화**: WCAG 2.1 AA 준수, 키보드 네비게이션 지원
 - 📱 **반응형 디자인**: 모든 디바이스에서 최적화된 사용자 경험
-- ⚙️ **현재 파싱 API**: `POST /api/v2/parse-truck`
+- ⚙️ **현재 파싱 API**: `POST /api/v2/parse-truck`; 외부 사이트가 중간
+  인증서를 누락한 경우에도 검증을 유지한 채 제한적으로 복구
+- 🔐 **성능점검 proxy 복구**: Autocafe HTTPS redirect가 공개 중간
+  인증서를 누락한 경우에도 호스트 한정 검증 경로로 CheckPaper URL을 확인
 
 ## 🛠️ 개발 환경 설정
 
@@ -265,7 +268,7 @@ git commit -m "fix: 저장 폴더 권한 확인 보정"
 ### 백엔드 & API
 
 - **API Routes**: Next.js 16 Node.js route handlers
-- **Web Scraping**: Cheerio for HTML parsing, SmartStore manuscript table extraction, and performance-check link discovery
+- **Web Scraping**: hostname-scoped Node HTTPS recovery plus Cheerio for HTML parsing, SmartStore manuscript table extraction, performance-check link discovery, and literal-origin/host-specific-path CheckPaper redirect resolution
 - **File Operations**: File System Access API + JSZip
 - **Image Handling**: Fetched image blobs are saved directly without runtime stamping; CheckPaper PDF records are rendered to JPG in the browser, and Carmodoo records are rendered to JPG through a same-origin native Chromium route
 - **Server Rendering Runtime**: `playwright`, `@sparticuz/chromium`, and bundled Noto Sans KR font files support Carmodoo rendering in Vercel serverless environments
@@ -321,8 +324,8 @@ bun run start
 ```text
 src/
 ├── app/                      # Next.js App Router + 글로벌 설정
-│   ├── api/v2/checkpaper/   # 성능점검기록부 proxy, asset proxy, Carmodoo renderer
-│   ├── api/v2/parse-truck/  # 현재 서버 파싱 API
+│   ├── api/v2/checkpaper/   # 성능점검 proxy + Autocafe TLS 복구 + Carmodoo renderer
+│   ├── api/v2/parse-truck/  # 현재 서버 파싱 API + scoped TLS chain recovery
 │   ├── globals.css          # 글로벌 스타일 + 접근성 개선
 │   ├── layout.tsx           # 루트 레이아웃 + 메타데이터
 │   ├── page.tsx             # 루트 앱 페이지
@@ -348,6 +351,31 @@ src/
 - 🛡️ **데이터 보안**: 매물 파싱은 `POST /api/v2/parse-truck`에서 Cheerio로
   서버 측 HTML 요청과 파싱을 수행하고, 저장 파일 생성과 다운로드는
   브라우저에서 처리
+- 🔏 **외부 사이트 TLS 검증**: 일반 Node `fetch`를 우선 사용하며, 승인된
+  매물 또는 성능점검 중간 호스트가 공개 intermediate CA를 누락한 오류에만
+  정확한 호스트 범위에서 Node 기본 root CA와 검증된 intermediate를 함께
+  사용합니다. TLS 검증 비활성화, HTTP downgrade, process-wide CA 변경은
+  허용하지 않습니다.
+- 🧭 **성능점검 SSRF 경계**: outbound URL은 서버가 소유한 literal origin에서
+  다시 만들고 host별 path만 허용합니다. URL credentials, fragment, explicit
+  port, provider HTTP downgrade, 허용되지 않은 path와 redirect는 요청 전에
+  차단합니다. 매물에서 받은 Autocafe HTTP 링크는 실제 요청 전에 HTTPS로
+  승격합니다.
+- 📏 **외부 응답 크기 제한**: 일반 fetch와 TLS 복구 경로에 같은 스트림
+  상한을 적용합니다. 매물 HTML은 2 MiB, 성능점검 HTML/CSS는 4 MiB,
+  PDF·이미지 등 binary는 16 MiB까지만 읽으며, 선언된 길이와 실제 누적
+  byte를 모두 확인하고 초과·timeout 시 upstream stream을 취소합니다.
 - 🚫 **데이터 수집 없음**: 사용자 입력, 파싱 결과, 이미지 파일을 서버에 저장하지 않음
 - 🔐 **보안 헤더**: CSP, XSS 보호, 클릭재킹 방지
 - 📝 **투명성**: 오픈 소스로 모든 코드 공개
+
+유지보수자는 매물 조회 장애를
+[`debug-failed-scrape.md`](docs/runbooks/debug-failed-scrape.md)에서 진단하고,
+TLS 복구 방식을 변경하기 전에
+[ADR-0006](docs/decisions/0006-listing-source-tls-chain-recovery.md)과
+[ADR-0007](docs/decisions/0007-autocafe-tls-chain-recovery.md)을 확인해야
+합니다. Autocafe 장애 재현과 인증서 갱신 절차는
+[`autocafe-tls-chain.md`](docs/references/autocafe-tls-chain.md)에 보존됩니다.
+외부 응답의 메모리 상한과 변경 기준은
+[ADR-0008](docs/decisions/0008-bounded-upstream-response-bodies.md)에
+기록되어 있습니다.

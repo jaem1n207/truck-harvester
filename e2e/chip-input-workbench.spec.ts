@@ -27,6 +27,24 @@ test('saves a pasted chip workbench batch with readable listing labels', async (
           name: 'truck-test',
           async getDirectoryHandle() {
             return {
+              async getDirectoryHandle() {
+                return {
+                  async getFileHandle() {
+                    return {
+                      async createWritable() {
+                        return {
+                          async write() {
+                            return undefined
+                          },
+                          async close() {
+                            return undefined
+                          },
+                        }
+                      },
+                    }
+                  },
+                }
+              },
               async getFileHandle() {
                 return {
                   async createWritable() {

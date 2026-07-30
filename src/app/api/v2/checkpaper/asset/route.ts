@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
 
+import { cancelResponseBody } from '@/v2/shared/lib/bounded-response'
 import {
+  CHECKPAPER_ASSET_MAX_BYTES,
   CHECKPAPER_FETCH_TIMEOUT_MS,
+  CHECKPAPER_HTML_MAX_BYTES,
   createTimeoutBudget,
   fetchWithManualRedirect,
+  isAllowedCheckPaperUrl,
   readResponseArrayBufferWithTimeout,
   readResponseTextWithTimeout,
-  isAllowedCheckPaperUrl,
   rewriteCheckPaperCss,
 } from '@/v2/shared/lib/checkpaper-proxy'
 
@@ -83,6 +86,7 @@ export async function GET(request: Request) {
     )
 
     if (!response.ok) {
+      await cancelResponseBody(response)
       return createErrorResponse(
         502,
         '성능점검기록부 파일을 불러오지 못했어요.'
@@ -90,6 +94,7 @@ export async function GET(request: Request) {
     }
 
     if (!isAllowedCheckPaperUrl(finalUrl)) {
+      await cancelResponseBody(response)
       return createErrorResponse(
         400,
         '성능점검기록부 파일을 확인하지 못했어요.'
@@ -98,6 +103,7 @@ export async function GET(request: Request) {
 
     const contentType = response.headers.get('content-type')
     if (isRejectedActiveDocumentContentType(contentType)) {
+      await cancelResponseBody(response)
       return createErrorResponse(
         502,
         '성능점검기록부 파일을 불러오지 못했어요.'
@@ -106,6 +112,7 @@ export async function GET(request: Request) {
 
     const timeoutMs = timeoutBudget.getRemainingMs()
     if (timeoutMs <= 0) {
+      await cancelResponseBody(response)
       return createErrorResponse(
         502,
         '성능점검기록부 파일을 불러오지 못했어요.'
@@ -113,7 +120,11 @@ export async function GET(request: Request) {
     }
 
     if (contentType?.includes('text/css')) {
-      const css = await readResponseTextWithTimeout(response, timeoutMs)
+      const css = await readResponseTextWithTimeout(
+        response,
+        timeoutMs,
+        CHECKPAPER_HTML_MAX_BYTES
+      )
       const rewrittenCss = rewriteCheckPaperCss(css, finalUrl)
 
       return new Response(rewrittenCss, {
@@ -126,7 +137,8 @@ export async function GET(request: Request) {
 
     const fileBuffer = await readResponseArrayBufferWithTimeout(
       response,
-      timeoutMs
+      timeoutMs,
+      CHECKPAPER_ASSET_MAX_BYTES
     )
 
     return new Response(fileBuffer, {

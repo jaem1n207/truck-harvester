@@ -1,96 +1,106 @@
-# AGENTS.md — Truck Harvester
+# memo/AGENTS.md — Truck Harvester Planning Context
 
-> The harness-engineering knowledge base. If you're an AI agent landing
-> in this repo on a fresh task, read this file first. Five minutes here
-> saves an hour of exploration.
+This guide explains how to use the `memo/` folder without mistaking historical
+rebuild plans for the current runtime.
 
-## Mission
+## Current State
 
-Truck Harvester pulls vehicle listings from Korean used-truck sites,
-parses spec/price/image data, and writes organized image folders to the
-user's local disk. Five non-technical dealership staff use it 2–3× per
-week with three distinct usage patterns (1 URL, 10 URL batch, 1–3 URL
-repeated).
+Truck Harvester serves the rebuilt application at `/`. The old `/v2` URL is a
+compatibility redirect, and `src/v2/*` remains only the internal implementation
+namespace. The legacy route, legacy runtime folders, and image-stamping
+pipeline were removed after cutover.
 
-We are mid-rebuild. The active branch is `rebuild-truck-harvester`. The
-legacy implementation lives at `src/app/page.tsx` + `src/widgets/*` +
-`src/shared/*` and remains **untouched** during the rebuild. The new
-implementation lives at `src/app/v2/*` + `src/v2/*` and ships
-incrementally to a parallel `/v2` route. Cutover happens on a separate
-`cutover` branch after `/v2` passes every acceptance gate.
+The active listing parse endpoint is `POST /api/v2/parse-truck`. It validates
+one allowlisted address, fetches the listing within a 3.5-second budget, parses
+HTML with Cheerio, and returns a typed listing result. Client-side preview
+orchestration keeps concurrency 5.
 
-## Stack
+## How To Treat Memo Files
 
-- **Framework:** Next.js 16 (App Router, Turbopack)
-- **Runtime:** Node.js (Bun for package management & scripts)
-- **Language:** TypeScript (strict)
-- **UI:** Tailwind CSS 4 (`@theme inline`), shadcn 3 (new-york style),
-  Radix primitives, Motion/React, Lucide icons
-- **Forms / validation:** Zod 4, TanStack Form 1
-- **State:** Zustand 5 with `persist` middleware
-- **Concurrency:** `p-limit` (v7; client-side parallel fetcher)
-- **Scraping:** Cheerio (server-side route handler)
-- **File I/O:** File System Access API + JSZip fallback
-- **Testing:** Vitest 4 (unit + integration with MSW), Playwright (E2E,
-  v1.0 has 1 happy-path spec; v1.1 expands)
-- **Hosting:** Vercel Hobby (free, forever — every architectural
-  decision honors the 3.5s server timeout)
+- `memo/v2-rebuild-consensus-plan.md` is the approved historical phase plan.
+  Its coexistence and cutover sections describe the project before root
+  promotion; do not use them as current runtime facts.
+- `memo/deep-interview-rebuild-truck-harvester.md` preserves original product
+  requirements and acceptance criteria.
+- `memo/design-system.md` preserves the original visual direction. Current
+  tokens and motion rules live under `src/v2/design-system/`.
+- `memo/useful-repo-context.md` is the short current orientation document and
+  must stay aligned with runtime code, architecture, runbooks, and ADRs.
 
-## How to run
+When a memo conflicts with `AGENTS.md`, `docs/architecture.md`, current code, or
+an accepted ADR, treat the memo as historical unless it explicitly says it is
+current.
+
+## Current Stack
+
+- Next.js App Router with Turbopack
+- React 19 and TypeScript strict mode
+- Tailwind CSS 4 and local shadcn-style primitives
+- Zod domain and URL contracts
+- Zustand vanilla stores
+- Cheerio server-side HTML parsing
+- Node `fetch` and hostname-scoped HTTPS certificate-chain recovery for listing
+  and Autocafe performance-check requests
+- Client-side concurrency 5
+- File System Access API and JSZip fallback
+- Vitest, Playwright, and axe
+- Vercel deployment
+
+## Run And Test
 
 ```bash
 bun install
-bun dev                 # http://localhost:3000 (legacy) and /v2 (rebuild)
-bun run build           # production build
-bun typecheck           # tsc --noEmit
-bun test                # Vitest watch
-bun run test:coverage   # coverage report
-bun run code:check      # typecheck + lint + format-check + test
-bun run code:fix        # lint --fix + format
+bun dev
+bun run typecheck
+bun run lint
+bun run format:check
+bun run test -- --run
+bun run test:coverage -- --run
+bun run test:e2e
+bun run test:a11y
+bun run build
 ```
 
-## How to test
+Use `/` for application smoke checks. `/v2` should only redirect.
 
-- **Unit tests** live next to source under `__tests__/*.test.ts`.
-  Convention: keep tests close to the unit they cover.
-- **Integration tests** for `/api/v2/parse-truck` use MSW to fake
-  external HTML responses (P9).
-- **E2E tests** live under `e2e/` and use Playwright (P9). Run with
-  `bun run test:e2e` (script lands in P9).
-- **Accessibility** is checked by `@axe-core/playwright` inside the E2E
-  suite (P9). Lighthouse accessibility ≥ 95 is the gate.
+## Current Ownership Map
 
-## Where to look for X
+| Concern                          | Current source of truth                                    |
+| -------------------------------- | ---------------------------------------------------------- |
+| Root workflow composition        | `src/app/truck-harvester-app.tsx`                          |
+| Parse API and error mapping      | `src/app/api/v2/parse-truck/route.ts`                      |
+| Listing request and TLS recovery | `src/app/api/v2/parse-truck/fetch-listing-html.ts`         |
+| CheckPaper redirects and TLS     | `src/v2/shared/lib/checkpaper-proxy.ts`                    |
+| URL allowlist                    | `src/v2/entities/url/model.ts`                             |
+| HTML parsing                     | `src/v2/shared/lib/parse-truck-html.ts`                    |
+| Prepared-listing workflow        | `src/v2/features/listing-preparation/`                     |
+| Client parse API and batching    | `src/v2/features/truck-processing/`                        |
+| File and ZIP saving              | `src/v2/features/file-management/`                         |
+| Runtime architecture             | `docs/architecture.md`                                     |
+| Failed listing diagnosis         | `docs/runbooks/debug-failed-scrape.md`                     |
+| TLS recovery rationale           | `docs/decisions/0006-listing-source-tls-chain-recovery.md` |
+| Autocafe TLS rationale           | `docs/decisions/0007-autocafe-tls-chain-recovery.md`       |
 
-| If you need...             | Look at...                                                                                                             |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| The rebuild plan           | `memo/v2-rebuild-consensus-plan.md`                                                                                    |
-| The original requirements  | `memo/deep-interview-rebuild-truck-harvester.md`                                                                       |
-| Legacy architecture        | `CLAUDE.md` § Architecture (the file you're reading is the new entry point; CLAUDE.md is preserved for legacy context) |
-| v2 design tokens           | `memo/design-system.md`                                                                                                |
-| v2 layer responsibilities  | `memo/AGENTS.md` (after P0/P1 land)                                                                                    |
-| Architecture decisions     | `docs/decisions/000X-*.md` (created in P10)                                                                            |
-| Runbooks                   | `docs/runbooks/` (created in P10)                                                                                      |
-| Architecture diagram       | `docs/architecture.md` (created in P10)                                                                                |
-| Existing Zod schemas       | `src/shared/model/truck.ts`                                                                                            |
-| State management reference | `src/shared/model/store.ts` (legacy; v2 uses a discriminated-union per-URL state machine — see ADR-006 once written)   |
+## First Files For Work Starting In `memo/`
 
-## First files to read for any v2 task
+1. `AGENTS.md`
+2. `memo/useful-repo-context.md`
+3. `docs/architecture.md`
+4. The relevant runbook and accepted ADR
+5. The current implementation and its colocated tests
 
-1. `memo/deep-interview-rebuild-truck-harvester.md` — what we're
-   building and why.
-2. `memo/v2-rebuild-consensus-plan.md` — phased execution plan +
-   ADRs + risk register.
-3. `memo/design-system.md` — visual language and token rules.
-4. The neighboring code in the layer you're touching, plus its tests.
+Read historical plans only after the current sources above establish the
+runtime baseline.
 
-## What not to do
+## Guardrails
 
-- Don't import from `src/shared/lib/watermark.ts` in v2. The watermark
-  feature is intentionally excluded from v2 and will be deleted at
-  cutover.
-- Don't introduce server-side parallelism for URL parsing. The 3.5s
-  Vercel Hobby timeout makes this infeasible — client orchestration
-  (via `p-limit`) is the chosen approach (ADR-002).
-- Don't pay for Vercel Pro / migrate hosting. The free-tier constraint
-  is a hard requirement, not a preference.
+- Do not restore legacy routes, folders, or image stamping based on a
+  historical phase description.
+- Do not move batch concurrency to the server or add SSE; ADR-0002 keeps
+  one-listing server requests and client orchestration.
+- Do not disable TLS verification, replace the process-wide CA store, or
+  downgrade listing or performance-check requests to HTTP. Follow ADR-0006,
+  ADR-0007, and the failed scrape runbook.
+- Do not add paid hosting, external scraping workers, or an error-monitoring
+  SDK without a new approved decision.
+- Keep user-facing copy Korean and non-technical.

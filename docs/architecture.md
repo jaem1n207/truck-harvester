@@ -54,6 +54,57 @@ Vercel Hobby execution budget. The visible user state is the prepared
 listing list: raw URLs are translated into readable listing-name chips
 before saving starts.
 
+## Listing Source Fetch Trust Boundary
+
+`POST /api/v2/parse-truck` validates the hostname, path, and required query
+parameters before any external request. The route delegates the source request
+to `src/app/api/v2/parse-truck/fetch-listing-html.ts`, then passes successful
+HTML to the pure Cheerio parser.
+
+```mermaid
+flowchart TD
+  A["Validated truck-no1 listing URL"] --> B["Standard Node fetch with one 3.5s timeout budget"]
+  B -->|"2xx response"| H["Bounded streamed read: maximum 2 MiB"]
+  B -->|"Missing issuer-chain error only"| D["Hostname-scoped Node HTTPS retry"]
+  D --> E["Node default root CAs + reviewed Sectigo R36 intermediate"]
+  E -->|"rejectUnauthorized: true and 2xx"| H
+  H --> C["Cheerio parser"]
+  H -->|"Declared or observed body exceeds limit"| G
+  B -->|"Abort"| F["504 site-timeout"]
+  D -->|"Abort"| F
+  B -->|"Other TLS, network, or HTTP failure"| G["502 unknown"]
+  D -->|"Other TLS, network, or HTTP failure"| G
+```
+
+The standard fetch remains the primary path. The retry activates only for
+`UNABLE_TO_GET_ISSUER_CERT`, `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, or
+`UNABLE_TO_VERIFY_LEAF_SIGNATURE`, because the listing source has served its
+leaf certificate without the public Sectigo R36 intermediate. Both attempts
+share one `AbortController`, so recovery does not reset or extend the
+request-level timeout.
+
+The intermediate certificate is public trust material, not a secret. The
+fallback still preserves Node's default roots, restricts the request to
+`www.truck-no1.co.kr`, and keeps `rejectUnauthorized: true`; hostname and
+certificate verification remain active. Expired certificates, hostname
+mismatches, unrelated TLS failures, and non-2xx responses are never bypassed.
+The fallback uses `Accept-Encoding: identity` and does not add redirect
+following. If the source introduces redirects, each destination must be
+allowlisted and threat-reviewed before redirect support is added.
+
+Both transports return a `Response` and use the same bounded stream reader.
+Listing HTML is limited to 2 MiB. An oversized declared `Content-Length` is
+rejected before reading, while the observed streamed byte count remains the
+authority for chunked, decoded, or dishonest responses. Overflow and timeout
+cancel the stream; canceling a fallback response destroys its native HTTPS
+source.
+
+The rationale, rejected alternatives, certificate lifecycle, and removal
+criteria are recorded in
+`docs/decisions/0006-listing-source-tls-chain-recovery.md`. Operational
+diagnosis and renewal commands live in
+`docs/runbooks/debug-failed-scrape.md`.
+
 ## Sequence
 
 ```mermaid
@@ -156,6 +207,64 @@ browser layout.
   returns the rendered JPG pages for the save flow. Vercel deployments use
   `@sparticuz/chromium` and bundled Noto Sans KR font faces for this renderer,
   because the serverless Chromium runtime does not include CJK fonts.
+
+The initial performance-check link normally enters through `autocafe.co.kr`
+before redirecting to CheckPaper or Carmodoo. Autocafe currently omits its
+public `GoGetSSL RSA DV CA` intermediate certificate. Standard Node `fetch`
+therefore fails on the HTTPS redirect hop even though browsers may complete the
+chain.
+
+```mermaid
+flowchart TD
+  A["Untrusted performanceCheckUrl"] --> B["Select server-owned literal origin"]
+  B --> C["Upgrade known Autocafe HTTP input to HTTPS"]
+  C --> D["Validate protocol, default port, credentials, fragment, and host-specific path"]
+  D --> E["Reject nested traversal and encoded separators"]
+  E --> F["Encode path/query components"]
+  F --> G["Manual redirect loop with one 4.5s budget"]
+  G --> H["Standard Node fetch for canonical current hop"]
+  H -->|"2xx"| N["Bounded streamed read by response class"]
+  N -->|"HTML or CSS: maximum 4 MiB"| I["Rewrite safe HTML or proxy asset bytes"]
+  N -->|"PDF, image, binary: maximum 16 MiB"| I
+  H -->|"Policy-compliant 3xx"| B
+  H -->|"Autocafe HTTPS missing-issuer error only"| J["Hostname-scoped Node HTTPS retry"]
+  J --> K["Node default root CAs + reviewed GoGetSSL intermediate"]
+  K -->|"rejectUnauthorized: true"| O["Header-first streamed Response"]
+  O -->|"3xx"| B
+  O -->|"2xx"| N
+  B -->|"Rejected"| L["400 unsafe target"]
+  N -->|"Declared or observed body exceeds limit"| M
+  H -->|"Other TLS, network, or HTTP failure"| M["Fail closed; record remains non-fatal missing"]
+```
+
+The request URL passed to each outbound sink is rebuilt from a server-owned
+literal origin. The policy rejects URL credentials, fragments, non-default
+ports, unsupported protocols, and paths outside the host-specific endpoint or
+asset prefixes. Path and query components are encoded independently before the
+request. The legacy Autocafe HTTP link is accepted only as input and upgraded
+to HTTPS before transport; the server does not perform the plaintext hop.
+
+The certificate fallback is restricted to exact host `autocafe.co.kr`, known
+missing-issuer codes, the current hop, and the existing shared timeout/abort
+budget. It preserves `rejectUnauthorized: true`; it does not affect
+`checkpaper.jmenetworks.co.kr`, `ck.carmodoo.com`, or unrelated outbound
+requests. Initial URLs and redirect destinations pass through the same closed
+policy.
+
+The Node HTTPS adapter does not collect the whole Autocafe response before
+returning it. Headers are available immediately for redirect, status, and MIME
+policy; body chunks flow through the same bounded reader used by standard
+Fetch. Redirect and rejected bodies are canceled. The declared length is only
+an early-rejection hint, and the cumulative decoded stream count is
+authoritative.
+
+The rationale, rejected alternatives, reviewed certificate identity, expiry,
+and removal criteria are in
+`docs/decisions/0007-autocafe-tls-chain-recovery.md`. Repeatable diagnosis is in
+`docs/runbooks/debug-failed-scrape.md`, and the incident evidence is preserved
+in `docs/references/autocafe-tls-chain.md`. The shared upstream response limits
+and their maintenance criteria are in
+`docs/decisions/0008-bounded-upstream-response-bodies.md`.
 
 The app does not upload these records anywhere; it only saves them into the
 user's selected folder or ZIP file. Performance-check saving remains non-fatal.
