@@ -48,6 +48,13 @@ The Sectigo CA hierarchy and public issuing certificate are documented by the
 issuer:
 <https://www.sectigo.com/knowledge-base/detail/Sectigo-Public-Intermediates-and-Roots>.
 
+Both the standard Fetch path and this fallback pass their response through the
+same 2 MiB streamed HTML limit. A declared oversized `Content-Length` is
+rejected early, but the observed byte count is authoritative. The Node HTTPS
+adapter returns headers before the body completes, so status and resource
+policy run without first accumulating an unbounded string. ADR-0008 records the
+shared response-body policy and its threat model.
+
 ## Current Reviewed Intermediate
 
 Verified on 2026-07-30:
@@ -76,6 +83,7 @@ and the existing deployment budget:
 - The public certificate and fingerprint are reviewable in source control.
 - The second attempt reuses the original timeout instead of introducing an
   unbounded recovery request.
+- Both attempts share the same application-owned response byte limit.
 - Other TLS failures still fail closed.
 
 ## Rejected Alternatives
@@ -124,6 +132,8 @@ the underlying trust-chain diagnosis.
   fingerprint before replacement.
 - The fallback request does not follow redirects. Redirect support requires a
   separate allowlist and SSRF review.
+- Listing HTML above 2 MiB is rejected before parsing; missing or dishonest
+  `Content-Length` cannot bypass the streamed byte counter.
 - Node HTTPS abort errors must continue mapping to `504 site-timeout`; unrelated
   TLS, HTTP, and network errors remain `502 unknown`.
 
@@ -142,6 +152,10 @@ Update the embedded intermediate only when:
    `rejectUnauthorized: true`;
 5. focused regression tests, the actual listing URL, and the full quality
    gates pass.
+
+Any response-limit change must also follow ADR-0008: capture representative
+payload evidence, keep the standard and trusted-chain paths identical, and
+test declared and chunked boundary cases.
 
 Remove the fallback only after the source consistently serves a complete chain,
 plain Node `fetch` succeeds in both local Node and a Vercel preview, and the

@@ -90,6 +90,12 @@ Sectigo's certificate guidance recommends obtaining a missing intermediate
 from the leaf certificate's Authority Information Access field:
 <https://www.sectigo.com/knowledge-base/detail/Sectigo-Intermediate-Certificates>.
 
+The standard Fetch and trusted-chain paths expose the same streamed `Response`
+contract. HTML and CSS are limited to 4 MiB; proxied PDF, image, and other
+binary files are limited to 16 MiB. Declared lengths provide early rejection,
+while cumulative observed bytes remain authoritative. Redirect bodies are
+canceled before the next hop. ADR-0008 records this shared resource policy.
+
 ## Current Reviewed Intermediate
 
 Verified on 2026-07-31 from the leaf AIA URL
@@ -122,6 +128,7 @@ weakening the existing trust boundary:
 - the legacy Autocafe HTTP input is upgraded before transport, removing the
   plaintext redirect hop;
 - the original timeout and abort ownership remain unchanged;
+- standard and trusted-chain responses use identical application byte limits;
 - the public intermediate and fingerprint are version-controlled and
   reviewable.
 
@@ -171,6 +178,9 @@ The renderer and save status were correct to report the missing document.
   unsupported paths, and insecure provider protocols fail closed.
 - The fallback trusts the reviewed public intermediate as CA material only for
   `autocafe.co.kr`; it is not leaf-certificate pinning.
+- Header-first fallback streaming allows redirect and MIME policy to run before
+  a full response is buffered. Rejected, redirected, oversized, or timed-out
+  bodies are canceled.
 - The intermediate expires on 2028-09-05, but Autocafe may rotate issuers
   earlier.
 
@@ -189,6 +199,9 @@ Replace the embedded intermediate only when:
 5. Node HTTPS succeeds with default roots plus the candidate and
    `rejectUnauthorized: true`;
 6. focused tests, a live local proxy request, and all quality gates pass.
+
+Any response-limit change must also follow ADR-0008 and preserve identical
+limits for standard Fetch and the trusted-chain fallback.
 
 Remove the fallback only after Autocafe consistently serves a complete chain,
 plain Node `fetch` succeeds locally and in a Vercel preview, and the
