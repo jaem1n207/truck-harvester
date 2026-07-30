@@ -268,7 +268,7 @@ git commit -m "fix: 저장 폴더 권한 확인 보정"
 ### 백엔드 & API
 
 - **API Routes**: Next.js 16 Node.js route handlers
-- **Web Scraping**: hostname-scoped Node HTTPS recovery plus Cheerio for HTML parsing, SmartStore manuscript table extraction, performance-check link discovery, and allowlisted CheckPaper redirect resolution
+- **Web Scraping**: hostname-scoped Node HTTPS recovery plus Cheerio for HTML parsing, SmartStore manuscript table extraction, performance-check link discovery, and literal-origin/host-specific-path CheckPaper redirect resolution
 - **File Operations**: File System Access API + JSZip
 - **Image Handling**: Fetched image blobs are saved directly without runtime stamping; CheckPaper PDF records are rendered to JPG in the browser, and Carmodoo records are rendered to JPG through a same-origin native Chromium route
 - **Server Rendering Runtime**: `playwright`, `@sparticuz/chromium`, and bundled Noto Sans KR font files support Carmodoo rendering in Vercel serverless environments
@@ -356,6 +356,11 @@ src/
   정확한 호스트 범위에서 Node 기본 root CA와 검증된 intermediate를 함께
   사용합니다. TLS 검증 비활성화, HTTP downgrade, process-wide CA 변경은
   허용하지 않습니다.
+- 🧭 **성능점검 SSRF 경계**: outbound URL은 서버가 소유한 literal origin에서
+  다시 만들고 host별 path만 허용합니다. URL credentials, fragment, explicit
+  port, provider HTTP downgrade, 허용되지 않은 path와 redirect는 요청 전에
+  차단합니다. 매물에서 받은 Autocafe HTTP 링크는 실제 요청 전에 HTTPS로
+  승격합니다.
 - 🚫 **데이터 수집 없음**: 사용자 입력, 파싱 결과, 이미지 파일을 서버에 저장하지 않음
 - 🔐 **보안 헤더**: CSP, XSS 보호, 클릭재킹 방지
 - 📝 **투명성**: 오픈 소스로 모든 코드 공개
