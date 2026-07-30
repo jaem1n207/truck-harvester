@@ -183,6 +183,32 @@ describe('capturePerformanceCheckImages', () => {
     expect(document.querySelector('iframe')).toBeNull()
   })
 
+  it('preserves the explicit not-registered response from the proxy', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: false,
+          code: 'PERFORMANCE_CHECK_NOT_REGISTERED',
+          message: '등록된 성능점검기록부가 없어요.',
+        }),
+        {
+          headers: {
+            'content-type': 'application/json',
+            'x-performance-check-status': 'not_registered',
+          },
+          status: 404,
+        }
+      )
+    )
+
+    await expect(
+      capturePerformanceCheckImages(autocafeSourceUrl)
+    ).rejects.toMatchObject({
+      name: 'PerformanceCheckNotRegisteredError',
+      message: '등록된 성능점검기록부가 없어요.',
+    })
+  })
+
   it('captures Carmodoo records through the native renderer API', async () => {
     const renderNative = vi.fn<PerformanceCheckNativeRenderer>(async () => [
       new Uint8Array([11, 12]),
