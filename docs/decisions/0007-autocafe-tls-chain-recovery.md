@@ -58,9 +58,29 @@ The retry uses:
 - `rejectUnauthorized: true`.
 
 Redirect handling remains in the existing manual redirect loop. Every next
-location is checked by the existing CheckPaper allowlist before another request
-is sent. The retry does not widen the destination set or reset the 4.5-second
-total budget.
+location is canonicalized and checked before another request is sent. The
+outbound request URL is rebuilt from a server-owned literal origin selected by
+exact protocol and hostname. User-controlled pathname segments, query names,
+and query values are decoded once and passed through `encodeURIComponent`
+before they reach `fetch`.
+
+The request boundary also rejects:
+
+- non-default ports;
+- URL credentials;
+- fragments;
+- unsupported host-specific paths;
+- CheckPaper or Carmodoo HTTP URLs;
+- malformed or overlong URLs;
+- redirect targets outside the same closed policy.
+
+The known Autocafe HTTP address is accepted as input for compatibility but
+upgraded to the literal `https://autocafe.co.kr` origin before the first
+outbound request. Its path is limited to the two known resolver endpoints.
+CheckPaper and Carmodoo use HTTPS-only host-specific path prefixes. Path
+segments are decoded repeatedly to detect nested dot-segment or encoded
+separator evasions before canonical encoding. The retry does not widen the
+destination set or reset the 4.5-second total budget.
 
 Node documents that an explicit `ca` option replaces the default CA list, so
 the fallback concatenates the default roots and reviewed intermediate:
@@ -97,8 +117,10 @@ weakening the existing trust boundary:
   served chain;
 - only one exact hostname and known missing-chain errors activate the retry;
 - hostname, validity, issuer-chain, and root trust verification remain active;
-- the existing redirect allowlist continues preventing arbitrary proxy
-  destinations;
+- literal origins, default ports, host-specific paths, and encoded URL
+  components prevent arbitrary proxy destinations and request-target escape;
+- the legacy Autocafe HTTP input is upgraded before transport, removing the
+  plaintext redirect hop;
 - the original timeout and abort ownership remain unchanged;
 - the public intermediate and fingerprint are version-controlled and
   reviewable.
@@ -145,7 +167,8 @@ The renderer and save status were correct to report the missing document.
   while TLS verification remains enabled.
 - The same helper serves both the HTML and asset proxy routes, so redirect
   behavior remains consistent.
-- Other TLS errors and other hosts fail closed.
+- Other TLS errors, other hosts, non-default ports, credentials, fragments,
+  unsupported paths, and insecure provider protocols fail closed.
 - The fallback trusts the reviewed public intermediate as CA material only for
   `autocafe.co.kr`; it is not leaf-certificate pinning.
 - The intermediate expires on 2028-09-05, but Autocafe may rotate issuers
