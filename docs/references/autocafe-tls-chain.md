@@ -47,6 +47,15 @@ The downloaded public intermediate had:
 Node HTTPS with its default roots plus that PEM returned the expected Autocafe
 302 while keeping `rejectUnauthorized: true`.
 
+## Application Resource Boundary
+
+This evidence approves only the public intermediate and exact-host recovery.
+It does not approve unbounded response buffering. The trusted-chain adapter
+returns headers before the body completes, and the same bounded stream reader
+used by standard Fetch enforces 4 MiB for HTML/CSS and 16 MiB for binary
+assets. Redirect and rejected bodies are canceled. See ADR-0008 for the
+resource threat model and limit-change criteria.
+
 ## Reproduction Commands
 
 Inspect the redirects:
@@ -111,3 +120,5 @@ before replacing trust material.
 - Node TLS CA behavior: <https://nodejs.org/api/tls.html>
 - Sectigo intermediate certificate guidance:
   <https://www.sectigo.com/knowledge-base/detail/Sectigo-Intermediate-Certificates>
+- Application response resource policy:
+  `docs/decisions/0008-bounded-upstream-response-bodies.md`
