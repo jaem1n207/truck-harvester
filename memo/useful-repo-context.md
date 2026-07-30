@@ -9,6 +9,9 @@
   intermediate recovery described by ADR-0006.
 - `src/v2/shared/lib/parse-truck-html.ts` is the pure Cheerio parser for listing
   fields, SmartStore manuscript values, images, and performance-check links.
+- `src/v2/shared/lib/checkpaper-proxy.ts` owns the allowlisted performance-check
+  redirect loop, 4.5-second shared budget, and exact-host Autocafe GoGetSSL
+  missing-chain recovery described by ADR-0007.
 - `src/v2/entities/url/model.ts` is the source allowlist and required query
   parameter boundary. Keep fetch recovery narrower than or equal to this
   contract.
@@ -18,8 +21,9 @@
   `src/v2/shared/lib/__tests__/parse-truck-html.test.ts`.
 - The operational source of truth is
   `docs/runbooks/debug-failed-scrape.md`; the design rationale and certificate
-  lifecycle are in
-  `docs/decisions/0006-listing-source-tls-chain-recovery.md`.
+  lifecycles are in
+  `docs/decisions/0006-listing-source-tls-chain-recovery.md` and
+  `docs/decisions/0007-autocafe-tls-chain-recovery.md`.
 
 ## Don't do these (already decided against)
 
@@ -30,4 +34,5 @@
 - ❌ Don't introduce SSE for streaming (per-URL POST is the chosen contract).
 - ❌ Don't use react-joyride or driver.js (custom tour decided per ADR-005).
 - ❌ Don't disable TLS verification, set a process-global CA override, or
-  downgrade listing fetches to HTTP. Follow ADR-0006 and the scrape runbook.
+  downgrade listing or performance-check fetches to HTTP. Follow ADR-0006,
+  ADR-0007, and the scrape runbook.

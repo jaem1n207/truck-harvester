@@ -39,7 +39,8 @@ current.
 - Zod domain and URL contracts
 - Zustand vanilla stores
 - Cheerio server-side HTML parsing
-- Node `fetch` and hostname-scoped HTTPS certificate-chain recovery
+- Node `fetch` and hostname-scoped HTTPS certificate-chain recovery for listing
+  and Autocafe performance-check requests
 - Client-side concurrency 5
 - File System Access API and JSZip fallback
 - Vitest, Playwright, and axe
@@ -69,6 +70,7 @@ Use `/` for application smoke checks. `/v2` should only redirect.
 | Root workflow composition        | `src/app/truck-harvester-app.tsx`                          |
 | Parse API and error mapping      | `src/app/api/v2/parse-truck/route.ts`                      |
 | Listing request and TLS recovery | `src/app/api/v2/parse-truck/fetch-listing-html.ts`         |
+| CheckPaper redirects and TLS     | `src/v2/shared/lib/checkpaper-proxy.ts`                    |
 | URL allowlist                    | `src/v2/entities/url/model.ts`                             |
 | HTML parsing                     | `src/v2/shared/lib/parse-truck-html.ts`                    |
 | Prepared-listing workflow        | `src/v2/features/listing-preparation/`                     |
@@ -77,6 +79,7 @@ Use `/` for application smoke checks. `/v2` should only redirect.
 | Runtime architecture             | `docs/architecture.md`                                     |
 | Failed listing diagnosis         | `docs/runbooks/debug-failed-scrape.md`                     |
 | TLS recovery rationale           | `docs/decisions/0006-listing-source-tls-chain-recovery.md` |
+| Autocafe TLS rationale           | `docs/decisions/0007-autocafe-tls-chain-recovery.md`       |
 
 ## First Files For Work Starting In `memo/`
 
@@ -96,8 +99,8 @@ runtime baseline.
 - Do not move batch concurrency to the server or add SSE; ADR-0002 keeps
   one-listing server requests and client orchestration.
 - Do not disable TLS verification, replace the process-wide CA store, or
-  downgrade listing requests to HTTP. Follow ADR-0006 and the failed scrape
-  runbook.
+  downgrade listing or performance-check requests to HTTP. Follow ADR-0006,
+  ADR-0007, and the failed scrape runbook.
 - Do not add paid hosting, external scraping workers, or an error-monitoring
   SDK without a new approved decision.
 - Keep user-facing copy Korean and non-technical.
