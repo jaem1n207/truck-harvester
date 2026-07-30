@@ -199,6 +199,37 @@ browser layout.
   `@sparticuz/chromium` and bundled Noto Sans KR font faces for this renderer,
   because the serverless Chromium runtime does not include CJK fonts.
 
+The initial performance-check link normally enters through `autocafe.co.kr`
+before redirecting to CheckPaper or Carmodoo. Autocafe currently omits its
+public `GoGetSSL RSA DV CA` intermediate certificate. Standard Node `fetch`
+therefore fails on the HTTPS redirect hop even though browsers may complete the
+chain.
+
+```mermaid
+flowchart TD
+  A["Allowlisted performanceCheckUrl"] --> B["Manual redirect loop with one 4.5s budget"]
+  B --> C["Standard Node fetch for current hop"]
+  C -->|"2xx"| D["Rewrite safe HTML or proxy asset bytes"]
+  C -->|"Allowlisted 3xx"| E["Validate next host and continue"]
+  C -->|"Autocafe HTTPS missing-issuer error only"| F["Hostname-scoped Node HTTPS retry"]
+  F --> G["Node default root CAs + reviewed GoGetSSL intermediate"]
+  G -->|"rejectUnauthorized: true"| E
+  C -->|"Other TLS, network, HTTP, or unsafe redirect"| H["Fail closed; record remains non-fatal missing"]
+```
+
+The fallback is restricted to exact host `autocafe.co.kr`, known
+missing-issuer codes, the current hop, and the existing shared timeout/abort
+budget. It preserves `rejectUnauthorized: true`; it does not affect
+`checkpaper.jmenetworks.co.kr`, `ck.carmodoo.com`, or unrelated outbound
+requests. Redirect destinations remain restricted by the existing CheckPaper
+allowlist.
+
+The rationale, rejected alternatives, reviewed certificate identity, expiry,
+and removal criteria are in
+`docs/decisions/0007-autocafe-tls-chain-recovery.md`. Repeatable diagnosis is in
+`docs/runbooks/debug-failed-scrape.md`, and the incident evidence is preserved
+in `docs/references/autocafe-tls-chain.md`.
+
 The app does not upload these records anywhere; it only saves them into the
 user's selected folder or ZIP file. Performance-check saving remains non-fatal.
 
