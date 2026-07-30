@@ -283,4 +283,25 @@ describe('GET /api/v2/checkpaper', () => {
       message: '성능점검기록부를 불러오지 못했어요.',
     })
   })
+
+  it('rejects an oversized performance-check HTML response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('small', {
+        status: 200,
+        headers: {
+          'content-length': String(4 * 1024 * 1024 + 1),
+          'content-type': 'text/html; charset=utf-8',
+        },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await GET(createRequest(sourceUrl))
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      success: false,
+      message: '성능점검기록부를 불러오지 못했어요.',
+    })
+  })
 })
