@@ -54,6 +54,48 @@ Vercel Hobby execution budget. The visible user state is the prepared
 listing list: raw URLs are translated into readable listing-name chips
 before saving starts.
 
+## Listing Source Fetch Trust Boundary
+
+`POST /api/v2/parse-truck` validates the hostname, path, and required query
+parameters before any external request. The route delegates the source request
+to `src/app/api/v2/parse-truck/fetch-listing-html.ts`, then passes successful
+HTML to the pure Cheerio parser.
+
+```mermaid
+flowchart TD
+  A["Validated truck-no1 listing URL"] --> B["Standard Node fetch with one 3.5s timeout budget"]
+  B -->|"2xx response"| C["Cheerio parser"]
+  B -->|"Missing issuer-chain error only"| D["Hostname-scoped Node HTTPS retry"]
+  D --> E["Node default root CAs + reviewed Sectigo R36 intermediate"]
+  E -->|"rejectUnauthorized: true and 2xx"| C
+  B -->|"Abort"| F["504 site-timeout"]
+  D -->|"Abort"| F
+  B -->|"Other TLS, network, or HTTP failure"| G["502 unknown"]
+  D -->|"Other TLS, network, or HTTP failure"| G
+```
+
+The standard fetch remains the primary path. The retry activates only for
+`UNABLE_TO_GET_ISSUER_CERT`, `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, or
+`UNABLE_TO_VERIFY_LEAF_SIGNATURE`, because the listing source has served its
+leaf certificate without the public Sectigo R36 intermediate. Both attempts
+share one `AbortController`, so recovery does not reset or extend the
+request-level timeout.
+
+The intermediate certificate is public trust material, not a secret. The
+fallback still preserves Node's default roots, restricts the request to
+`www.truck-no1.co.kr`, and keeps `rejectUnauthorized: true`; hostname and
+certificate verification remain active. Expired certificates, hostname
+mismatches, unrelated TLS failures, and non-2xx responses are never bypassed.
+The fallback uses `Accept-Encoding: identity` and does not add redirect
+following. If the source introduces redirects, each destination must be
+allowlisted and threat-reviewed before redirect support is added.
+
+The rationale, rejected alternatives, certificate lifecycle, and removal
+criteria are recorded in
+`docs/decisions/0006-listing-source-tls-chain-recovery.md`. Operational
+diagnosis and renewal commands live in
+`docs/runbooks/debug-failed-scrape.md`.
+
 ## Sequence
 
 ```mermaid
