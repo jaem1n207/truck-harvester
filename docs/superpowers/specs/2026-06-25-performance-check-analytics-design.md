@@ -18,7 +18,7 @@ Truck Harvester는 매물 저장 시 차량 이미지, 성능점검기록부 JPG
 
 - 저장 완료 batch analytics에 성능점검기록부 aggregate 결과를 추가한다.
 - 성능점검기록부 저장 실패를 차량 저장 실패로 기록하지 않는다.
-- `not_requested`와 `missing`을 analytics에서 분리한다.
+- `not_requested`를 `missing`/`not_registered` aggregate와 분리한다.
 - raw CheckPaper URL, 차량별 성능점검기록부 URL, 원본 문서 내용은 보내지
   않는다.
 - UI 컴포넌트가 `window.umami`나 analytics payload field를 직접 알지 않는
@@ -94,13 +94,16 @@ aggregate fields는 저장 결과를 알 수 있는 settled event에만 붙이�
 - `performance_check_saved_count`: 저장 결과가
   `performanceCheckStatus === 'saved'`인 수.
 - `performance_check_missing_count`: `listing.performanceCheckUrl`이 있었고 저장
-  결과가 `performanceCheckStatus === 'missing'`인 수.
+  결과가 `performanceCheckStatus === 'missing'` 또는
+  `performanceCheckStatus === 'not_registered'`인 수.
 - `performance_check_image_count`: 저장 결과의
   `performanceCheckImageCount` 합계.
 
-`performanceCheckStatus === 'not_requested'`는 missing에 포함하지 않는다. 매물에
-성능점검기록부 링크가 없었던 차량과 링크가 있었지만 저장하지 못한 차량은 원인이
-다르므로, analytics에서도 섞지 않는다.
+`performanceCheckStatus === 'not_requested'`는 missing aggregate에 포함하지
+않는다. `not_registered`는 UI에서는 불확실한 `missing`과 구분하지만, 기존
+aggregate contract를 깨지 않기 위해 `performance_check_missing_count`에는
+포함한다. Analytics는 count만 전송하므로 두 원인의 개별 식별 정보나 원문은
+보내지 않는다.
 
 저장 자체가 실패한 차량은 저장 결과가 없을 수 있다. 이 경우 requested count는
 listing의 `performanceCheckUrl`로 계산하지만, saved/image count에는 반영하지
@@ -135,7 +138,7 @@ item id에 연결한다. 기존 ZIP mismatch 처리처럼 matching되지 않은 
 
 기존 failed-listing diagnostic 예외는 그대로 유지한다. 즉 개별 URL, 차량번호,
 차명, 이미지 수는 preview/save listing failure event에서만 허용되며,
-성능점검기록부 missing은 이 event를 만들지 않는다.
+성능점검기록부 `missing`과 `not_registered`는 이 event를 만들지 않는다.
 
 Analytics 호출 실패는 기존 transport처럼 사용자 저장 흐름을 중단하지 않는다.
 
@@ -144,6 +147,8 @@ Analytics 호출 실패는 기존 transport처럼 사용자 저장 흐름을 중
 - 성능점검기록부 URL이 없으면 requested count에 포함하지 않는다.
 - URL이 있었지만 capture 결과가 없거나 renderer가 실패해 `missing`이 되면
   missing count에 포함한다.
+- 원본이 등록 내역 없음이라고 명시해 `not_registered`가 되어도 기존 missing
+  aggregate에 포함한다.
 - 성능점검기록부가 missing이어도 `savedItemIds`에는 영향을 주지 않는다.
 - 차량 이미지나 원고 저장 실패처럼 차량 저장 자체가 실패한 경우에만 기존
   `saveListingFailed` 흐름을 사용한다.
@@ -158,7 +163,8 @@ Analytics 호출 실패는 기존 transport처럼 사용자 저장 흐름을 중
   - `trackSaveCompleted`는 기존 `duration_bucket`과 새 aggregate fields를 함께
     보낸다.
 - `src/v2/application/truck-harvester-workflow/workflow-analytics.test.ts`
-  - `saved`, `missing`, `not_requested`를 분리해 batch group별 count를 계산한다.
+  - `saved`, `missing`, `not_registered`, `not_requested`를 분리해 batch
+    group별 count를 계산한다.
   - 성능점검기록부 missing이 `trackListingFailed`를 만들지 않는다.
   - 일부 차량 저장 실패가 있어도 requested count와 saved/image count가 각각
     올바르게 계산된다.
