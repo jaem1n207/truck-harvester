@@ -43,7 +43,8 @@ feel fast, recoverable, and self-explanatory.
 - `src/app/api/v2/parse-truck/fetch-listing-html.ts` owns the listing-source
   request timeout and scoped TLS chain recovery.
 - `src/v2/shared/lib/checkpaper-proxy.ts` owns the CheckPaper redirect
-  allowlist, shared timeout, and scoped Autocafe TLS chain recovery.
+  literal-origin/path policy, shared timeout, and scoped Autocafe TLS chain
+  recovery.
 - The compatibility redirect page sends old `/v2` visits to `/`.
 - `src/v2/design-system/` owns token and motion guidance.
 - `src/v2/entities/` owns pure Zod schemas and discriminated unions.
@@ -87,6 +88,9 @@ feel fast, recoverable, and self-explanatory.
 - If the Autocafe issuer or chain changes, update ADR-0007, the incident
   reference, the failed scrape runbook, the embedded certificate fingerprint,
   and regression coverage together.
+- Keep CheckPaper outbound targets on server-owned literal origins. Do not
+  reintroduce user-derived host, explicit port, credentials, fragment,
+  unrestricted path, or provider HTTP support.
 
 ## Knowledge Links
 
