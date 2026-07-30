@@ -8,6 +8,17 @@ data, or fails to discover the listing's performance-check link.
 1. Reproduce with one listing address against `/api/v2/parse-truck`.
 2. Check whether the failure is network, timeout, unsupported address, or
    parser output validation.
+   - When Node reports `fetch failed`, inspect `error.cause.code`. The source
+     site has previously omitted its Sectigo R36 intermediate certificate,
+     which appears as `UNABLE_TO_VERIFY_LEAF_SIGNATURE` in Vercel's Node
+     runtime even when browsers and `curl` can open the page.
+   - `src/app/api/v2/parse-truck/fetch-listing-html.ts` retries only missing
+     issuer-chain errors with the scoped intermediate certificate while
+     retaining Node's default roots and `rejectUnauthorized: true`.
+   - Never work around this failure with `NODE_TLS_REJECT_UNAUTHORIZED=0`,
+     `rejectUnauthorized: false`, or an HTTP downgrade. If the issuer changes,
+     verify the new chain and fingerprint before updating the scoped
+     certificate.
 3. Add or update an HTML fixture in the parser test before changing
    parsing code.
 4. Update `src/v2/shared/lib/parse-truck-html.ts` for selector changes,
