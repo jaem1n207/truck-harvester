@@ -1,6 +1,13 @@
 import { request as requestHttps } from 'node:https'
 import { rootCertificates } from 'node:tls'
 
+import {
+  cancelResponseBody,
+  createStreamingResponse,
+  readBoundedResponseText,
+  toResponseHeaders,
+} from '@/v2/shared/lib/bounded-response'
+
 const listingHeaders = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -10,6 +17,7 @@ const listingHeaders = {
 }
 
 const supportedHostname = 'www.truck-no1.co.kr'
+export const LISTING_HTML_MAX_BYTES = 2 * 1024 * 1024
 
 const incompleteCertificateChainErrorCodes = new Set([
   'UNABLE_TO_GET_ISSUER_CERT',
@@ -69,12 +77,9 @@ const trustedCaCertificates = [
   sectigoPublicServerAuthenticationCaDvR36,
 ]
 
-type RegularFetch = (
-  input: string,
-  init: RequestInit
-) => Promise<Pick<Response, 'ok' | 'status' | 'text'>>
+type RegularFetch = (input: string, init: RequestInit) => Promise<Response>
 
-type TrustedChainFetch = (url: string, signal: AbortSignal) => Promise<string>
+type TrustedChainFetch = (url: string, signal: AbortSignal) => Promise<Response>
 
 interface FetchListingHtmlDependencies {
   fetch?: RegularFetch
@@ -105,7 +110,7 @@ function isIncompleteCertificateChainError(error: unknown) {
 function fetchListingHtmlWithTrustedChain(
   url: string,
   signal: AbortSignal
-): Promise<string> {
+): Promise<Response> {
   const listingUrl = new URL(url)
 
   if (
@@ -128,27 +133,13 @@ function fetchListingHtmlWithTrustedChain(
         signal,
       },
       (response) => {
-        const statusCode = response.statusCode ?? 0
-
-        if (statusCode < 200 || statusCode >= 300) {
-          response.resume()
-          reject(new Error(`HTTP ${statusCode}`))
-          return
-        }
-
-        response.setEncoding('utf8')
-        let html = ''
-
-        response.on('data', (chunk) => {
-          html += chunk
-        })
-        response.on('end', () => {
-          resolve(html)
-        })
-        response.on('error', reject)
-        response.on('aborted', () => {
-          reject(new Error('Listing response aborted'))
-        })
+        resolve(
+          createStreamingResponse(response, {
+            headers: toResponseHeaders(response.headers),
+            status: response.statusCode ?? 502,
+            statusText: response.statusMessage,
+          })
+        )
       }
     )
 
@@ -163,24 +154,21 @@ export async function fetchListingHtml(
   dependencies: FetchListingHtmlDependencies = {}
 ) {
   const controller = new AbortController()
+  const deadline = Date.now() + timeoutMs
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   const regularFetch = dependencies.fetch ?? globalThis.fetch
   const fetchWithTrustedChain =
     dependencies.fetchWithTrustedChain ?? fetchListingHtmlWithTrustedChain
 
   try {
+    let response: Response
+
     try {
-      const response = await regularFetch(url, {
+      response = await regularFetch(url, {
         cache: 'no-store',
         signal: controller.signal,
         headers: listingHeaders,
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      return await response.text()
     } catch (error) {
       if (
         controller.signal.aborted ||
@@ -189,8 +177,26 @@ export async function fetchListingHtml(
         throw error
       }
 
-      return await fetchWithTrustedChain(url, controller.signal)
+      response = await fetchWithTrustedChain(url, controller.signal)
     }
+
+    if (!response.ok) {
+      await cancelResponseBody(response)
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0) {
+      await cancelResponseBody(response)
+      throw new DOMException('Listing request timed out', 'AbortError')
+    }
+
+    return await readBoundedResponseText(response, {
+      maxBytes: LISTING_HTML_MAX_BYTES,
+      timeoutMs: remainingMs,
+      createTimeoutError: () =>
+        new DOMException('Listing request timed out', 'AbortError'),
+    })
   } finally {
     clearTimeout(timeout)
   }
