@@ -21,6 +21,8 @@ request layer before changing Cheerio selectors.
   `src/v2/features/file-management/performance-check-capture.ts`
 - Performance-check redirect, timeout, and scoped TLS recovery:
   `src/v2/shared/lib/checkpaper-proxy.ts`
+- Explicit performance-check not-registered contract:
+  `src/v2/shared/lib/performance-check-contract.ts`
 
 ## Failure Classification
 
@@ -33,6 +35,7 @@ request layer before changing Cheerio selectors.
 | API returns `502 unknown` for non-chain errors                                | HTTP, TLS, or network  | Preserve the original cause; do not broaden the certificate fallback |
 | Timely 2xx upstream still maps to 502 and its body is unusually large         | Response resource cap  | Compare declared and observed bytes with the limits below            |
 | Listing parses but every performance-check save fails quickly                 | CheckPaper transport   | Reproduce the Autocafe redirect chain in Node                        |
+| CheckPaper proxy returns typed `404 PERFORMANCE_CHECK_NOT_REGISTERED`         | Upstream record state  | Treat it as an absent record, not a transport or renderer outage     |
 | CheckPaper proxy returns 200 but JPG creation fails                           | Renderer or asset path | Inspect the final URL, asset proxy, PDF, or Carmodoo renderer        |
 
 Known missing-issuer codes are:
@@ -359,6 +362,9 @@ these cases is an intentional SSRF boundary, not an upstream outage.
 Do not treat every 502 as this incident. Verify the exact error and host first.
 In particular:
 
+- a `404` with `x-performance-check-status: not_registered` and
+  `PERFORMANCE_CHECK_NOT_REGISTERED` means the upstream page explicitly said
+  no record is registered; it is not a system failure;
 - a final CheckPaper 4xx/5xx is an upstream record failure;
 - a successful proxy response with missing `.page`, invalid PDF, or empty
   Carmodoo images is a renderer/provider failure;
@@ -410,7 +416,7 @@ curl -sS -D - -o /dev/null --max-time 8 \
   'http://127.0.0.1:3000/api/v2/checkpaper?url=http%3A%2F%2Fautocafe.co.kr%2FASSO%2FCarCheck_Form_my.asp%3FOnCarNo%3D2026300140712'
 ```
 
-Require all of these:
+For a record-bearing URL, require all of these:
 
 1. HTTP 200;
 2. `x-checkpaper-final-url` points to an allowlisted CheckPaper or Carmodoo
@@ -419,6 +425,20 @@ Require all of these:
 4. a browser save produces one or more JPGs in `성능점검기록부/`;
 5. `performance_check_saved_count` and
    `performance_check_image_count` reflect the saved result.
+
+Also exercise the explicit no-record response:
+
+```bash
+curl -sS -D - --max-time 8 \
+  'http://127.0.0.1:3000/api/v2/checkpaper?url=http%3A%2F%2Fautocafe.co.kr%2FASSO%2FCarCheck_Form_my.asp%3FOnCarNo%3D2026300242743'
+```
+
+Require HTTP `404`, header
+`x-performance-check-status: not_registered`, response code
+`PERFORMANCE_CHECK_NOT_REGISTERED`, and the Korean message
+`등록된 성능점검기록부가 없어요.` A browser save must still complete the vehicle
+images and manuscript, label the card `등록된 성능점검기록부 없음`, and avoid the
+generic `성능점검기록부 확인 필요` wording for this case.
 
 Also verify that unsafe targets fail before an outbound request:
 
@@ -448,7 +468,11 @@ bun run test -- --run \
 bun run test -- --run \
   src/v2/features/file-management/__tests__/text-content.test.ts \
   src/app/api/v2/checkpaper \
-  src/v2/features/file-management/__tests__/performance-check-capture.test.ts
+  src/v2/features/file-management/__tests__/performance-check-capture.test.ts \
+  src/v2/features/file-management/__tests__/file-system.test.ts \
+  src/v2/features/file-management/__tests__/zip-fallback.test.ts \
+  src/v2/application/truck-harvester-workflow/workflow-analytics.test.ts \
+  src/v2/widgets/processing-status/ui/__tests__/prepared-listing-status.test.tsx
 
 bun run typecheck
 bun run lint
