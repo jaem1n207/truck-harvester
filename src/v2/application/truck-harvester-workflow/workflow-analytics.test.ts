@@ -381,6 +381,45 @@ describe('workflow analytics adapter', () => {
     expect(transport.trackListingFailed).not.toHaveBeenCalled()
   })
 
+  it('counts explicitly unregistered performance checks as missing aggregates', () => {
+    const transport = createTransport()
+    const tracker = createWorkflowAnalytics({
+      createBatchId: () => 'batch-unregistered-performance-check',
+      getFilesystemSupported: () => true,
+      getNotificationEnabled: () => false,
+      now: () => 360,
+      transport,
+    })
+    const checkedListing = {
+      ...listing,
+      performanceCheckUrl:
+        'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3',
+    }
+
+    tracker.previewStarted({ urlCount: 1, startedAt: 100 })
+    tracker.saveSettled({
+      items: [{ id: 'listing-1', url: firstUrl, listing: checkedListing }],
+      saveMethod: 'directory',
+      savedItemIds: new Set(['listing-1']),
+      saveResultsByItemId: new Map([
+        [
+          'listing-1',
+          createSaveResult({
+            performanceCheckStatus: 'not_registered',
+          }),
+        ],
+      ]),
+    })
+
+    expect(transport.trackSaveCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        performanceCheckRequestedCount: 1,
+        performanceCheckSavedCount: 0,
+        performanceCheckMissingCount: 1,
+      })
+    )
+  })
+
   it('keeps performance-check aggregates separate from vehicle save failures', () => {
     const transport = createTransport()
     const tracker = createWorkflowAnalytics({
