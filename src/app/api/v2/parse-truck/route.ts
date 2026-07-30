@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { normalizeTruckUrl, normalizedTruckUrlSchema } from '@/v2/entities/url'
 import { parseTruckHtml } from '@/v2/shared/lib/parse-truck-html'
 
+import { fetchListingHtml } from './fetch-listing-html'
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -30,31 +32,17 @@ function createErrorResponse(
   )
 }
 
-async function fetchListingHtml(url: string, timeoutMs: number) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const response = await fetch(url, {
-      cache: 'no-store',
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    return await response.text()
-  } finally {
-    clearTimeout(timeout)
+function isAbortError(error: unknown) {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true
   }
+
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (('name' in error && error.name === 'AbortError') ||
+      ('code' in error && error.code === 'ABORT_ERR'))
+  )
 }
 
 export async function POST(request: Request) {
@@ -91,7 +79,7 @@ export async function POST(request: Request) {
       data: listing,
     })
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (isAbortError(error)) {
       return createErrorResponse(
         504,
         'site-timeout',
