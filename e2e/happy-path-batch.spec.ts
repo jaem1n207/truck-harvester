@@ -25,6 +25,24 @@ test('completes a 10-address batch with streamed parsed results', async ({
           name: '테스트 저장 폴더',
           async getDirectoryHandle() {
             return {
+              async getDirectoryHandle() {
+                return {
+                  async getFileHandle() {
+                    return {
+                      async createWritable() {
+                        return {
+                          async write() {
+                            return undefined
+                          },
+                          async close() {
+                            return undefined
+                          },
+                        }
+                      },
+                    }
+                  },
+                }
+              },
               async getFileHandle() {
                 return {
                   async createWritable() {
