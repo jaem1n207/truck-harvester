@@ -17,6 +17,8 @@ request layer before changing Cheerio selectors.
 - Performance-check proxy and renderer:
   `src/app/api/v2/checkpaper/` and
   `src/v2/features/file-management/performance-check-capture.ts`
+- Performance-check redirect, timeout, and scoped TLS recovery:
+  `src/v2/shared/lib/checkpaper-proxy.ts`
 
 ## Failure Classification
 
@@ -27,7 +29,8 @@ request layer before changing Cheerio selectors.
 | Browser or `curl` succeeds, plain Node fetch fails with a missing-issuer code | TLS chain              | Follow the TLS diagnosis below                                       |
 | API returns `200` with fallback copy or empty images                          | HTML parser            | Save a sanitized HTML fixture and inspect selectors                  |
 | API returns `502 unknown` for non-chain errors                                | HTTP, TLS, or network  | Preserve the original cause; do not broaden the certificate fallback |
-| Listing parses but performance-check saving fails                             | CheckPaper integration | Inspect the CheckPaper routes before changing the listing parser     |
+| Listing parses but every performance-check save fails quickly                 | CheckPaper transport   | Reproduce the Autocafe redirect chain in Node                        |
+| CheckPaper proxy returns 200 but JPG creation fails                           | Renderer or asset path | Inspect the final URL, asset proxy, PDF, or Carmodoo renderer        |
 
 Known missing-issuer codes are:
 
@@ -229,6 +232,136 @@ If listing parsing succeeds but the performance record fails, inspect
 before changing the listing parser. Performance-check saving is intentionally
 non-fatal; vehicle images and manuscript saving may still succeed.
 
+Start from the exact `performanceCheckUrl` returned by
+`POST /api/v2/parse-truck`. A normal Truck No.1 link enters through Autocafe:
+
+```bash
+check_url='http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+
+curl -sS -L -D - -o /dev/null --max-time 15 "$check_url"
+```
+
+The expected host sequence is:
+
+```text
+autocafe.co.kr HTTP
+  -> autocafe.co.kr HTTPS
+  -> checkpaper.jmenetworks.co.kr or ck.carmodoo.com HTTPS
+```
+
+Then test the Autocafe HTTPS hop in plain Node:
+
+```bash
+node -e '
+const url = process.argv[1]
+fetch(url, { redirect: "manual" })
+  .then((response) => console.log({
+    status: response.status,
+    location: response.headers.get("location"),
+  }))
+  .catch((error) => console.error({
+    name: error.name,
+    message: error.message,
+    cause: error.cause,
+  }))
+' 'https://autocafe.co.kr/ASSO/CarCheck_Form.asp?OnCarNo=2026300140712'
+```
+
+If Node reports `UNABLE_TO_VERIFY_LEAF_SIGNATURE` or another known
+missing-issuer code, inspect the live chain:
+
+```bash
+openssl s_client \
+  -connect autocafe.co.kr:443 \
+  -servername autocafe.co.kr \
+  -showcerts \
+  -verify_return_error \
+  </dev/null
+```
+
+The known 2026-07-31 incident served only the Autocafe leaf issued by
+`GoGetSSL RSA DV CA`. The public intermediate reviewed for the scoped fallback
+has fingerprint:
+
+```text
+43:CA:C3:1E:F8:E8:BA:1B:4B:16:B8:20:6E:4C:0A:26:
+C5:BA:DB:2F:C3:AA:09:E9:01:70:E4:1B:66:C2:FD:64
+```
+
+The proxy still tries standard `fetch` first. Only an HTTPS request to exact
+host `autocafe.co.kr` with a known missing-chain error uses Node's default
+roots plus that reviewed intermediate. It keeps `rejectUnauthorized: true`,
+reuses the current redirect request's `AbortSignal`, and does not reset the
+4.5-second total budget.
+
+Do not treat every 502 as this incident. Verify the exact error and host first.
+In particular:
+
+- a final CheckPaper 4xx/5xx is an upstream record failure;
+- a successful proxy response with missing `.page`, invalid PDF, or empty
+  Carmodoo images is a renderer/provider failure;
+- an unsafe redirect is an allowlist rejection, not a TLS failure;
+- expired, revoked, or hostname-invalid certificates must continue failing.
+
+### Replace The Autocafe Intermediate
+
+Replace the embedded certificate only if the live Autocafe leaf issuer changed
+or the current intermediate expired.
+
+1. Read the live leaf's Authority Information Access URL.
+2. Download the candidate to a temporary path.
+3. Inspect the candidate:
+
+   ```bash
+   candidate_certificate='/private/tmp/autocafe-intermediate.crt'
+
+   openssl x509 \
+     -inform DER \
+     -in "$candidate_certificate" \
+     -noout \
+     -subject \
+     -issuer \
+     -dates \
+     -fingerprint \
+     -sha256 \
+     -purpose
+   ```
+
+4. Confirm the candidate is a CA, its subject equals the leaf issuer, and it
+   chains to a Node-trusted root.
+5. Update the PEM, subject, fingerprint, expiration comment, ADR-0007, and
+   `docs/references/autocafe-tls-chain.md` together.
+6. Keep the exact hostname check, default root certificates,
+   `rejectUnauthorized: true`, shared redirect allowlist, and shared timeout.
+7. Run the focused tests and a live local proxy request through Next.
+
+### Verify The Live Proxy
+
+```bash
+bun dev
+```
+
+In another terminal:
+
+```bash
+curl -sS -D - -o /dev/null --max-time 8 \
+  'http://127.0.0.1:3000/api/v2/checkpaper?url=http%3A%2F%2Fautocafe.co.kr%2FASSO%2FCarCheck_Form_my.asp%3FOnCarNo%3D2026300140712'
+```
+
+Require all of these:
+
+1. HTTP 200;
+2. `x-checkpaper-final-url` points to an allowlisted CheckPaper or Carmodoo
+   record;
+3. response time remains inside the route budget;
+4. a browser save produces one or more JPGs in `성능점검기록부/`;
+5. `performance_check_saved_count` and
+   `performance_check_image_count` reflect the saved result.
+
+ADR-0007 records why increasing the timeout, disabling TLS verification,
+downgrading to HTTP, process-wide CA changes, and runtime AIA fetching were
+rejected.
+
 ## Verification
 
 ```bash
@@ -250,11 +383,15 @@ bun run build
 ```
 
 For certificate-chain changes, also repeat the real listing request through a
-local Node server and its Vercel preview. Unit mocks prove error routing; they
-do not prove the live source chain or deployment trust store.
+local Node server and its Vercel preview. For CheckPaper chain changes, repeat
+the live `/api/v2/checkpaper` request and a browser folder-save smoke test. Unit
+mocks prove error routing; they do not prove the live source chain, deployment
+trust store, or JPG renderer.
 
 ## Related Decisions
 
 - `docs/decisions/0002-client-parallel-vs-server-parallel.md`
 - `docs/decisions/0004-concurrency-limiter-choice.md`
 - `docs/decisions/0006-listing-source-tls-chain-recovery.md`
+- `docs/decisions/0007-autocafe-tls-chain-recovery.md`
+- `docs/references/autocafe-tls-chain.md`
