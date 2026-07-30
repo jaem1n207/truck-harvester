@@ -207,22 +207,35 @@ chain.
 
 ```mermaid
 flowchart TD
-  A["Allowlisted performanceCheckUrl"] --> B["Manual redirect loop with one 4.5s budget"]
-  B --> C["Standard Node fetch for current hop"]
-  C -->|"2xx"| D["Rewrite safe HTML or proxy asset bytes"]
-  C -->|"Allowlisted 3xx"| E["Validate next host and continue"]
-  C -->|"Autocafe HTTPS missing-issuer error only"| F["Hostname-scoped Node HTTPS retry"]
-  F --> G["Node default root CAs + reviewed GoGetSSL intermediate"]
-  G -->|"rejectUnauthorized: true"| E
-  C -->|"Other TLS, network, HTTP, or unsafe redirect"| H["Fail closed; record remains non-fatal missing"]
+  A["Untrusted performanceCheckUrl"] --> B["Select server-owned literal origin"]
+  B --> C["Upgrade known Autocafe HTTP input to HTTPS"]
+  C --> D["Validate protocol, default port, credentials, fragment, and host-specific path"]
+  D --> E["Reject nested traversal and encoded separators"]
+  E --> F["Encode path/query components"]
+  F --> G["Manual redirect loop with one 4.5s budget"]
+  G --> H["Standard Node fetch for canonical current hop"]
+  H -->|"2xx"| I["Rewrite safe HTML or proxy asset bytes"]
+  H -->|"Policy-compliant 3xx"| B
+  H -->|"Autocafe HTTPS missing-issuer error only"| J["Hostname-scoped Node HTTPS retry"]
+  J --> K["Node default root CAs + reviewed GoGetSSL intermediate"]
+  K -->|"rejectUnauthorized: true"| B
+  B -->|"Rejected"| L["400 unsafe target"]
+  H -->|"Other TLS, network, or HTTP failure"| M["Fail closed; record remains non-fatal missing"]
 ```
 
-The fallback is restricted to exact host `autocafe.co.kr`, known
+The request URL passed to each outbound sink is rebuilt from a server-owned
+literal origin. The policy rejects URL credentials, fragments, non-default
+ports, unsupported protocols, and paths outside the host-specific endpoint or
+asset prefixes. Path and query components are encoded independently before the
+request. The legacy Autocafe HTTP link is accepted only as input and upgraded
+to HTTPS before transport; the server does not perform the plaintext hop.
+
+The certificate fallback is restricted to exact host `autocafe.co.kr`, known
 missing-issuer codes, the current hop, and the existing shared timeout/abort
 budget. It preserves `rejectUnauthorized: true`; it does not affect
 `checkpaper.jmenetworks.co.kr`, `ck.carmodoo.com`, or unrelated outbound
-requests. Redirect destinations remain restricted by the existing CheckPaper
-allowlist.
+requests. Initial URLs and redirect destinations pass through the same closed
+policy.
 
 The rationale, rejected alternatives, reviewed certificate identity, expiry,
 and removal criteria are in
