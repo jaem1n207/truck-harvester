@@ -3,13 +3,8 @@ import { rootCertificates } from 'node:tls'
 
 import { load } from 'cheerio'
 
-const allowedCheckPaperHosts = new Set([
-  'autocafe.co.kr',
-  'checkpaper.jmenetworks.co.kr',
-  'ck.carmodoo.com',
-])
-
 const MAX_CHECKPAPER_REDIRECTS = 4
+const MAX_CHECKPAPER_URL_LENGTH = 4096
 const CHECKPAPER_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
 const SAME_ORIGIN_PROXY_URL_BASE = 'https://truck-harvester.local'
 export const CHECKPAPER_FETCH_TIMEOUT_MS = 4500
@@ -102,15 +97,144 @@ export function createTimeoutBudget(
 }
 
 export function isAllowedCheckPaperUrl(value: string) {
+  return toAllowedCheckPaperRequestUrl(value) !== undefined
+}
+
+function isAllowedCheckPaperPath(hostname: string, pathname: string) {
+  const normalizedPath = pathname.toLowerCase()
+
+  if (hostname === autocafeHostname) {
+    return (
+      normalizedPath === '/asso/carcheck_form_my.asp' ||
+      normalizedPath === '/asso/carcheck_form.asp'
+    )
+  }
+
+  if (hostname === 'checkpaper.jmenetworks.co.kr') {
+    return [
+      '/assets/',
+      '/carimage/',
+      '/images/',
+      '/service/',
+      '/theme/',
+      '/view/',
+    ].some((prefix) => normalizedPath.startsWith(prefix))
+  }
+
+  if (hostname === 'ck.carmodoo.com') {
+    return ['/carcheck/', '/css/', '/data/', '/images/', '/js/'].some(
+      (prefix) => normalizedPath.startsWith(prefix)
+    )
+  }
+
+  return false
+}
+
+function selectAllowedCheckPaperOrigin(url: URL) {
+  if (url.username || url.password || url.port || url.hash) {
+    return undefined
+  }
+
+  if (!isAllowedCheckPaperPath(url.hostname, url.pathname)) {
+    return undefined
+  }
+
+  if (url.hostname === autocafeHostname) {
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return 'https://autocafe.co.kr'
+    }
+
+    return undefined
+  }
+
+  if (
+    url.hostname === 'checkpaper.jmenetworks.co.kr' &&
+    url.protocol === 'https:'
+  ) {
+    return 'https://checkpaper.jmenetworks.co.kr'
+  }
+
+  if (url.hostname === 'ck.carmodoo.com' && url.protocol === 'https:') {
+    return 'https://ck.carmodoo.com'
+  }
+
+  return undefined
+}
+
+function encodePathname(pathname: string) {
+  const encodedSegments: string[] = []
+
+  for (const segment of pathname.split('/')) {
+    let decodedSegment = segment
+
+    for (let depth = 0; depth < 3; depth += 1) {
+      let nextDecodedSegment: string
+
+      try {
+        nextDecodedSegment = decodeURIComponent(decodedSegment)
+      } catch {
+        return undefined
+      }
+
+      if (nextDecodedSegment === decodedSegment) {
+        break
+      }
+
+      decodedSegment = nextDecodedSegment
+    }
+
+    if (
+      decodedSegment === '.' ||
+      decodedSegment === '..' ||
+      decodedSegment.includes('/') ||
+      decodedSegment.includes('\\')
+    ) {
+      return undefined
+    }
+
+    encodedSegments.push(encodeURIComponent(decodedSegment))
+  }
+
+  const encodedPathname = encodedSegments.join('/')
+
+  if (!encodedPathname.startsWith('/') || encodedPathname.startsWith('//')) {
+    return undefined
+  }
+
+  return encodedPathname
+}
+
+function encodeSearchParams(searchParams: URLSearchParams) {
+  const encodedEntries: string[] = []
+
+  searchParams.forEach((value, key) => {
+    encodedEntries.push(
+      `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+    )
+  })
+
+  return encodedEntries.length > 0 ? `?${encodedEntries.join('&')}` : ''
+}
+
+function toAllowedCheckPaperRequestUrl(value: string) {
+  if (value.length > MAX_CHECKPAPER_URL_LENGTH) {
+    return undefined
+  }
+
   try {
     const url = new URL(value)
+    const allowedOrigin = selectAllowedCheckPaperOrigin(url)
+    const encodedPathname = encodePathname(url.pathname)
 
-    return (
-      /^https?:$/i.test(url.protocol) &&
-      allowedCheckPaperHosts.has(url.hostname)
-    )
+    if (!allowedOrigin || !encodedPathname) {
+      return undefined
+    }
+
+    return `${allowedOrigin}${encodedPathname}${encodeSearchParams(
+      url.searchParams
+    )}`
   } catch {
-    return false
+    return undefined
   }
 }
 
@@ -739,7 +863,13 @@ export async function fetchWithManualRedirect(
   maxRedirects = MAX_CHECKPAPER_REDIRECTS,
   dependencies: CheckPaperFetchDependencies = {}
 ): Promise<{ response: Response; finalUrl: string }> {
-  let currentUrl = new URL(initialUrl).toString()
+  const allowedInitialUrl = toAllowedCheckPaperRequestUrl(initialUrl)
+
+  if (!allowedInitialUrl) {
+    throw createRedirectError('UNSAFE_REDIRECT')
+  }
+
+  let currentUrl = allowedInitialUrl
   const regularFetch = dependencies.fetch ?? globalThis.fetch
   const trustedChainFetch =
     dependencies.fetchAutocafeWithTrustedChain ?? fetchAutocafeWithTrustedChain
@@ -791,9 +921,11 @@ export async function fetchWithManualRedirect(
           throw createRedirectError('REDIRECT_LIMIT_REACHED')
         }
 
-        const nextUrl = new URL(location, currentUrl).toString()
+        const nextUrl = toAllowedCheckPaperRequestUrl(
+          new URL(location, currentUrl).toString()
+        )
 
-        if (!isAllowedCheckPaperUrl(nextUrl)) {
+        if (!nextUrl) {
           throw createRedirectError('UNSAFE_REDIRECT')
         }
 

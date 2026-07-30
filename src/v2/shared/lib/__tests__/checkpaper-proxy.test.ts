@@ -45,6 +45,105 @@ describe('checkpaper proxy helpers', () => {
     ).toBe(false)
   })
 
+  it.each([
+    'https://example.com/Service/CheckPaper',
+    'https://checkpaper.jmenetworks.co.kr:8443/Service/CheckPaper',
+    'https://user:password@checkpaper.jmenetworks.co.kr/Service/CheckPaper',
+    'http://checkpaper.jmenetworks.co.kr/Service/CheckPaper',
+    'https://checkpaper.jmenetworks.co.kr/admin',
+    'https://checkpaper.jmenetworks.co.kr/assets/%2e%2e/admin',
+    'https://checkpaper.jmenetworks.co.kr/assets/%252e%252e/admin',
+    'https://checkpaper.jmenetworks.co.kr/assets/logo%2Fadmin.png',
+    'https://checkpaper.jmenetworks.co.kr/assets/style.css#fragment',
+  ])(
+    'rejects unsafe initial request target %s inside the fetch boundary',
+    async (unsafeUrl) => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('unsafe'))
+      const fetchAutocafeWithTrustedChain = vi.fn()
+
+      await expect(
+        fetchWithManualRedirect(
+          unsafeUrl,
+          { 'User-Agent': 'test' },
+          createTimeoutBudget(1000),
+          4,
+          {
+            fetch: fetchMock,
+            fetchAutocafeWithTrustedChain,
+          }
+        )
+      ).rejects.toMatchObject({
+        code: 'UNSAFE_REDIRECT',
+      })
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(fetchAutocafeWithTrustedChain).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rebuilds request URLs from a fixed origin and encoded path/query components', async () => {
+    const unsafeQueryUrl =
+      'https://checkpaper.jmenetworks.co.kr/assets/성능 점검.css?next=https://169.254.169.254/latest&path=../admin'
+    const expectedUrl =
+      'https://checkpaper.jmenetworks.co.kr/assets/%EC%84%B1%EB%8A%A5%20%EC%A0%90%EA%B2%80.css?next=https%3A%2F%2F169.254.169.254%2Flatest&path=..%2Fadmin'
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('safe', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      })
+    )
+
+    const result = await fetchWithManualRedirect(
+      unsafeQueryUrl,
+      { 'User-Agent': 'test' },
+      createTimeoutBudget(1000),
+      4,
+      {
+        fetch: fetchMock,
+      }
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expectedUrl,
+      expect.objectContaining({
+        redirect: 'manual',
+      })
+    )
+    expect(result.finalUrl).toBe(expectedUrl)
+    expect(await result.response.text()).toBe('safe')
+  })
+
+  it('upgrades the known Autocafe HTTP entry URL before the outbound request', async () => {
+    const httpEntryUrl =
+      'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const httpsEntryUrl =
+      'https://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('safe', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      })
+    )
+
+    const result = await fetchWithManualRedirect(
+      httpEntryUrl,
+      { 'User-Agent': 'test' },
+      createTimeoutBudget(1000),
+      4,
+      {
+        fetch: fetchMock,
+      }
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      httpsEntryUrl,
+      expect.objectContaining({
+        redirect: 'manual',
+      })
+    )
+    expect(result.finalUrl).toBe(httpsEntryUrl)
+  })
+
   it('builds encoded same-origin asset proxy URLs', () => {
     expect(
       toCheckPaperAssetProxyUrl('/assets/css/style_v2.css', finalUrl)
@@ -409,18 +508,15 @@ describe('checkpaper proxy helpers', () => {
   it('recovers an Autocafe HTTPS redirect when the server omits its intermediate certificate', async () => {
     const sourceUrl =
       'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const autocafeHttpsEntryUrl =
+      'https://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
     const autocafeHttpsUrl =
       'https://autocafe.co.kr/ASSO/CarCheck_Form.asp?OnCarNo=2026300140712'
     const printableUrl =
       'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107101989&print=0&iframe=1&key='
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        new Response(null, {
-          status: 302,
-          headers: { Location: autocafeHttpsUrl },
-        })
-      )
+      .mockRejectedValueOnce(createCertificateChainError())
       .mockRejectedValueOnce(createCertificateChainError())
       .mockResolvedValueOnce(
         new Response('<html>record</html>', {
@@ -428,12 +524,20 @@ describe('checkpaper proxy helpers', () => {
           headers: { 'content-type': 'text/html; charset=utf-8' },
         })
       )
-    const fetchAutocafeWithTrustedChain = vi.fn().mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { Location: printableUrl },
-      })
-    )
+    const fetchAutocafeWithTrustedChain = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: autocafeHttpsUrl },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: printableUrl },
+        })
+      )
 
     const result = await fetchWithManualRedirect(
       sourceUrl,
@@ -446,7 +550,16 @@ describe('checkpaper proxy helpers', () => {
       }
     )
 
-    expect(fetchAutocafeWithTrustedChain).toHaveBeenCalledWith(
+    expect(fetchAutocafeWithTrustedChain).toHaveBeenNthCalledWith(
+      1,
+      autocafeHttpsEntryUrl,
+      expect.objectContaining({
+        headers: { 'User-Agent': 'test' },
+        signal: expect.any(AbortSignal),
+      })
+    )
+    expect(fetchAutocafeWithTrustedChain).toHaveBeenNthCalledWith(
+      2,
       autocafeHttpsUrl,
       expect.objectContaining({
         headers: { 'User-Agent': 'test' },
