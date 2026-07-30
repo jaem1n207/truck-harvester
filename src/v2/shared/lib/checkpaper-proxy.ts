@@ -1,3 +1,6 @@
+import { request as requestHttps } from 'node:https'
+import { rootCertificates } from 'node:tls'
+
 import { load } from 'cheerio'
 
 const allowedCheckPaperHosts = new Set([
@@ -11,8 +14,79 @@ const CHECKPAPER_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
 const SAME_ORIGIN_PROXY_URL_BASE = 'https://truck-harvester.local'
 export const CHECKPAPER_FETCH_TIMEOUT_MS = 4500
 
+const autocafeHostname = 'autocafe.co.kr'
+
+const incompleteCertificateChainErrorCodes = new Set([
+  'UNABLE_TO_GET_ISSUER_CERT',
+  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+])
+
+/*
+ * autocafe.co.kr currently serves only its leaf certificate. Node does not
+ * fetch the missing AIA intermediate automatically, so its otherwise valid
+ * certificate cannot be verified in Vercel's Node runtime.
+ *
+ * Source: leaf Authority Information Access URL
+ * Subject: GoGetSSL RSA DV CA
+ * SHA-256: 43:CA:C3:1E:F8:E8:BA:1B:4B:16:B8:20:6E:4C:0A:26:
+ *          C5:BA:DB:2F:C3:AA:09:E9:01:70:E4:1B:66:C2:FD:64
+ * Valid through: 2028-09-05
+ */
+const goGetSslRsaDvCa = `-----BEGIN CERTIFICATE-----
+MIIF1zCCA7+gAwIBAgIRAJOLsI5imHtPdfmMtqUEXJYwDQYJKoZIhvcNAQEMBQAw
+gYgxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpOZXcgSmVyc2V5MRQwEgYDVQQHEwtK
+ZXJzZXkgQ2l0eTEeMBwGA1UEChMVVGhlIFVTRVJUUlVTVCBOZXR3b3JrMS4wLAYD
+VQQDEyVVU0VSVHJ1c3QgUlNBIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTE4
+MDkwNjAwMDAwMFoXDTI4MDkwNTIzNTk1OVowTDELMAkGA1UEBhMCTFYxDTALBgNV
+BAcTBFJpZ2ExETAPBgNVBAoTCEdvR2V0U1NMMRswGQYDVQQDExJHb0dldFNTTCBS
+U0EgRFYgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCfwF4hD6E1
+kLglXs1n2fH5vMQukCGyyD4LqLsc3pSzeh8we7njU4TB85BH5YXqcfwiH1Sf78aB
+hk1FgXoAZ3EQrF49We8mnTtTPFRnMwEHLJRpY9I/+peKeAZNL0MJG5zM+9gmcSpI
+OTI6p7MPela72g0pBQjwcExYLqFFVsnroEPTRRlmfTBTRi9r7rYcXwIct2VUCRmj
+jR1GX13op370YjYwgGv/TeYqUWkNiEjWNskFDEfxSc0YfoBwwKdPNfp6t/5+RsFn
+lgQKstmFLQbbENsdUEpzWEvZUpDC4qPvRrxEKcF0uLoZhEnxhskwXSTC64BNtc+l
+VEk7/g/be8svAgMBAAGjggF1MIIBcTAfBgNVHSMEGDAWgBRTeb9aqitKz1SA4dib
+wJ3ysgNmyzAdBgNVHQ4EFgQU+ftQxItnu2dk/oMhpqnOP1WEk5kwDgYDVR0PAQH/
+BAQDAgGGMBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYDVR0lBBYwFAYIKwYBBQUHAwEG
+CCsGAQUFBwMCMCIGA1UdIAQbMBkwDQYLKwYBBAGyMQECAkAwCAYGZ4EMAQIBMFAG
+A1UdHwRJMEcwRaBDoEGGP2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9VU0VSVHJ1
+c3RSU0FDZXJ0aWZpY2F0aW9uQXV0aG9yaXR5LmNybDB2BggrBgEFBQcBAQRqMGgw
+PwYIKwYBBQUHMAKGM2h0dHA6Ly9jcnQudXNlcnRydXN0LmNvbS9VU0VSVHJ1c3RS
+U0FBZGRUcnVzdENBLmNydDAlBggrBgEFBQcwAYYZaHR0cDovL29jc3AudXNlcnRy
+dXN0LmNvbTANBgkqhkiG9w0BAQwFAAOCAgEAXXRDKHiA5DOhNKsztwayc8qtlK4q
+Vt2XNdlzXn4RyZIsC9+SBi0Xd4vGDhFx6XX4N/fnxlUjdzNN/BYY1gS1xK66Uy3p
+rw9qI8X12J4er9lNNhrsvOcjB8CT8FyvFu94j3Bs427uxcSukhYbERBAIN7MpWKl
+VWxT3q8GIqiEYVKa/tfWAvnOMDDSKgRwMUtggr/IE77hekQm20p7e1BuJODf1Q7c
+FPt7T74m3chg+qu0xheLI6HsUFuOxc7R5SQlkFvaVY5tmswfWpY+rwhyJW+FWNbT
+uNXkxR4v5KOQPWrY100/QN68/j17paKuSXNcsr56snuB/Dx+MACLBdsF35HxPadx
+78vkfQ37WcVmKZtHrHJQ/QUyjxdG8fezMsh0f+puUln/O+NlsFtipve8qYa9h/K5
+yD0oZN93ChWve78XrV4vCpjO75Nk5B8O9CWQqGTHbhkgvjyb9v/B+sYJqB22/NLl
+R4RPvbmqDJGeEI+4u6NJ5YiLIVVsX+dyfFP8zUbSsj6J34RyCYKBbQ4L+r7k8Srs
+LY51WUFP292wkFDPSDmV7XsUNTDOZoQcBh2Fycf7xFfxeA+6ERx2d8MpPPND7yS2
+1dkf+SY5SdpSbAKtYmbqb9q8cZUDEImNWJFUVHBLDOrnYhGwJudE3OBXRTxNhMDm
+IXnjEeWrFvAZQhk=
+-----END CERTIFICATE-----`
+
+const trustedAutocafeCaCertificates = [...rootCertificates, goGetSslRsaDvCa]
+
 export type CheckPaperTimeoutBudget = {
   getRemainingMs: () => number
+}
+
+type CheckPaperFetch = (input: string, init: RequestInit) => Promise<Response>
+
+type AutocafeTrustedChainFetch = (
+  url: string,
+  init: {
+    headers: HeadersInit
+    signal: AbortSignal
+  }
+) => Promise<Response>
+
+interface CheckPaperFetchDependencies {
+  fetch?: CheckPaperFetch
+  fetchAutocafeWithTrustedChain?: AutocafeTrustedChainFetch
 }
 
 export function createTimeoutBudget(
@@ -38,6 +112,106 @@ export function isAllowedCheckPaperUrl(value: string) {
   } catch {
     return false
   }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isIncompleteCertificateChainError(error: unknown) {
+  let current = error
+
+  for (let depth = 0; depth < 5 && isObject(current); depth += 1) {
+    if (
+      typeof current.code === 'string' &&
+      incompleteCertificateChainErrorCodes.has(current.code)
+    ) {
+      return true
+    }
+
+    current = current.cause
+  }
+
+  return false
+}
+
+function shouldRecoverAutocafeCertificateChain(url: string, error: unknown) {
+  const parsedUrl = new URL(url)
+
+  return (
+    parsedUrl.protocol === 'https:' &&
+    parsedUrl.hostname === autocafeHostname &&
+    isIncompleteCertificateChainError(error)
+  )
+}
+
+function toResponseHeaders(headers: import('node:http').IncomingHttpHeaders) {
+  const responseHeaders = new Headers()
+
+  Object.entries(headers).forEach(([name, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => responseHeaders.append(name, item))
+      return
+    }
+
+    if (value !== undefined) {
+      responseHeaders.set(name, value)
+    }
+  })
+
+  return responseHeaders
+}
+
+function fetchAutocafeWithTrustedChain(
+  url: string,
+  { headers, signal }: { headers: HeadersInit; signal: AbortSignal }
+): Promise<Response> {
+  const parsedUrl = new URL(url)
+
+  if (
+    parsedUrl.protocol !== 'https:' ||
+    parsedUrl.hostname !== autocafeHostname
+  ) {
+    return Promise.reject(new Error('Unsupported trusted-chain host'))
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = requestHttps(
+      parsedUrl,
+      {
+        ca: trustedAutocafeCaCertificates,
+        headers: {
+          ...Object.fromEntries(new Headers(headers).entries()),
+          'Accept-Encoding': 'identity',
+        },
+        rejectUnauthorized: true,
+        signal,
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+
+        response.on('data', (chunk: Buffer) => {
+          chunks.push(chunk)
+        })
+        response.on('end', () => {
+          resolve(
+            new Response(Buffer.concat(chunks), {
+              headers: toResponseHeaders(response.headers),
+              status: response.statusCode ?? 502,
+              statusText: response.statusMessage,
+            })
+          )
+        })
+        response.on('error', reject)
+        response.on('aborted', () => {
+          reject(new Error('Autocafe response aborted'))
+        })
+      }
+    )
+
+    request.on('error', reject)
+    request.end()
+  })
 }
 
 export function toCheckPaperAssetProxyUrl(
@@ -562,9 +736,13 @@ export async function fetchWithManualRedirect(
   initialUrl: string,
   headers: HeadersInit,
   timeoutBudget: CheckPaperTimeoutBudget = createTimeoutBudget(),
-  maxRedirects = MAX_CHECKPAPER_REDIRECTS
+  maxRedirects = MAX_CHECKPAPER_REDIRECTS,
+  dependencies: CheckPaperFetchDependencies = {}
 ): Promise<{ response: Response; finalUrl: string }> {
   let currentUrl = new URL(initialUrl).toString()
+  const regularFetch = dependencies.fetch ?? globalThis.fetch
+  const trustedChainFetch =
+    dependencies.fetchAutocafeWithTrustedChain ?? fetchAutocafeWithTrustedChain
 
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
     const timeoutMs = timeoutBudget.getRemainingMs()
@@ -578,12 +756,28 @@ export async function fetchWithManualRedirect(
     }, timeoutMs)
 
     try {
-      const response = await fetch(currentUrl, {
-        cache: 'no-store',
-        redirect: 'manual',
-        headers,
-        signal: controller.signal,
-      })
+      let response: Response
+
+      try {
+        response = await regularFetch(currentUrl, {
+          cache: 'no-store',
+          redirect: 'manual',
+          headers,
+          signal: controller.signal,
+        })
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          !shouldRecoverAutocafeCertificateChain(currentUrl, error)
+        ) {
+          throw error
+        }
+
+        response = await trustedChainFetch(currentUrl, {
+          headers,
+          signal: controller.signal,
+        })
+      }
 
       clearTimeout(timeout)
 

@@ -17,6 +17,17 @@ const finalUrl =
 const carmodooUrl =
   'https://ck.carmodoo.com/carCheck/carmodooPrint.do?print=0&checkNum=7126000658'
 
+function createCertificateChainError() {
+  const cause = Object.assign(
+    new Error('unable to verify the first certificate'),
+    {
+      code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    }
+  )
+
+  return new TypeError('fetch failed', { cause })
+}
+
 describe('checkpaper proxy helpers', () => {
   it('allows only supported performance-check hosts', () => {
     expect(isAllowedCheckPaperUrl(finalUrl)).toBe(true)
@@ -393,6 +404,80 @@ describe('checkpaper proxy helpers', () => {
     })
 
     vi.unstubAllGlobals()
+  })
+
+  it('recovers an Autocafe HTTPS redirect when the server omits its intermediate certificate', async () => {
+    const sourceUrl =
+      'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=2026300140712'
+    const autocafeHttpsUrl =
+      'https://autocafe.co.kr/ASSO/CarCheck_Form.asp?OnCarNo=2026300140712'
+    const printableUrl =
+      'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107101989&print=0&iframe=1&key='
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: autocafeHttpsUrl },
+        })
+      )
+      .mockRejectedValueOnce(createCertificateChainError())
+      .mockResolvedValueOnce(
+        new Response('<html>record</html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        })
+      )
+    const fetchAutocafeWithTrustedChain = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { Location: printableUrl },
+      })
+    )
+
+    const result = await fetchWithManualRedirect(
+      sourceUrl,
+      { 'User-Agent': 'test' },
+      createTimeoutBudget(1000),
+      4,
+      {
+        fetch: fetchMock,
+        fetchAutocafeWithTrustedChain,
+      }
+    )
+
+    expect(fetchAutocafeWithTrustedChain).toHaveBeenCalledWith(
+      autocafeHttpsUrl,
+      expect.objectContaining({
+        headers: { 'User-Agent': 'test' },
+        signal: expect.any(AbortSignal),
+      })
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(result.finalUrl).toBe(printableUrl)
+    expect(result.response.status).toBe(200)
+  })
+
+  it('does not apply Autocafe trust recovery to other CheckPaper hosts', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(createCertificateChainError())
+    const fetchAutocafeWithTrustedChain = vi.fn()
+
+    await expect(
+      fetchWithManualRedirect(
+        finalUrl,
+        { 'User-Agent': 'test' },
+        createTimeoutBudget(1000),
+        4,
+        {
+          fetch: fetchMock,
+          fetchAutocafeWithTrustedChain,
+        }
+      )
+    ).rejects.toMatchObject({
+      cause: { code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' },
+    })
+
+    expect(fetchAutocafeWithTrustedChain).not.toHaveBeenCalled()
   })
 
   it('cancels a real response reader when body read times out', async () => {
