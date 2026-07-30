@@ -10,6 +10,8 @@ request layer before changing Cheerio selectors.
   `src/v2/entities/url/model.ts`
 - Source request, timeout, and TLS recovery:
   `src/app/api/v2/parse-truck/fetch-listing-html.ts`
+- Shared response byte limits, timeout cancellation, and Node-to-Web stream
+  adaptation: `src/v2/shared/lib/bounded-response.ts`
 - API validation and error mapping:
   `src/app/api/v2/parse-truck/route.ts`
 - HTML selectors and listing semantics:
@@ -29,6 +31,7 @@ request layer before changing Cheerio selectors.
 | Browser or `curl` succeeds, plain Node fetch fails with a missing-issuer code | TLS chain              | Follow the TLS diagnosis below                                       |
 | API returns `200` with fallback copy or empty images                          | HTML parser            | Save a sanitized HTML fixture and inspect selectors                  |
 | API returns `502 unknown` for non-chain errors                                | HTTP, TLS, or network  | Preserve the original cause; do not broaden the certificate fallback |
+| Timely 2xx upstream still maps to 502 and its body is unusually large         | Response resource cap  | Compare declared and observed bytes with the limits below            |
 | Listing parses but every performance-check save fails quickly                 | CheckPaper transport   | Reproduce the Autocafe redirect chain in Node                        |
 | CheckPaper proxy returns 200 but JPG creation fails                           | Renderer or asset path | Inspect the final URL, asset proxy, PDF, or Carmodoo renderer        |
 
@@ -205,6 +208,55 @@ when:
 
 Because standard fetch is already the first attempt, an upstream repair takes
 effect automatically while the compatibility fallback remains available.
+
+## Diagnose Response Body Limits
+
+Request timeouts do not bound memory. All listing and performance-check
+responses therefore pass through `bounded-response.ts` before parsing,
+rewriting, or returning bytes:
+
+| Response class                          | Maximum decoded bytes |
+| --------------------------------------- | --------------------- |
+| Truck listing HTML                      | 2 MiB                 |
+| Performance-check HTML and CSS          | 4 MiB                 |
+| Performance-check PDF, image, or binary | 16 MiB                |
+
+Treat `Content-Length` only as an early-rejection signal. The upstream may omit
+it, provide an invalid value, use chunked encoding, or report a compressed
+length. The cumulative chunks delivered to the application are the
+authoritative count.
+
+When a previously working response starts failing:
+
+1. Record the final canonical URL, status, `Content-Type`, declared
+   `Content-Length`, downloaded bytes, elapsed time, and provider.
+2. Confirm the response is expected HTML, CSS, PDF, or image data rather than
+   an upstream error page or redirect body.
+3. Reproduce both a standard Fetch response and, when the exact missing-chain
+   condition applies, the trusted-chain path.
+4. Verify that overflow or timeout cancels the stream and that a fallback
+   cancellation destroys the native HTTPS source.
+5. Do not raise a limit from one production failure alone. Capture
+   representative valid payload sizes, choose bounded headroom, assess
+   serverless memory impact at concurrent request load, and update ADR-0008.
+
+Required boundary tests cover a body just below the limit, exactly at the
+limit, and one byte above it. At least one over-limit test must omit
+`Content-Length` so the streamed counter—not only the header check—is proven.
+The standard Fetch and trusted-chain fallback must use the same reader and
+limit.
+
+Do not “fix” an oversized response by:
+
+- relying on the existing request timeout;
+- trusting `Content-Length` without counting chunks;
+- calling `text()`, `arrayBuffer()`, or `Buffer.concat` before checking size;
+- applying a limit only to the TLS fallback;
+- silently truncating HTML or binary data.
+
+Truncation would feed malformed input to the parser or save a corrupt
+performance record. The route must fail closed with its existing user-facing
+error contract.
 
 ## Parser Diagnosis
 
@@ -388,6 +440,7 @@ rejected.
 
 ```bash
 bun run test -- --run \
+  src/v2/shared/lib/__tests__/bounded-response.test.ts \
   src/app/api/v2/parse-truck \
   src/v2/shared/lib/__tests__/parse-truck-html.test.ts \
   src/v2/features/truck-processing
@@ -416,4 +469,5 @@ trust store, or JPG renderer.
 - `docs/decisions/0004-concurrency-limiter-choice.md`
 - `docs/decisions/0006-listing-source-tls-chain-recovery.md`
 - `docs/decisions/0007-autocafe-tls-chain-recovery.md`
+- `docs/decisions/0008-bounded-upstream-response-bodies.md`
 - `docs/references/autocafe-tls-chain.md`
