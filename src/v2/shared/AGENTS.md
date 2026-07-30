@@ -21,9 +21,12 @@ shared-folder dependencies and image-stamping code.
 - Browser persistence must be injected or guarded for SSR. Do not read
   `localStorage` during module initialization.
 - User-facing copy remains Korean-only and recovery-oriented.
-- `checkpaper-proxy.ts` is imported only by Node route handlers. Keep redirect
-  destinations allowlisted, TLS verification enabled, and Autocafe certificate
-  recovery restricted to exact host plus known missing-chain errors.
+- `checkpaper-proxy.ts` is imported only by Node route handlers. Build outbound
+  targets from server-owned literal origins, independently encode path/query
+  components, reject credentials/fragments/explicit ports, keep host-specific
+  path policies closed, and apply the same checks to initial URLs and redirects.
+- Keep TLS verification enabled and Autocafe certificate recovery restricted to
+  exact host plus known missing-chain errors.
 
 ## Public API
 
