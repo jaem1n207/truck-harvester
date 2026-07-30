@@ -361,6 +361,10 @@ src/
   port, provider HTTP downgrade, 허용되지 않은 path와 redirect는 요청 전에
   차단합니다. 매물에서 받은 Autocafe HTTP 링크는 실제 요청 전에 HTTPS로
   승격합니다.
+- 📏 **외부 응답 크기 제한**: 일반 fetch와 TLS 복구 경로에 같은 스트림
+  상한을 적용합니다. 매물 HTML은 2 MiB, 성능점검 HTML/CSS는 4 MiB,
+  PDF·이미지 등 binary는 16 MiB까지만 읽으며, 선언된 길이와 실제 누적
+  byte를 모두 확인하고 초과·timeout 시 upstream stream을 취소합니다.
 - 🚫 **데이터 수집 없음**: 사용자 입력, 파싱 결과, 이미지 파일을 서버에 저장하지 않음
 - 🔐 **보안 헤더**: CSP, XSS 보호, 클릭재킹 방지
 - 📝 **투명성**: 오픈 소스로 모든 코드 공개
@@ -372,3 +376,6 @@ TLS 복구 방식을 변경하기 전에
 [ADR-0007](docs/decisions/0007-autocafe-tls-chain-recovery.md)을 확인해야
 합니다. Autocafe 장애 재현과 인증서 갱신 절차는
 [`autocafe-tls-chain.md`](docs/references/autocafe-tls-chain.md)에 보존됩니다.
+외부 응답의 메모리 상한과 변경 기준은
+[ADR-0008](docs/decisions/0008-bounded-upstream-response-bodies.md)에
+기록되어 있습니다.
