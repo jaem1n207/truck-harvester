@@ -188,7 +188,7 @@ describe('GET /api/v2/checkpaper/asset', () => {
         })
       )
       .mockResolvedValueOnce(
-        new Response('a{background:url("../img.png")}', {
+        new Response('a{background:url("../assets/img.png")}', {
           status: 200,
           headers: { 'content-type': 'text/css' },
         })
@@ -205,7 +205,7 @@ describe('GET /api/v2/checkpaper/asset', () => {
       expect.objectContaining({ redirect: 'manual' })
     )
     expect(rewritten).toContain(
-      encodeURIComponent('https://checkpaper.jmenetworks.co.kr/img.png')
+      encodeURIComponent('https://checkpaper.jmenetworks.co.kr/assets/img.png')
     )
     expect(response.headers.get('content-type')).toBe('text/css')
   })

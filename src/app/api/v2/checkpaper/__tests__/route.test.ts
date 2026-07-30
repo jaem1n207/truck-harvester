@@ -5,6 +5,8 @@ import { CHECKPAPER_FETCH_TIMEOUT_MS } from '@/v2/shared/lib/checkpaper-proxy'
 import { GET, maxDuration } from '../route'
 
 const sourceUrl = 'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3'
+const upgradedSourceUrl =
+  'https://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3'
 const finalUrl =
   'https://checkpaper.jmenetworks.co.kr/Service/CheckPaper?checkNo=4107099659&print=0&iframe=1&key='
 const carmodooUrl =
@@ -93,7 +95,7 @@ describe('GET /api/v2/checkpaper', () => {
 
     expect(response.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledWith(
-      sourceUrl,
+      upgradedSourceUrl,
       expect.objectContaining({
         cache: 'no-store',
         redirect: 'manual',
