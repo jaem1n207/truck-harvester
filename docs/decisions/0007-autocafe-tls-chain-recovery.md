@@ -38,6 +38,10 @@ certificate. The leaf issuer was `GoGetSSL RSA DV CA`, but the server omitted
 that public intermediate. The final `checkpaper.jmenetworks.co.kr` request
 returned 200 in plain Node and was not the failing system.
 
+This TLS failure classification is separate from an Autocafe page that loads
+successfully and explicitly says `등록된 성능점검 내역이 없습니다`. That response is
+an absent-record state, not a transport or renderer failure.
+
 ## Decision
 
 Keep standard `fetch` as the primary transport for every allowlisted CheckPaper
@@ -166,7 +170,9 @@ can repair a missing issuer chain.
 ### Skip performance-check resolution and suppress the warning
 
 That would hide the symptom while continuing to omit a required user file.
-The renderer and save status were correct to report the missing document.
+Transport and renderer failures must keep the confirmation-needed notice.
+Only an upstream response that explicitly confirms no registered record may use
+the quieter not-registered label.
 
 ## Consequences
 
@@ -181,6 +187,9 @@ The renderer and save status were correct to report the missing document.
 - Header-first fallback streaming allows redirect and MIME policy to run before
   a full response is buffered. Rejected, redirected, oversized, or timed-out
   bodies are canceled.
+- A successfully fetched Autocafe page that explicitly reports no registered
+  record becomes `performanceCheckStatus: not_registered`, while TLS, redirect,
+  and renderer failures remain confirmation-needed states.
 - The intermediate expires on 2028-09-05, but Autocafe may rotate issuers
   earlier.
 
