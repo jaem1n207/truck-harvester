@@ -13,6 +13,10 @@
   redirect loop, server-owned literal origin and host-specific path policy,
   4.5-second shared budget, and exact-host Autocafe GoGetSSL missing-chain
   recovery described by ADR-0007.
+- `src/v2/shared/lib/bounded-response.ts` is the shared application memory
+  boundary for normal Fetch and TLS fallback responses. Listing HTML is capped
+  at 2 MiB, CheckPaper HTML/CSS at 4 MiB, and binary assets at 16 MiB. Declared
+  length is an early check; streamed bytes are authoritative.
 - `src/v2/entities/url/model.ts` is the source allowlist and required query
   parameter boundary. Keep fetch recovery narrower than or equal to this
   contract.
@@ -24,7 +28,9 @@
   `docs/runbooks/debug-failed-scrape.md`; the design rationale and certificate
   lifecycles are in
   `docs/decisions/0006-listing-source-tls-chain-recovery.md` and
-  `docs/decisions/0007-autocafe-tls-chain-recovery.md`.
+  `docs/decisions/0007-autocafe-tls-chain-recovery.md`. Upstream response
+  resource limits and their change criteria are in
+  `docs/decisions/0008-bounded-upstream-response-bodies.md`.
 
 ## Don't do these (already decided against)
 
@@ -37,3 +43,6 @@
 - ❌ Don't disable TLS verification, set a process-global CA override, or
   downgrade listing or performance-check fetches to HTTP. Follow ADR-0006,
   ADR-0007, and the scrape runbook.
+- ❌ Don't call `text()`, `arrayBuffer()`, or `Buffer.concat` on an upstream
+  response before enforcing the shared application byte limit. Don't rely on
+  timeout or `Content-Length` alone.
