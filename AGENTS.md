@@ -77,6 +77,10 @@ feel fast, recoverable, and self-explanatory.
 - Umami analytics may collect failed-listing URL, bounded unsupported input
   sample, vehicle number, and vehicle name only inside the approved
   failed-listing diagnostics event.
+- All allowlisted upstream response bodies must use the shared bounded stream
+  reader. Keep the current 2 MiB listing HTML, 4 MiB CheckPaper HTML/CSS, and
+  16 MiB CheckPaper binary ceilings unless ADR-0008 is updated with payload
+  evidence and boundary tests.
 - User-facing copy is Korean-only and non-technical.
 - Default preview/save concurrency is 5 unless a later ADR changes it.
 - Never bypass listing-source TLS verification with
