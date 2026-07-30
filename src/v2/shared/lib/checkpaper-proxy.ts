@@ -3,11 +3,21 @@ import { rootCertificates } from 'node:tls'
 
 import { load } from 'cheerio'
 
+import {
+  cancelResponseBody,
+  createStreamingResponse,
+  readBoundedResponseBytes,
+  readBoundedResponseText,
+  toResponseHeaders,
+} from './bounded-response'
+
 const MAX_CHECKPAPER_REDIRECTS = 4
 const MAX_CHECKPAPER_URL_LENGTH = 4096
 const CHECKPAPER_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
 const SAME_ORIGIN_PROXY_URL_BASE = 'https://truck-harvester.local'
 export const CHECKPAPER_FETCH_TIMEOUT_MS = 4500
+export const CHECKPAPER_HTML_MAX_BYTES = 4 * 1024 * 1024
+export const CHECKPAPER_ASSET_MAX_BYTES = 16 * 1024 * 1024
 
 const autocafeHostname = 'autocafe.co.kr'
 
@@ -269,23 +279,6 @@ function shouldRecoverAutocafeCertificateChain(url: string, error: unknown) {
   )
 }
 
-function toResponseHeaders(headers: import('node:http').IncomingHttpHeaders) {
-  const responseHeaders = new Headers()
-
-  Object.entries(headers).forEach(([name, value]) => {
-    if (Array.isArray(value)) {
-      value.forEach((item) => responseHeaders.append(name, item))
-      return
-    }
-
-    if (value !== undefined) {
-      responseHeaders.set(name, value)
-    }
-  })
-
-  return responseHeaders
-}
-
 function fetchAutocafeWithTrustedChain(
   url: string,
   { headers, signal }: { headers: HeadersInit; signal: AbortSignal }
@@ -312,24 +305,13 @@ function fetchAutocafeWithTrustedChain(
         signal,
       },
       (response) => {
-        const chunks: Buffer[] = []
-
-        response.on('data', (chunk: Buffer) => {
-          chunks.push(chunk)
-        })
-        response.on('end', () => {
-          resolve(
-            new Response(Buffer.concat(chunks), {
-              headers: toResponseHeaders(response.headers),
-              status: response.statusCode ?? 502,
-              statusText: response.statusMessage,
-            })
-          )
-        })
-        response.on('error', reject)
-        response.on('aborted', () => {
-          reject(new Error('Autocafe response aborted'))
-        })
+        resolve(
+          createStreamingResponse(response, {
+            headers: toResponseHeaders(response.headers),
+            status: response.statusCode ?? 502,
+            statusText: response.statusMessage,
+          })
+        )
       }
     )
 
@@ -607,96 +589,30 @@ function createTimeoutError() {
   )
 }
 
-async function readWithTimeoutFromReader<T>(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  timeoutMs: number,
-  readBuffer: (chunks: Uint8Array[]) => T
-) {
-  const chunks: Uint8Array[] = []
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  let timedOut = false
-
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      timedOut = true
-      void reader.cancel()
-      reject(createTimeoutError())
-    }, timeoutMs)
-  })
-
-  try {
-    while (true) {
-      const chunkOrTimeout = (await Promise.race([reader.read(), timeout])) as
-        | ReadableStreamReadResult<Uint8Array>
-        | typeof timeout
-
-      if (timedOut) {
-        throw createTimeoutError()
-      }
-
-      if ('done' in chunkOrTimeout) {
-        if (chunkOrTimeout.done) {
-          return readBuffer(chunks)
-        }
-
-        chunks.push(chunkOrTimeout.value ?? new Uint8Array())
-      }
-    }
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-    }
-  }
-}
-
 export async function readResponseTextWithTimeout(
   response: Response,
-  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS,
+  maxBytes = CHECKPAPER_HTML_MAX_BYTES
 ): Promise<string> {
-  if (!response.body) {
-    return response.text()
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-
-  return readWithTimeoutFromReader(reader, timeoutMs, (chunks) => {
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-    const merged = new Uint8Array(totalLength)
-
-    let offset = 0
-    for (const chunk of chunks) {
-      merged.set(chunk, offset)
-      offset += chunk.length
-    }
-
-    return decoder.decode(merged)
+  return readBoundedResponseText(response, {
+    maxBytes,
+    timeoutMs,
+    createTimeoutError,
   })
 }
 
 export async function readResponseArrayBufferWithTimeout(
   response: Response,
-  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS
+  timeoutMs = CHECKPAPER_FETCH_TIMEOUT_MS,
+  maxBytes = CHECKPAPER_ASSET_MAX_BYTES
 ): Promise<ArrayBuffer> {
-  if (!response.body) {
-    const fallback = await response.arrayBuffer()
-    return fallback
-  }
-
-  const reader = response.body.getReader()
-
-  return readWithTimeoutFromReader(reader, timeoutMs, (chunks) => {
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-    const merged = new Uint8Array(totalLength)
-
-    let offset = 0
-    for (const chunk of chunks) {
-      merged.set(chunk, offset)
-      offset += chunk.length
-    }
-
-    return merged.buffer.slice(0, merged.byteLength)
+  const body = await readBoundedResponseBytes(response, {
+    maxBytes,
+    timeoutMs,
+    createTimeoutError,
   })
+
+  return body.buffer
 }
 
 export function rewriteCheckPaperHtml(html: string, finalUrl: string) {
@@ -842,18 +758,20 @@ export function rewriteCheckPaperCss(css: string, finalUrl: string) {
   })
 }
 
-type RedirectError = Error & {
-  code: 'UNSAFE_REDIRECT' | 'REDIRECT_LIMIT_REACHED' | 'BUDGET_EXCEEDED'
+type RedirectErrorCode =
+  | 'UNSAFE_REDIRECT'
+  | 'REDIRECT_LIMIT_REACHED'
+  | 'BUDGET_EXCEEDED'
+
+class CheckPaperRedirectError extends Error {
+  constructor(readonly code: RedirectErrorCode) {
+    super(`CheckPaper redirect blocked: ${code}`)
+    this.name = 'CheckPaperRedirectError'
+  }
 }
 
-function createRedirectError(code: RedirectError['code']) {
-  const error = new Error(
-    `CheckPaper redirect blocked: ${code}`
-  ) as RedirectError
-
-  error.code = code
-
-  return error
+function createRedirectError(code: RedirectErrorCode) {
+  return new CheckPaperRedirectError(code)
 }
 
 export async function fetchWithManualRedirect(
@@ -913,11 +831,13 @@ export async function fetchWithManualRedirect(
 
       if (response.status >= 300 && response.status < 400) {
         if (redirectCount === maxRedirects) {
+          await cancelResponseBody(response)
           throw createRedirectError('REDIRECT_LIMIT_REACHED')
         }
 
         const location = response.headers.get('location')
         if (!location) {
+          await cancelResponseBody(response)
           throw createRedirectError('REDIRECT_LIMIT_REACHED')
         }
 
@@ -926,9 +846,11 @@ export async function fetchWithManualRedirect(
         )
 
         if (!nextUrl) {
+          await cancelResponseBody(response)
           throw createRedirectError('UNSAFE_REDIRECT')
         }
 
+        await cancelResponseBody(response)
         currentUrl = nextUrl
 
         continue

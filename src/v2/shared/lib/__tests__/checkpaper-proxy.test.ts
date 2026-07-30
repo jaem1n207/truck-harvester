@@ -637,4 +637,43 @@ describe('checkpaper proxy helpers', () => {
 
     expect(result).toBe('abcd')
   })
+
+  it('rejects a text response when streamed bytes cross its body limit', async () => {
+    const encoder = new TextEncoder()
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('ab'))
+          controller.enqueue(encoder.encode('cde'))
+          controller.close()
+        },
+      }),
+      { status: 200 }
+    )
+
+    await expect(
+      readResponseTextWithTimeout(response, 1000, 4)
+    ).rejects.toMatchObject({
+      code: 'RESPONSE_BODY_TOO_LARGE',
+      limitBytes: 4,
+      observedBytes: 5,
+    })
+  })
+
+  it('accepts an array-buffer response exactly at its body limit', async () => {
+    const response = new Response('abcd', {
+      status: 200,
+      headers: {
+        'content-length': '4',
+      },
+    })
+
+    const arrayBuffer = await readResponseArrayBufferWithTimeout(
+      response,
+      1000,
+      4
+    )
+
+    expect(new TextDecoder().decode(new Uint8Array(arrayBuffer))).toBe('abcd')
+  })
 })
