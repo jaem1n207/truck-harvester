@@ -10,8 +10,9 @@
 - `src/v2/shared/lib/parse-truck-html.ts` is the pure Cheerio parser for listing
   fields, SmartStore manuscript values, images, and performance-check links.
 - `src/v2/shared/lib/checkpaper-proxy.ts` owns the allowlisted performance-check
-  redirect loop, 4.5-second shared budget, and exact-host Autocafe GoGetSSL
-  missing-chain recovery described by ADR-0007.
+  redirect loop, server-owned literal origin and host-specific path policy,
+  4.5-second shared budget, and exact-host Autocafe GoGetSSL missing-chain
+  recovery described by ADR-0007.
 - `src/v2/entities/url/model.ts` is the source allowlist and required query
   parameter boundary. Keep fetch recovery narrower than or equal to this
   contract.
