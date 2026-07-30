@@ -19,6 +19,8 @@ feel fast, recoverable, and self-explanatory.
 - Zustand vanilla stores for prepared-listing and onboarding state.
 - Zod for domain contracts and URL extraction.
 - Cheerio for server-side HTML parsing.
+- Node HTTPS for a hostname-scoped certificate-chain recovery path when the
+  listing source omits its public intermediate CA certificate.
 - Client-side preview concurrency helpers with default concurrency 5.
 - Optional Umami Cloud analytics for aggregate work-funnel events and failed-listing diagnostics.
 - Vitest, Playwright, and axe for the three-layer test scaffold.
@@ -38,6 +40,8 @@ feel fast, recoverable, and self-explanatory.
 ## Where To Look
 
 - `src/app/truck-harvester-app.tsx` is the root route composition layer.
+- `src/app/api/v2/parse-truck/fetch-listing-html.ts` owns the listing-source
+  request timeout and scoped TLS chain recovery.
 - The compatibility redirect page sends old `/v2` visits to `/`.
 - `src/v2/design-system/` owns token and motion guidance.
 - `src/v2/entities/` owns pure Zod schemas and discriminated unions.
@@ -72,6 +76,12 @@ feel fast, recoverable, and self-explanatory.
   failed-listing diagnostics event.
 - User-facing copy is Korean-only and non-technical.
 - Default preview/save concurrency is 5 unless a later ADR changes it.
+- Never bypass listing-source TLS verification with
+  `NODE_TLS_REJECT_UNAUTHORIZED=0`, `rejectUnauthorized: false`, or an HTTP
+  downgrade.
+- If the listing-source issuer or chain changes, update ADR-0006, the failed
+  scrape runbook, the embedded certificate fingerprint, and regression
+  coverage together.
 
 ## Knowledge Links
 
@@ -80,4 +90,5 @@ feel fast, recoverable, and self-explanatory.
 - Add a design token: `docs/runbooks/add-design-token.md`
 - Debug failed scraping: `docs/runbooks/debug-failed-scrape.md`
 - Add an E2E test: `docs/runbooks/add-e2e-test.md`
+- Listing source TLS recovery: `docs/decisions/0006-listing-source-tls-chain-recovery.md`
 - Decisions: `docs/decisions/`
