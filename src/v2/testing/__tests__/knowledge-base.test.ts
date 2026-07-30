@@ -16,6 +16,7 @@ const requiredDocs = [
   'docs/decisions/0003-design-token-strategy.md',
   'docs/decisions/0004-concurrency-limiter-choice.md',
   'docs/decisions/0005-onboarding-tour-strategy.md',
+  'docs/decisions/0006-listing-source-tls-chain-recovery.md',
 ]
 
 const layerAgentFiles = [
@@ -85,5 +86,41 @@ describe('v2 AI knowledge base', () => {
     expect(decision).toContain('ArrowLeft')
     expect(decision).toContain('ArrowRight')
     expect(decision).toContain('editable controls')
+  })
+
+  it('documents the listing source TLS recovery boundary and operations', () => {
+    const architecture = readText('docs/architecture.md')
+    const runbook = readText('docs/runbooks/debug-failed-scrape.md')
+    const decision = readText(
+      'docs/decisions/0006-listing-source-tls-chain-recovery.md'
+    )
+    const guide = readText('AGENTS.md')
+
+    expect(architecture).toContain('Listing Source Fetch Trust Boundary')
+    expect(architecture).toContain('UNABLE_TO_VERIFY_LEAF_SIGNATURE')
+    expect(runbook).toContain('openssl s_client')
+    expect(runbook).toContain('NODE_TLS_REJECT_UNAUTHORIZED=0')
+    expect(decision).toContain('Rejected Alternatives')
+    expect(decision).toContain('NODE_EXTRA_CA_CERTS')
+    expect(decision).toContain('public repository')
+    expect(guide).toContain(
+      'docs/decisions/0006-listing-source-tls-chain-recovery.md'
+    )
+  })
+
+  it('keeps rebuild memos clearly separated from current runtime guidance', () => {
+    const memoGuide = readText('memo/AGENTS.md')
+    const currentContext = readText('memo/useful-repo-context.md')
+
+    expect(memoGuide).toContain('approved historical phase plan')
+    expect(memoGuide).toContain('The old `/v2` URL')
+    expect(memoGuide).toContain('compatibility redirect')
+    expect(memoGuide).not.toContain('We are mid-rebuild')
+    expect(currentContext).toContain(
+      'src/app/api/v2/parse-truck/fetch-listing-html.ts'
+    )
+    expect(currentContext).toContain(
+      'docs/decisions/0006-listing-source-tls-chain-recovery.md'
+    )
   })
 })
