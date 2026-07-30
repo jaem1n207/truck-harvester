@@ -1,4 +1,5 @@
 import { type TruckListing } from '@/v2/entities/truck'
+import { isPerformanceCheckNotRegisteredError } from '@/v2/shared/lib/performance-check-contract'
 
 import {
   buildImageFileName,
@@ -324,7 +325,9 @@ async function savePerformanceCheckImages({
 
     return {
       performanceCheckImageCount: 0,
-      performanceCheckStatus: 'missing',
+      performanceCheckStatus: isPerformanceCheckNotRegisteredError(error)
+        ? 'not_registered'
+        : 'missing',
     } satisfies Pick<
       TruckSaveResult,
       'performanceCheckImageCount' | 'performanceCheckStatus'

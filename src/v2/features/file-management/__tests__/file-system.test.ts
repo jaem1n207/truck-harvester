@@ -443,6 +443,33 @@ describe('v2 file-system', () => {
     ).toHaveBeenCalledWith(expect.stringContaining('  차량정보 :'))
   })
 
+  it('reports an explicitly unregistered performance check separately', async () => {
+    stubFetch(
+      vi.fn(async () => {
+        return new Response('image', { status: 200 })
+      }) as typeof fetch
+    )
+    const { rootDirectory, vehicleDirectory } = createDirectoryHandle()
+    const notRegisteredError = new Error('등록된 성능점검기록부가 없어요.')
+    notRegisteredError.name = 'PerformanceCheckNotRegisteredError'
+
+    await expect(
+      saveTruckToDirectory(rootDirectory, listing, {
+        capturePerformanceCheckImages: vi.fn(async () => {
+          throw notRegisteredError
+        }),
+      })
+    ).resolves.toMatchObject({
+      performanceCheckImageCount: 0,
+      performanceCheckStatus: 'not_registered',
+      sourceUrl: listing.url,
+    })
+    expect(vehicleDirectory.getDirectoryHandle).not.toHaveBeenCalledWith(
+      '성능점검기록부',
+      { create: true }
+    )
+  })
+
   it('preserves vehicle image progress semantics', async () => {
     stubFetch(
       vi.fn(async (url: string) => {
