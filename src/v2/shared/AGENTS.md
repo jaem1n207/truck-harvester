@@ -6,8 +6,8 @@ shared-folder dependencies and image-stamping code.
 
 ## Segments
 
-- `lib/`: pure utilities such as HTML parsing, retry, concurrency, and
-  small helpers.
+- `lib/`: shared utilities such as HTML parsing, retry, concurrency, and the
+  server-only CheckPaper redirect/TLS proxy helper.
 - `model/`: cross-feature Zustand vanilla stores and selectors.
 - `ui/`: low-level UI primitives styled with root app tokens from `src/app/theme.css`.
 
@@ -21,6 +21,9 @@ shared-folder dependencies and image-stamping code.
 - Browser persistence must be injected or guarded for SSR. Do not read
   `localStorage` during module initialization.
 - User-facing copy remains Korean-only and recovery-oriented.
+- `checkpaper-proxy.ts` is imported only by Node route handlers. Keep redirect
+  destinations allowlisted, TLS verification enabled, and Autocafe certificate
+  recovery restricted to exact host plus known missing-chain errors.
 
 ## Public API
 
@@ -30,6 +33,8 @@ Add a colocated test before adding or changing store actions.
 ## Knowledge Links
 
 - Shared state in the flow: `docs/architecture.md`
+- CheckPaper TLS decision:
+  `docs/decisions/0007-autocafe-tls-chain-recovery.md`
 - Token changes: `docs/runbooks/add-design-token.md`
 - Relevant decisions: `docs/decisions/0003-design-token-strategy.md`,
   `docs/decisions/0004-concurrency-limiter-choice.md`
