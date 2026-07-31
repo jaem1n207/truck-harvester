@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 
 import { type PreparedListing } from '@/v2/features/listing-preparation'
+import { v2Copy } from '@/v2/shared/lib/copy'
 import { cn } from '@/v2/shared/lib/utils'
 
 interface PreparedListingStatusPanelProps {
@@ -29,6 +30,9 @@ const needsPerformanceCheckReview = (item: PreparedListing) =>
   item.status === 'saved' &&
   (item.performanceCheckStatus === 'missing' ||
     item.performanceCheckStatus === 'not_requested')
+
+const hasUnregisteredPerformanceCheck = (item: PreparedListing) =>
+  item.status === 'saved' && item.performanceCheckStatus === 'not_registered'
 
 const getSummary = (items: readonly PreparedListing[]) => {
   const saveRelevantItems = items.filter(isSaveRelevant)
@@ -64,8 +68,9 @@ const getSummary = (items: readonly PreparedListing[]) => {
 const getMissingPerformanceCheckCount = (items: readonly PreparedListing[]) =>
   items.filter(needsPerformanceCheckReview).length
 
-const getMissingPerformanceCheckNotice = (count: number) =>
-  `저장은 완료됐어요. 다만 성능점검기록부를 찾지 못한 차량이 ${count}대 있어요. 스마트스토어에 올리기 전에 해당 차량 폴더를 한 번 확인해 주세요.`
+const getUnregisteredPerformanceCheckCount = (
+  items: readonly PreparedListing[]
+) => items.filter(hasUnregisteredPerformanceCheck).length
 
 function PreparedListingStatusIcon({ item }: { item: PreparedListing }) {
   if (item.status === 'checking' || item.status === 'saving') {
@@ -113,8 +118,11 @@ function PreparedListingMessage({ item }: { item: PreparedListing }) {
       item.vehicleImageStatus === 'partial'
         ? '차량 사진 일부 확인 필요'
         : undefined,
+      hasUnregisteredPerformanceCheck(item)
+        ? v2Copy.processingStatus.performanceCheck.notRegisteredLabel
+        : undefined,
       needsPerformanceCheckReview(item)
-        ? '성능점검기록부 확인 필요'
+        ? v2Copy.processingStatus.performanceCheck.needsReviewLabel
         : undefined,
     ].filter((message): message is string => Boolean(message))
 
@@ -141,6 +149,8 @@ export function PreparedListingStatusPanel({
 }: PreparedListingStatusPanelProps) {
   const summary = getSummary(items)
   const missingPerformanceCheckCount = getMissingPerformanceCheckCount(items)
+  const unregisteredPerformanceCheckCount =
+    getUnregisteredPerformanceCheckCount(items)
 
   return (
     <section
@@ -166,9 +176,18 @@ export function PreparedListingStatusPanel({
         >
           {summary.text}
         </p>
+        {unregisteredPerformanceCheckCount > 0 ? (
+          <p className="text-muted-foreground text-sm">
+            {v2Copy.processingStatus.performanceCheck.notRegisteredNotice(
+              unregisteredPerformanceCheckCount
+            )}
+          </p>
+        ) : null}
         {missingPerformanceCheckCount > 0 ? (
           <p className="text-muted-foreground text-sm">
-            {getMissingPerformanceCheckNotice(missingPerformanceCheckCount)}
+            {v2Copy.processingStatus.performanceCheck.needsReviewNotice(
+              missingPerformanceCheckCount
+            )}
           </p>
         ) : null}
       </div>

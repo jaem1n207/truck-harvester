@@ -148,12 +148,16 @@ Vercel image에 설치된 font에 의존하지 않는다.
 1. parser가 매물 페이지에서 `성능점검보기` 링크를 찾아 `performanceCheckUrl`로
    반환한다.
 2. save flow가 `capturePerformanceCheckImages(performanceCheckUrl)`를 호출한다.
-3. capture layer가 direct URL 또는 resolved final URL로 provider를 고른다.
-4. CheckPaper PDF면 기존 PDF renderer를 사용한다.
-5. Carmodoo면 `carmodoo-native` provider가 renderer API에 URL을 보낸다.
-6. renderer API가 native screenshot 기반 JPG bytes 배열을 반환한다.
-7. file-system과 ZIP fallback은 기존 경로와 파일명으로 bytes를 저장한다.
-8. 실패 시 성능점검기록부만 `missing`으로 처리하고 차량 저장은 계속한다.
+3. Autocafe proxy가 명시적 미등록 응답을 반환하면 capture layer가 typed error로
+   보존한다.
+4. 그 외에는 capture layer가 direct URL 또는 resolved final URL로 provider를
+   고른다.
+5. CheckPaper PDF면 기존 PDF renderer를 사용한다.
+6. Carmodoo면 `carmodoo-native` provider가 renderer API에 URL을 보낸다.
+7. renderer API가 native screenshot 기반 JPG bytes 배열을 반환한다.
+8. file-system과 ZIP fallback은 기존 경로와 파일명으로 bytes를 저장한다.
+9. 명시적 미등록은 `not_registered`, 나머지 실패는 `missing`으로 처리하고
+   차량 저장은 계속한다.
 
 ## Error Handling
 
@@ -161,8 +165,12 @@ Vercel image에 설치된 font에 의존하지 않는다.
 - Carmodoo HTML을 불러오지 못하면 renderer API는 실패 응답을 반환한다.
 - page load, asset load, screenshot, JPG 변환이 timeout을 넘으면 실패한다.
 - 실패는 capture layer에서 기존 non-fatal missing 흐름으로 흡수한다.
+- Autocafe가 등록 내역이 없다고 명시한 응답은 renderer 실패와 구분해
+  `not_registered`로 보존한다.
 - renderer page와 browser context는 성공/실패와 관계없이 정리한다.
-- 사용자에게는 기존 완료 요약과 확인 필요 라벨만 보여준다.
+- 사용자에게는 기술 용어를 숨기되, 명시적 미등록에는
+  `등록된 성능점검기록부 없음`, 불확실한 실패에는 기존 확인 필요 라벨을
+  보여준다.
 
 ## Security
 

@@ -185,8 +185,10 @@ rendered and the missing side is `정보 없음`.
 Performance-check saving is non-fatal. If the listing has no usable
 performance-check record or the printable record cannot be rendered, the
 vehicle images and manuscript still save successfully. The completion summary
-shows one quiet Korean notice asking the user to check the affected vehicle
-folder before SmartStore registration.
+distinguishes a source page that explicitly says no record is registered from a
+record that could not be confirmed. Explicitly unregistered records are labeled
+as absent, while only unconfirmed records ask the user to check the affected
+vehicle folder before SmartStore registration.
 
 ## CheckPaper Integration
 
@@ -199,7 +201,10 @@ through a same-origin native browser renderer API so the saved JPGs match the
 browser layout.
 
 - `GET /api/v2/checkpaper` fetches supported CheckPaper or intermediate pages,
-  follows redirects, and rewrites assets to same-origin URLs.
+  follows redirects, and rewrites assets to same-origin URLs. If the upstream
+  page explicitly says no inspection record is registered, the route returns a
+  typed `404` so the save result can preserve that state instead of treating it
+  as a rendering failure.
 - `GET /api/v2/checkpaper/asset` proxies supported CSS, image, script, and
   printable record assets.
 - `POST /api/v2/checkpaper/carmodoo-render` accepts only Carmodoo print URLs,

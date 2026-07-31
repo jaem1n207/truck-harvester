@@ -45,6 +45,9 @@ feel fast, recoverable, and self-explanatory.
 - `src/v2/shared/lib/checkpaper-proxy.ts` owns the CheckPaper redirect
   literal-origin/path policy, shared timeout, and scoped Autocafe TLS chain
   recovery.
+- `src/v2/shared/lib/performance-check-contract.ts` owns the typed
+  not-registered response contract shared by the CheckPaper route, capture
+  workflow, and save-result classification.
 - The compatibility redirect page sends old `/v2` visits to `/`.
 - `src/v2/design-system/` owns token and motion guidance.
 - `src/v2/entities/` owns pure Zod schemas and discriminated unions.

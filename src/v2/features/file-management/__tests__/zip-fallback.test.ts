@@ -162,6 +162,31 @@ describe('createTruckZipBlob', () => {
     ])
   })
 
+  it('reports an explicitly unregistered performance check separately', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('image-bytes', { status: 200 }))
+    )
+    const notRegisteredError = new Error('등록된 성능점검기록부가 없어요.')
+    notRegisteredError.name = 'PerformanceCheckNotRegisteredError'
+
+    const { blob, results } = await createTruckZipArchive([listing], {
+      capturePerformanceCheckImages: vi.fn(async () => {
+        throw notRegisteredError
+      }),
+    })
+    const zip = await JSZip.loadAsync(blob)
+
+    expect(zip.files['12가_3456/성능점검기록부/']).toBeUndefined()
+    expect(results).toEqual([
+      expect.objectContaining({
+        performanceCheckImageCount: 0,
+        performanceCheckStatus: 'not_registered',
+        sourceUrl: listing.url,
+      }),
+    ])
+  })
+
   it('reports missing when a listing has no performance check URL', async () => {
     vi.stubGlobal(
       'fetch',

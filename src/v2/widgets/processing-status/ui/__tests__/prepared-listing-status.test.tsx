@@ -289,6 +289,25 @@ describe('PreparedListingStatusPanel', () => {
     expect(html).toContain('data-complete-summary="true"')
   })
 
+  it('clearly labels a performance check that the source says is not registered', () => {
+    const html = renderToStaticMarkup(
+      <PreparedListingStatusPanel
+        items={[
+          {
+            ...savedItem,
+            performanceCheckImageCount: 0,
+            performanceCheckStatus: 'not_registered',
+          },
+        ]}
+      />
+    )
+
+    expect(html).toContain('등록된 성능점검기록부 없음')
+    expect(html).toContain('성능점검기록부가 등록되지 않은 차량이 1대 있어요.')
+    expect(html).not.toContain('성능점검기록부 확인 필요')
+    expect(html).not.toContain('해당 차량 폴더를 한 번 확인해 주세요')
+  })
+
   it('labels partial vehicle image saves without marking the card failed', () => {
     const html = renderToStaticMarkup(
       <PreparedListingStatusPanel

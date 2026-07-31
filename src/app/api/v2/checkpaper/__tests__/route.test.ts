@@ -159,6 +159,39 @@ describe('GET /api/v2/checkpaper', () => {
     expect(body).not.toContain('onclick')
   })
 
+  it('reports when the source explicitly has no registered performance check', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        `
+          <html>
+            <head><title>카매니저</title></head>
+            <body>
+              등록된 성능점검 내역이 없습니다
+            </body>
+          </html>
+        `,
+        {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await GET(createRequest(sourceUrl))
+
+    expect(response.status).toBe(404)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('x-performance-check-status')).toBe(
+      'not_registered'
+    )
+    expect(await response.json()).toEqual({
+      success: false,
+      code: 'PERFORMANCE_CHECK_NOT_REGISTERED',
+      message: '등록된 성능점검기록부가 없어요.',
+    })
+  })
+
   it('fetches and rewrites Carmodoo html', async () => {
     const carmodooHtml = `
       <html>

@@ -4,6 +4,11 @@ import {
   decodeCarmodooNativeRenderResponse,
   isCarmodooPrintUrl,
 } from '@/v2/shared/lib/carmodoo-performance-check'
+import {
+  PERFORMANCE_CHECK_NOT_REGISTERED_STATUS,
+  PERFORMANCE_CHECK_STATUS_HEADER,
+  PerformanceCheckNotRegisteredError,
+} from '@/v2/shared/lib/performance-check-contract'
 
 const DEFAULT_PROXY_PATH = '/api/v2/checkpaper'
 const DEFAULT_ASSET_PROXY_PATH = '/api/v2/checkpaper/asset'
@@ -391,6 +396,13 @@ const resolvePrintableUrlFromProxy: PerformanceCheckPrintableUrlResolver =
         signal,
       }
     )
+
+    if (
+      response.headers.get(PERFORMANCE_CHECK_STATUS_HEADER) ===
+      PERFORMANCE_CHECK_NOT_REGISTERED_STATUS
+    ) {
+      throw new PerformanceCheckNotRegisteredError()
+    }
 
     if (!response.ok) {
       return undefined

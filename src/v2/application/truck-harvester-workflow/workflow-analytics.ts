@@ -256,7 +256,11 @@ export function createWorkflowAnalytics({
         performanceCheckSavedCount += 1
       }
 
-      if (requested && result.performanceCheckStatus === 'missing') {
+      if (
+        requested &&
+        (result.performanceCheckStatus === 'missing' ||
+          result.performanceCheckStatus === 'not_registered')
+      ) {
         performanceCheckMissingCount += 1
       }
 

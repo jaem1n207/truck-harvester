@@ -13,6 +13,10 @@
   redirect loop, server-owned literal origin and host-specific path policy,
   4.5-second shared budget, and exact-host Autocafe GoGetSSL missing-chain
   recovery described by ADR-0007.
+- `src/v2/shared/lib/performance-check-contract.ts` owns the explicit upstream
+  not-registered marker and typed response contract. The save layer preserves
+  it as `performanceCheckStatus: not_registered` so the UI does not present an
+  absent record as a system failure.
 - `src/v2/shared/lib/bounded-response.ts` is the shared application memory
   boundary for normal Fetch and TLS fallback responses. Listing HTML is capped
   at 2 MiB, CheckPaper HTML/CSS at 4 MiB, and binary assets at 16 MiB. Declared

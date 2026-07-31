@@ -1,4 +1,8 @@
-export type PerformanceCheckSaveStatus = 'saved' | 'missing' | 'not_requested'
+export type PerformanceCheckSaveStatus =
+  | 'saved'
+  | 'missing'
+  | 'not_registered'
+  | 'not_requested'
 export type VehicleImageSaveStatus = 'complete' | 'partial'
 
 export interface TruckSaveResult {

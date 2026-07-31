@@ -25,6 +25,9 @@ shared-folder dependencies and image-stamping code.
   targets from server-owned literal origins, independently encode path/query
   components, reject credentials/fragments/explicit ports, keep host-specific
   path policies closed, and apply the same checks to initial URLs and redirects.
+- `performance-check-contract.ts` is the isomorphic source of truth for the
+  explicit upstream not-registered marker, API response header/code, and typed
+  capture error. Keep it free of Node-only imports.
 - Keep TLS verification enabled and Autocafe certificate recovery restricted to
   exact host plus known missing-chain errors.
 

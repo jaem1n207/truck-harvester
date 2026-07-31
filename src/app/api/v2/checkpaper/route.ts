@@ -10,6 +10,13 @@ import {
   readResponseTextWithTimeout,
   rewriteCheckPaperHtml,
 } from '@/v2/shared/lib/checkpaper-proxy'
+import {
+  hasNoRegisteredPerformanceCheck,
+  PERFORMANCE_CHECK_NOT_REGISTERED_CODE,
+  PERFORMANCE_CHECK_NOT_REGISTERED_MESSAGE,
+  PERFORMANCE_CHECK_NOT_REGISTERED_STATUS,
+  PERFORMANCE_CHECK_STATUS_HEADER,
+} from '@/v2/shared/lib/performance-check-contract'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,6 +33,24 @@ function createErrorResponse(status: number, message: string) {
       status,
       headers: {
         'cache-control': 'no-store',
+      },
+    }
+  )
+}
+
+function createNotRegisteredResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      code: PERFORMANCE_CHECK_NOT_REGISTERED_CODE,
+      message: PERFORMANCE_CHECK_NOT_REGISTERED_MESSAGE,
+    },
+    {
+      status: 404,
+      headers: {
+        'cache-control': 'no-store',
+        [PERFORMANCE_CHECK_STATUS_HEADER]:
+          PERFORMANCE_CHECK_NOT_REGISTERED_STATUS,
       },
     }
   )
@@ -86,6 +111,10 @@ export async function GET(request: Request) {
       timeoutMs,
       CHECKPAPER_HTML_MAX_BYTES
     )
+
+    if (hasNoRegisteredPerformanceCheck(html)) {
+      return createNotRegisteredResponse()
+    }
 
     const rewrittenHtml = rewriteCheckPaperHtml(html, finalUrl)
 
