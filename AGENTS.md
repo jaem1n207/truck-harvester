@@ -2,6 +2,8 @@
 
 This guide is the first stop for Codex work in Truck Harvester. The
 root `/` route serves the rebuilt truck harvester UI in this worktree.
+`AGENTS.md` is the repository-level guidance source. `CLAUDE.md` is its
+compatibility symlink; edit this file only.
 
 ## Mission
 
@@ -68,6 +70,29 @@ feel fast, recoverable, and self-explanatory.
 3. `AGENTS.md`
 4. The nearest nested `AGENTS.md` for the layer you are editing
 5. `docs/architecture.md`
+
+## Engineering Rules
+
+- For human-facing writing—comments, commit messages, and prompt replies—use
+  the fewest precise words possible.
+- Avoid superlatives, praise, and agreement theater. State the facts.
+- Avoid magic numbers and strings. Extract recurring or meaningful values into
+  descriptive constants or enums. Keep self-explanatory one-offs inline.
+  Values defined by a spec, such as HTTP 200 OK, always use constants.
+- Reduce indentation with early returns and `continue`. Avoid the Arrow
+  Anti-Pattern.
+- Keep function names under 30 characters.
+- Use enums instead of booleans for function parameters.
+- Separate logical blocks with blank lines.
+- Program to levels of abstraction. Encapsulate low-level mechanics, such as
+  raw hardware I/O, sector parsing, and direct socket streams, in dedicated
+  driver or abstraction layers. Expose domain-level APIs.
+- Each layer may call only its immediate lower neighbor. UI and controllers
+  must never call database queries, raw drivers, or low-level network clients
+  directly; route through the intermediate service or abstraction layer.
+- Always use braces, including one-line `if` statements.
+- For bug fixes, write and run a failing test first. Implement the fix, then
+  run the test again and observe it pass.
 
 ## Scope Rules
 
