@@ -40,7 +40,7 @@ const UrlExample = () => (
       <div>
         <p className="text-foreground font-medium">주소창 전체 복사</p>
         <p className="text-muted-foreground font-mono text-xs break-all">
-          https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=...
+          https://www.truck-no1.co.kr/model/DetailView.asp?...
         </p>
       </div>
       <div className="border-border bg-background rounded-md border px-3 py-2">

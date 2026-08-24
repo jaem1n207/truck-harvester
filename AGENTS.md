@@ -44,6 +44,8 @@ feel fast, recoverable, and self-explanatory.
 - `src/app/truck-harvester-app.tsx` is the root route composition layer.
 - `src/app/api/v2/parse-truck/fetch-listing-html.ts` owns the listing-source
   request timeout and scoped TLS chain recovery.
+- `src/v2/entities/url/model.ts` owns the fixed listing hostname/path and the
+  legacy or encrypted listing identity strategies.
 - `src/v2/shared/lib/checkpaper-proxy.ts` owns the CheckPaper redirect
   literal-origin/path policy, shared timeout, and scoped Autocafe TLS chain
   recovery.
@@ -117,6 +119,9 @@ feel fast, recoverable, and self-explanatory.
 - If the listing-source issuer or chain changes, update ADR-0006, the failed
   scrape runbook, the embedded certificate fingerprint, and regression
   coverage together.
+- If the listing identity key changes, update ADR-0009, the failed scrape
+  runbook, the architecture document, and entity/paste/API regression coverage
+  together.
 - If the Autocafe issuer or chain changes, update ADR-0007, the incident
   reference, the failed scrape runbook, the embedded certificate fingerprint,
   and regression coverage together.
@@ -132,5 +137,6 @@ feel fast, recoverable, and self-explanatory.
 - Debug failed scraping: `docs/runbooks/debug-failed-scrape.md`
 - Add an E2E test: `docs/runbooks/add-e2e-test.md`
 - Listing source TLS recovery: `docs/decisions/0006-listing-source-tls-chain-recovery.md`
+- Listing URL identities: `docs/decisions/0009-listing-url-identity-strategies.md`
 - Autocafe TLS recovery: `docs/decisions/0007-autocafe-tls-chain-recovery.md`
 - Decisions: `docs/decisions/`

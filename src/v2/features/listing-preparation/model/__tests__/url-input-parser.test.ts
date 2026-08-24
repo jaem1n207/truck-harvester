@@ -7,6 +7,8 @@ import {
 
 const validUrl =
   'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3'
+const encryptedUrl =
+  'https://www.truck-no1.co.kr/model/DetailView.asp?encOnCarNo=170F7EB3CD83769C6699017BF2BA45'
 
 describe('listing preparation url input parser', () => {
   it('extracts supported truck listing addresses from pasted prose', () => {
@@ -40,5 +42,19 @@ describe('listing preparation url input parser', () => {
       success: true,
       urls: [validUrl],
     })
+  })
+
+  it('returns encrypted listing addresses for valid pasted input', () => {
+    expect(parseUrlInputText(`메모\n${encryptedUrl}`)).toEqual({
+      success: true,
+      urls: [encryptedUrl],
+    })
+  })
+
+  it('preserves punctuation inside opaque encrypted identities', () => {
+    const punctuationUrl =
+      'https://www.truck-no1.co.kr/model/DetailView.asp?encOnCarNo=A.'
+
+    expect(extractTruckUrlsFromText(punctuationUrl)).toEqual([punctuationUrl])
   })
 })

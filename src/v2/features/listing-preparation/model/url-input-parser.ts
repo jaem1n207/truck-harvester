@@ -1,4 +1,4 @@
-import { normalizeTruckUrl } from '@/v2/entities/url'
+import { hasOpaqueTruckIdentity, normalizeTruckUrl } from '@/v2/entities/url'
 import { v2Copy } from '@/v2/shared/lib/copy'
 
 export interface UrlInputSuccess {
@@ -26,7 +26,11 @@ export function extractTruckUrlsFromText(value: string): string[] {
 
   for (const match of matches) {
     try {
-      normalizedUrls.add(normalizeTruckUrl(stripTrailingChatPunctuation(match)))
+      const candidate = hasOpaqueTruckIdentity(match)
+        ? match
+        : stripTrailingChatPunctuation(match)
+
+      normalizedUrls.add(normalizeTruckUrl(candidate))
     } catch {
       continue
     }

@@ -4,6 +4,8 @@ import { maxDuration, POST } from '../route'
 
 const validUrl =
   'https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3'
+const encryptedUrl =
+  'https://www.truck-no1.co.kr/model/DetailView.asp?encOnCarNo=170F7EB3CD83769C6699017BF2BA45'
 
 const listingHtml = `
 <!DOCTYPE html>
@@ -87,6 +89,35 @@ describe('POST /api/v2/parse-truck', () => {
         vnumber: '12가3456',
         performanceCheckUrl:
           'http://autocafe.co.kr/ASSO/CarCheck_Form_my.asp?OnCarNo=3',
+        images: ['https://img.example.com/one.jpg'],
+      }),
+    })
+  })
+
+  it('fetches encrypted truck listing addresses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(listingHtml, {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await POST(createRequest({ url: encryptedUrl }))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledWith(
+      encryptedUrl,
+      expect.objectContaining({
+        cache: 'no-store',
+        signal: expect.any(AbortSignal),
+      })
+    )
+    expect(body).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        url: encryptedUrl,
         images: ['https://img.example.com/one.jpg'],
       }),
     })

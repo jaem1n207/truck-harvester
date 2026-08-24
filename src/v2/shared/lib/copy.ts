@@ -4,8 +4,7 @@ export const v2Copy = {
     description:
       '복사한 내용을 그대로 붙여넣으세요. 매물 주소만 자동으로 찾습니다.',
     label: '매물 주소',
-    placeholder:
-      '예: https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3',
+    placeholder: '예: https://www.truck-no1.co.kr/model/DetailView.asp?...',
     submit: '매물 확인 시작',
     errors: {
       empty: '매물 주소를 찾지 못했어요. 복사한 내용을 다시 확인해 주세요.',
