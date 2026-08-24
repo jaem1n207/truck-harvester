@@ -17,7 +17,9 @@ describe('TourExampleCard', () => {
     const html = renderToStaticMarkup(<TourExampleCard kind="url-example" />)
 
     expect(html).toContain('주소창 전체 복사')
-    expect(html).toContain('https://www.truck-no1.co.kr/model/DetailView.asp?')
+    expect(html).toContain(
+      'https://www.truck-no1.co.kr/model/DetailView.asp?...'
+    )
     expect(html).toContain('DetailView.asp?...처럼 앞부분이 빠진 주소')
     expect(html).toContain('덤프 메가트럭 4.5톤')
     expect(html).toContain('확인 완료')
