@@ -47,11 +47,12 @@ bun dev
 
 ## 📁 저장 결과
 
-매물 주소 입력칸에는 다음처럼 `truck-no1.co.kr`의 매물 상세 주소를
-붙여넣습니다.
+매물 주소 입력칸에는 주소창에서 복사한 `truck-no1.co.kr`의 전체 매물 상세
+주소를 붙여넣습니다. 상세 주소의 식별자 형식은 사이트에서 바뀔 수 있으므로
+직접 수정하지 말고 복사한 주소를 그대로 사용합니다.
 
 ```text
-https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3
+https://www.truck-no1.co.kr/model/DetailView.asp?...
 ```
 
 저장하면 선택한 폴더 안에 차량번호별 폴더가 만들어지고, 차량 이미지,
@@ -379,4 +380,6 @@ TLS 복구 방식을 변경하기 전에
 [`autocafe-tls-chain.md`](docs/references/autocafe-tls-chain.md)에 보존됩니다.
 외부 응답의 메모리 상한과 변경 기준은
 [ADR-0008](docs/decisions/0008-bounded-upstream-response-bodies.md)에
-기록되어 있습니다.
+기록되어 있습니다. 매물 주소의 기존·암호화 식별자 지원과 변경 기준은
+[ADR-0009](docs/decisions/0009-listing-url-identity-strategies.md)에 기록되어
+있습니다.
