@@ -2,7 +2,38 @@ import { z } from 'zod'
 
 const allowedDomains = ['www.truck-no1.co.kr'] as const
 const allowedPaths = ['/model/DetailView.asp'] as const
-const requiredDetailParams = ['ShopNo', 'MemberNo', 'OnCarNo'] as const
+const legacyDetailParams = ['ShopNo', 'MemberNo', 'OnCarNo'] as const
+const encryptedDetailParam = 'encOnCarNo'
+const listingIdentityParams = [
+  ...legacyDetailParams,
+  encryptedDetailParam,
+] as const
+
+const hasParamValue = (url: URL, param: string) =>
+  Boolean(url.searchParams.get(param)?.trim())
+
+const hasLegacyIdentity = (url: URL) =>
+  legacyDetailParams.every((param) => hasParamValue(url, param))
+
+const hasEncryptedIdentity = (url: URL) =>
+  hasParamValue(url, encryptedDetailParam)
+
+const hasDuplicateIdentity = (url: URL) =>
+  listingIdentityParams.some(
+    (param) => url.searchParams.getAll(param).length > 1
+  )
+
+const hasListingIdentity = (url: URL) =>
+  !hasDuplicateIdentity(url) &&
+  (hasLegacyIdentity(url) || hasEncryptedIdentity(url))
+
+export function hasOpaqueTruckIdentity(rawUrl: string) {
+  try {
+    return new URL(rawUrl).searchParams.has(encryptedDetailParam)
+  } catch {
+    return false
+  }
+}
 
 export const normalizedTruckUrlSchema = z
   .string()
@@ -39,14 +70,11 @@ export const normalizedTruckUrlSchema = z
         })
       }
 
-      for (const param of requiredDetailParams) {
-        if (!url.searchParams.has(param)) {
-          context.addIssue({
-            code: 'custom',
-            message: '매물 주소에 필요한 정보가 빠져 있습니다.',
-          })
-          break
-        }
+      if (!hasListingIdentity(url)) {
+        context.addIssue({
+          code: 'custom',
+          message: '매물 주소에 필요한 정보가 빠져 있습니다.',
+        })
       }
     })
   )

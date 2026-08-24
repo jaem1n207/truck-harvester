@@ -1,4 +1,5 @@
 export {
+  hasOpaqueTruckIdentity,
   normalizeTruckUrl,
   normalizedTruckUrlSchema,
   truckUrlInputSchema,
