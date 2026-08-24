@@ -21,4 +21,6 @@ handlers, or UI components.
 
 - Entity position in the flow: `docs/architecture.md`
 - Failed scrape debugging context: `docs/runbooks/debug-failed-scrape.md`
+- Listing identity decision:
+  `docs/decisions/0009-listing-url-identity-strategies.md`
 - Relevant decisions: `docs/decisions/0002-client-parallel-vs-server-parallel.md`
