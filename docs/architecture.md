@@ -56,10 +56,12 @@ before saving starts.
 
 ## Listing Source Fetch Trust Boundary
 
-`POST /api/v2/parse-truck` validates the hostname, path, and required query
-parameters before any external request. The route delegates the source request
-to `src/app/api/v2/parse-truck/fetch-listing-html.ts`, then passes successful
-HTML to the pure Cheerio parser.
+`POST /api/v2/parse-truck` validates the hostname, path, and listing identity
+before any external request. The identity contract accepts either the legacy
+non-empty `ShopNo` + `MemberNo` + `OnCarNo` tuple or the current non-empty,
+opaque `encOnCarNo` token. The route delegates the source request to
+`src/app/api/v2/parse-truck/fetch-listing-html.ts`, then passes successful HTML
+to the pure Cheerio parser.
 
 ```mermaid
 flowchart TD
@@ -103,7 +105,9 @@ The rationale, rejected alternatives, certificate lifecycle, and removal
 criteria are recorded in
 `docs/decisions/0006-listing-source-tls-chain-recovery.md`. Operational
 diagnosis and renewal commands live in
-`docs/runbooks/debug-failed-scrape.md`.
+`docs/runbooks/debug-failed-scrape.md`. The supported legacy and encrypted
+listing identities, opaque-token policy, and maintenance criteria are recorded
+in `docs/decisions/0009-listing-url-identity-strategies.md`.
 
 ## Sequence
 

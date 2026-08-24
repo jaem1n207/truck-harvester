@@ -6,7 +6,7 @@ request layer before changing Cheerio selectors.
 
 ## Ownership Map
 
-- URL allowlist and required parameters:
+- URL allowlist and listing identity strategies:
   `src/v2/entities/url/model.ts`
 - Source request, timeout, and TLS recovery:
   `src/app/api/v2/parse-truck/fetch-listing-html.ts`
@@ -28,7 +28,7 @@ request layer before changing Cheerio selectors.
 
 | Observation                                                                   | Likely layer           | First action                                                         |
 | ----------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------- |
-| API returns `400 invalid-address`                                             | URL contract           | Check hostname, path, and `ShopNo`, `MemberNo`, `OnCarNo`            |
+| API returns `400 invalid-address`                                             | URL contract           | Check hostname, path, and one supported listing identity             |
 | API returns `504 site-timeout`                                                | Source request budget  | Compare upstream response time with the 3.5-second budget            |
 | Browser or `curl` succeeds, plain Node fetch fails with a missing-issuer code | TLS chain              | Follow the TLS diagnosis below                                       |
 | API returns `200` with fallback copy or empty images                          | HTML parser            | Save a sanitized HTML fixture and inspect selectors                  |
@@ -47,6 +47,21 @@ Known missing-issuer codes are:
 Expired certificates, hostname mismatches, unrelated TLS failures, non-2xx
 responses, and parsing errors are not certificate-chain recovery cases.
 
+## Listing Identity Formats
+
+The URL contract keeps the outbound hostname and pathname fixed to
+`www.truck-no1.co.kr/model/DetailView.asp` and accepts either:
+
+- legacy identity: non-empty `ShopNo`, `MemberNo`, and `OnCarNo`
+- encrypted identity: non-empty, opaque `encOnCarNo`
+
+Do not constrain the encrypted token to its currently observed length or
+character set, and do not strip characters from it during paste extraction.
+Duplicate recognized identity keys are rejected instead of relying on upstream
+parameter ordering. If the source introduces another identity key, add one
+named identity predicate in `src/v2/entities/url/model.ts` and cover the
+entity, paste parser, and API route before changing fetch or HTML parsing.
+
 ## Reproduce One Listing
 
 Use a real supported listing URL and keep the request to one listing:
@@ -55,7 +70,7 @@ Use a real supported listing URL and keep the request to one listing:
 curl 'http://localhost:3000/api/v2/parse-truck' \
   -H 'content-type: application/json' \
   --data-raw '{
-    "url":"https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3",
+    "url":"https://www.truck-no1.co.kr/model/DetailView.asp?encOnCarNo=REPLACE_WITH_COPIED_VALUE",
     "timeoutMs":3500
   }'
 ```
@@ -69,7 +84,7 @@ intentionally hides technical details from users.
 Check whether the source returns HTML without invoking the application:
 
 ```bash
-listing_url='https://www.truck-no1.co.kr/model/DetailView.asp?ShopNo=1&MemberNo=2&OnCarNo=3'
+listing_url='https://www.truck-no1.co.kr/model/DetailView.asp?encOnCarNo=REPLACE_WITH_COPIED_VALUE'
 
 curl -sS --compressed \
   -o /dev/null \
@@ -494,4 +509,5 @@ trust store, or JPG renderer.
 - `docs/decisions/0006-listing-source-tls-chain-recovery.md`
 - `docs/decisions/0007-autocafe-tls-chain-recovery.md`
 - `docs/decisions/0008-bounded-upstream-response-bodies.md`
+- `docs/decisions/0009-listing-url-identity-strategies.md`
 - `docs/references/autocafe-tls-chain.md`
